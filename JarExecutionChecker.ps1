@@ -1,228 +1,214 @@
 # JAR Injection Checker for Minecraft
 # Created by YarpLetapStan
-# Checks for JAR files injected into javaw.exe (Minecraft) since last system boot
+# Checks for JAR files by searching for "-jar" strings in process memory
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "   JAR Injection Checker v1.0" -ForegroundColor Cyan
 Write-Host "   By YarpLetapStan" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 
+# Check if running as admin
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "[WARN] Not running as administrator - some features may be limited" -ForegroundColor Yellow
+    Write-Host "[INFO] For best results, run as administrator`n" -ForegroundColor Yellow
+}
+
 # Get last boot time
 $bootTime = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
 Write-Host "[INFO] System last booted: $bootTime`n" -ForegroundColor Yellow
 
 # Initialize results array
-$injectedJars = @()
+$foundJars = @()
 
-# Check MsMpEng (Windows Defender) process memory for "-jar" strings
-Write-Host "[SCANNING] Checking MsMpEng (Windows Defender) for JAR execution traces..." -ForegroundColor Green
-$msmpengProcess = Get-Process -Name "MsMpEng" -ErrorAction SilentlyContinue
-if ($msmpengProcess) {
-    Write-Host "[INFO] Found MsMpEng process (PID: $($msmpengProcess.Id))" -ForegroundColor Cyan
+# Function to search process memory for strings (simplified approach)
+function Search-ProcessMemory {
+    param($ProcessName)
     
-    # Try to get command line history from Windows Defender logs
+    Write-Host "[SCANNING] Searching for '-jar' strings in $ProcessName process memory..." -ForegroundColor Green
+    
+    $process = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+    if (-not $process) {
+        Write-Host "[INFO] Process '$ProcessName' not found or not running" -ForegroundColor Cyan
+        return
+    }
+    
+    Write-Host "[INFO] Found $ProcessName (PID: $($process.Id))" -ForegroundColor Cyan
+    Write-Host "[INFO] Note: Direct memory scanning requires System Informer or similar tools" -ForegroundColor Yellow
+    Write-Host "[INFO] Checking alternative detection methods...`n" -ForegroundColor Yellow
+    
+    # Check Windows Defender logs for scanned/detected items
     try {
-        $defenderLogs = Get-WinEvent -LogName "Microsoft-Windows-Windows Defender/Operational" -MaxEvents 1000 -ErrorAction SilentlyContinue |
-            Where-Object { $_.Message -match '-jar' -and $_.TimeCreated -gt $bootTime }
+        $defenderEvents = Get-WinEvent -LogName "Microsoft-Windows-Windows Defender/Operational" -MaxEvents 500 -ErrorAction SilentlyContinue |
+            Where-Object { 
+                ($_.Message -match '-jar' -or $_.Message -match '\.jar') -and 
+                $_.TimeCreated -gt $bootTime 
+            }
         
-        foreach ($log in $defenderLogs) {
-            # Extract JAR file paths from the message
-            if ($log.Message -match '(?:java|javaw).*?-jar\s+([^\s]+\.jar)') {
-                $jarPath = $matches[1]
-                $injectedJars += [PSCustomObject]@{
-                    Source = "Defender Log (MsMpEng)"
-                    File = Split-Path -Leaf $jarPath
-                    LastAccess = $log.TimeCreated
-                    Path = $jarPath
-                    EventID = $log.Id
+        if ($defenderEvents) {
+            Write-Host "[DETECTED] Found $($defenderEvents.Count) Defender events containing JAR references:" -ForegroundColor Yellow
+            foreach ($event in $defenderEvents) {
+                # Extract file paths from event messages
+                $message = $event.Message
+                if ($message -match '(?:file:|path:|Process Name:)\s*([^\r\n]+\.jar[^\r\n]*)') {
+                    $jarPath = $matches[1].Trim()
+                    $foundJars += [PSCustomObject]@{
+                        Source = "Defender Event Log"
+                        Detection = "JAR file reference"
+                        FilePath = $jarPath
+                        Timestamp = $event.TimeCreated
+                        EventID = $event.Id
+                    }
+                    Write-Host "  [+] $jarPath" -ForegroundColor Green
                 }
             }
-        }
-        
-        if ($defenderLogs) {
-            Write-Host "[DETECTED] Found $($defenderLogs.Count) Defender events with '-jar' flag" -ForegroundColor Yellow
         } else {
-            Write-Host "[INFO] No '-jar' execution traces in Defender logs since boot" -ForegroundColor Cyan
+            Write-Host "[INFO] No JAR-related Defender events found since boot" -ForegroundColor Cyan
         }
     } catch {
-        Write-Host "[WARN] Limited access to Defender logs (requires admin)" -ForegroundColor Yellow
+        Write-Host "[ERROR] Could not access Defender logs: $($_.Exception.Message)" -ForegroundColor Red
     }
+}
+
+# Search MsMpEng (Windows Defender) process
+Search-ProcessMemory -ProcessName "MsMpEng"
+
+# Also check all Java processes for "-jar" command line arguments
+Write-Host "`n[SCANNING] Checking all Java processes for '-jar' arguments..." -ForegroundColor Green
+$javaProcesses = Get-Process -Name "java", "javaw" -ErrorAction SilentlyContinue
+
+if ($javaProcesses) {
+    Write-Host "[DETECTED] Found $($javaProcesses.Count) Java process(es):" -ForegroundColor Yellow
     
-    # Check Windows Defender quarantine and detection history
-    Write-Host "[SCANNING] Checking Defender detection history..." -ForegroundColor Green
-    $defenderHistoryPath = "$env:ProgramData\Microsoft\Windows Defender\Scans\History"
-    if (Test-Path $defenderHistoryPath) {
-        $recentScans = Get-ChildItem -Path $defenderHistoryPath -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTime -gt $bootTime }
-        
-        if ($recentScans) {
-            Write-Host "[INFO] Found $($recentScans.Count) recent Defender scan artifacts" -ForegroundColor Cyan
-        }
-    }
-} else {
-    Write-Host "[WARN] MsMpEng process not found (Windows Defender may be disabled)" -ForegroundColor Yellow
-}
-
-# Check all processes for "-jar" in command line
-Write-Host "[SCANNING] Checking all processes for '-jar' command line arguments..." -ForegroundColor Green
-$allProcesses = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
-foreach ($proc in $allProcesses) {
-    if ($proc.CommandLine -match '-jar\s+([^\s]+\.jar)') {
-        $jarPath = $matches[1]
-        $creationDate = $proc.CreationDate
-        if ($creationDate -gt $bootTime) {
-            $injectedJars += [PSCustomObject]@{
-                Source = "Active Process"
-                ProcessName = $proc.Name
-                ProcessID = $proc.ProcessId
-                File = Split-Path -Leaf $jarPath
-                LastAccess = $creationDate
-                Path = $jarPath
-                CommandLine = $proc.CommandLine
-            }
-        }
-    }
-}
-
-# Check if Minecraft/Java is currently running
-Write-Host "[SCANNING] Checking for active javaw.exe processes..." -ForegroundColor Green
-$javawProcesses = Get-Process -Name "javaw", "java" -ErrorAction SilentlyContinue
-if ($javawProcesses) {
-    Write-Host "[DETECTED] Found $($javawProcesses.Count) Java process(es) running" -ForegroundColor Yellow
-    foreach ($proc in $javawProcesses) {
+    foreach ($proc in $javaProcesses) {
         try {
-            $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
-            if ($commandLine -match '-jar\s+([^\s]+\.jar)') {
+            $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop
+            $cmdLine = $processInfo.CommandLine
+            
+            if ($cmdLine -match '-jar\s+"?([^"\s]+\.jar)') {
                 $jarPath = $matches[1]
-                $injectedJars += [PSCustomObject]@{
-                    Source = "Java Process"
+                $foundJars += [PSCustomObject]@{
+                    Source = "Active Java Process"
                     ProcessID = $proc.Id
-                    StartTime = $proc.StartTime
-                    File = Split-Path -Leaf $jarPath
-                    Path = $jarPath
-                    CommandLine = $commandLine
+                    Detection = "Command line argument"
+                    FilePath = $jarPath
+                    Timestamp = $proc.StartTime
+                    FullCommand = $cmdLine
                 }
+                Write-Host "  [+] PID $($proc.Id): $jarPath" -ForegroundColor Green
             }
         } catch {
-            Write-Host "[WARN] Could not read command line for PID $($proc.Id)" -ForegroundColor Yellow
+            Write-Host "  [!] Could not read command line for PID $($proc.Id)" -ForegroundColor Yellow
         }
     }
+} else {
+    Write-Host "[INFO] No Java processes currently running" -ForegroundColor Cyan
 }
 
-# Check Prefetch for javaw executions
-Write-Host "[SCANNING] Checking Prefetch data..." -ForegroundColor Green
-$prefetchPath = "$env:SystemRoot\Prefetch"
-if (Test-Path $prefetchPath) {
-    $prefetchFiles = Get-ChildItem -Path $prefetchPath -Filter "JAVAW*.pf" -ErrorAction SilentlyContinue
-    foreach ($file in $prefetchFiles) {
-        if ($file.LastWriteTime -gt $bootTime) {
-            $injectedJars += [PSCustomObject]@{
-                Source = "Prefetch"
-                File = $file.Name
-                LastAccess = $file.LastWriteTime
-                Path = $file.FullName
+# Check Windows Event Logs for process creation with "-jar"
+Write-Host "`n[SCANNING] Checking Windows Event Logs for '-jar' process creation..." -ForegroundColor Green
+try {
+    $processEvents = Get-WinEvent -FilterHashtable @{
+        LogName = 'Security', 'Microsoft-Windows-Sysmon/Operational'
+        ID = 4688, 1  # Process creation events
+        StartTime = $bootTime
+    } -ErrorAction SilentlyContinue | Where-Object { $_.Message -match '-jar' } | Select-Object -First 20
+    
+    if ($processEvents) {
+        Write-Host "[DETECTED] Found $($processEvents.Count) process creation events with '-jar':" -ForegroundColor Yellow
+        foreach ($event in $processEvents) {
+            if ($event.Message -match '([^\s]+\.jar)') {
+                $jarPath = $matches[1]
+                $foundJars += [PSCustomObject]@{
+                    Source = "Process Creation Event"
+                    Detection = "Event Log ID $($event.Id)"
+                    FilePath = $jarPath
+                    Timestamp = $event.TimeCreated
+                }
+                Write-Host "  [+] $jarPath" -ForegroundColor Green
             }
         }
+    } else {
+        Write-Host "[INFO] No '-jar' process creation events found" -ForegroundColor Cyan
     }
+} catch {
+    Write-Host "[WARN] Limited event log access" -ForegroundColor Yellow
 }
 
-# Check Minecraft directories for recently accessed JARs
-Write-Host "[SCANNING] Checking Minecraft directories..." -ForegroundColor Green
-$minecraftPaths = @(
-    "$env:APPDATA\.minecraft\mods",
-    "$env:APPDATA\.minecraft\libraries",
-    "$env:APPDATA\.minecraft\versions",
-    "$env:USERPROFILE\curseforge\minecraft\Install\mods",
-    "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
+# Check recent JAR files accessed in common locations
+Write-Host "`n[SCANNING] Checking for recently accessed JAR files..." -ForegroundColor Green
+$searchPaths = @(
+    "$env:APPDATA\.minecraft",
+    "$env:TEMP",
+    "$env:USERPROFILE\Downloads",
+    "$env:USERPROFILE\Desktop"
 )
 
-foreach ($mcPath in $minecraftPaths) {
-    if (Test-Path $mcPath) {
-        $recentJars = Get-ChildItem -Path $mcPath -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastAccessTime -gt $bootTime }
+foreach ($path in $searchPaths) {
+    if (Test-Path $path) {
+        $recentJars = Get-ChildItem -Path $path -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastAccessTime -gt $bootTime } |
+            Select-Object -First 10
         
         foreach ($jar in $recentJars) {
-            $injectedJars += [PSCustomObject]@{
-                Source = "Minecraft Directory"
-                File = $jar.Name
-                LastAccess = $jar.LastAccessTime
-                Path = $jar.FullName
+            $foundJars += [PSCustomObject]@{
+                Source = "File System Scan"
+                Detection = "Recently accessed"
+                FilePath = $jar.FullName
+                Timestamp = $jar.LastAccessTime
             }
         }
     }
 }
 
-# Check temp directories for injected JARs
-Write-Host "[SCANNING] Checking temp directories for injected JARs..." -ForegroundColor Green
-$tempPaths = @($env:TEMP, "$env:LOCALAPPDATA\Temp")
-foreach ($tempPath in $tempPaths) {
-    if (Test-Path $tempPath) {
-        $tempJars = Get-ChildItem -Path $tempPath -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastAccessTime -gt $bootTime }
-        
-        foreach ($jar in $tempJars) {
-            $injectedJars += [PSCustomObject]@{
-                Source = "Temp Directory"
-                File = $jar.Name
-                LastAccess = $jar.LastAccessTime
-                Path = $jar.FullName
-            }
-        }
-    }
-}
-
-# Check for common injection tools/launchers
-Write-Host "[SCANNING] Checking for injection client launchers..." -ForegroundColor Green
-$suspiciousPatterns = @("*client*.jar", "*inject*.jar", "*hack*.jar", "*cheat*.jar", "*ghost*.jar")
-$searchPaths = @($env:USERPROFILE, $env:TEMP, "$env:APPDATA\.minecraft")
-
-foreach ($searchPath in $searchPaths) {
-    if (Test-Path $searchPath) {
-        foreach ($pattern in $suspiciousPatterns) {
-            $foundFiles = Get-ChildItem -Path $searchPath -Filter $pattern -Recurse -ErrorAction SilentlyContinue |
-                Where-Object { $_.LastAccessTime -gt $bootTime } |
-                Select-Object -First 5
-            
-            foreach ($file in $foundFiles) {
-                $injectedJars += [PSCustomObject]@{
-                    Source = "Suspicious Pattern"
-                    File = $file.Name
-                    LastAccess = $file.LastAccessTime
-                    Path = $file.FullName
-                }
-            }
-        }
-    }
-}
-
-# Display results
+# Display comprehensive results
 Write-Host "`n========================================" -ForegroundColor Cyan
-Write-Host "   RESULTS" -ForegroundColor Cyan
+Write-Host "   DETECTION RESULTS" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 
-if ($injectedJars.Count -eq 0) {
-    Write-Host "[RESULT] No JAR injection activity detected since last boot." -ForegroundColor Green
+if ($foundJars.Count -eq 0) {
+    Write-Host "[RESULT] No JAR file executions detected since last boot." -ForegroundColor Green
+    Write-Host "`n[NOTE] For memory string scanning like System Informer:" -ForegroundColor Yellow
+    Write-Host "  1. Open System Informer as Administrator" -ForegroundColor Gray
+    Write-Host "  2. Find 'MsMpEng.exe' process" -ForegroundColor Gray
+    Write-Host "  3. Right-click > Properties > Memory > Strings" -ForegroundColor Gray
+    Write-Host "  4. Search for '-jar' with minimum length 5" -ForegroundColor Gray
+    Write-Host "  5. Check Private, Image, and Mapped memory regions" -ForegroundColor Gray
 } else {
-    Write-Host "[RESULT] Found $($injectedJars.Count) JAR injection indicators:`n" -ForegroundColor Yellow
+    Write-Host "[RESULT] Found $($foundJars.Count) JAR file detection(s):`n" -ForegroundColor Yellow
     
-    # Group by source for better readability
-    $groupedResults = $injectedJars | Group-Object Source
-    foreach ($group in $groupedResults) {
-        Write-Host "`n[$($group.Name)]" -ForegroundColor Magenta
-        $group.Group | Format-Table File, LastAccess, Path -AutoSize
-    }
+    # Remove duplicates and display
+    $uniqueJars = $foundJars | Sort-Object FilePath -Unique
     
-    # Show command lines if available
-    $withCommandLine = $injectedJars | Where-Object { $_.CommandLine }
-    if ($withCommandLine) {
-        Write-Host "`n[COMMAND LINES]" -ForegroundColor Magenta
-        foreach ($item in $withCommandLine) {
-            Write-Host "  File: $($item.File)" -ForegroundColor Yellow
-            Write-Host "  CMD:  $($item.CommandLine)" -ForegroundColor Gray
-            Write-Host ""
+    foreach ($jar in $uniqueJars) {
+        Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+        Write-Host "Source:    " -NoNewline -ForegroundColor Cyan
+        Write-Host $jar.Source -ForegroundColor White
+        Write-Host "Detection: " -NoNewline -ForegroundColor Cyan
+        Write-Host $jar.Detection -ForegroundColor White
+        Write-Host "File Path: " -NoNewline -ForegroundColor Cyan
+        Write-Host $jar.FilePath -ForegroundColor Yellow
+        Write-Host "Timestamp: " -NoNewline -ForegroundColor Cyan
+        Write-Host $jar.Timestamp -ForegroundColor White
+        
+        if ($jar.ProcessID) {
+            Write-Host "PID:       " -NoNewline -ForegroundColor Cyan
+            Write-Host $jar.ProcessID -ForegroundColor White
         }
+        
+        if ($jar.FullCommand) {
+            Write-Host "Full CMD:  " -NoNewline -ForegroundColor Cyan
+            Write-Host $jar.FullCommand -ForegroundColor Gray
+        }
+        Write-Host ""
     }
+    
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
+    Write-Host "`n[SUMMARY] Total unique JAR files: $($uniqueJars.Count)" -ForegroundColor Green
 }
+
+Write-Host "`n[TIP] For deeper memory analysis, use System Informer:" -ForegroundColor Cyan
+Write-Host "  String Search: MsMpEng.exe > Memory > Strings > Search '-jar'" -ForegroundColor Gray
 
 Write-Host "`n[INFO] Scan complete. Press any key to exit..." -ForegroundColor Cyan
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
