@@ -128,8 +128,13 @@ while ([MemoryReader]::VirtualQueryEx($processHandle, $address, [ref]$mbi, $mbiS
         $scanned++
     }
     
-    # Move to next region
-    $address = [IntPtr]::Add($mbi.BaseAddress, [int]$mbi.RegionSize)
+    # Move to next region (handle large addresses properly)
+    try {
+        $address = [IntPtr]::Add($mbi.BaseAddress, $mbi.RegionSize.ToInt64())
+    } catch {
+        # If we overflow, we've reached the end of addressable memory
+        break
+    }
 }
 
 [MemoryReader]::CloseHandle($processHandle)
