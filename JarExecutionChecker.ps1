@@ -1,15 +1,9 @@
-# Check if this is the initial run or the re-launched instance
-$relaunched = $env:JAR_CHECKER_RELAUNCHED
-
-if (-not $relaunched) {
-    # First run - save script to temp and relaunch in new CMD
-    $scriptContent = @'
-$env:JAR_CHECKER_RELAUNCHED = "1"
-
 # System Informer JAR Execution Checker
 # Directly searches msmpeng.exe memory for "-jar" strings
+# Made by YarpLetapStan
 
 Write-Host "=== JAR Execution Checker ===" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan" -ForegroundColor Gray
 Write-Host "Scanning msmpeng.exe memory for executed JAR files..." -ForegroundColor Yellow
 Write-Host ""
 
@@ -157,15 +151,3 @@ if ($jarStrings.Count -eq 0) {
 Write-Host ""
 Write-Host "Press any key to exit..." -ForegroundColor Cyan
 pause > $null
-'@
-    
-    # Save to temp file
-    $tempScript = "$env:TEMP\JarChecker_$(Get-Random).ps1"
-    $scriptContent | Out-File -FilePath $tempScript -Encoding UTF8
-    
-    # Launch new CMD with the script
-    Start-Process cmd.exe -ArgumentList "/k powershell -ExecutionPolicy Bypass -File `"$tempScript`""
-    
-    # Exit current session immediately
-    exit
-}
