@@ -1,24 +1,23 @@
 # System Informer JAR Execution Checker
-# Directly searches msmpeng.exe memory for "-jar" strings
+# Directly searches dcomlaunch.exe memory for "-jar" strings
 # Made by YarpLetapStan
 
 Write-Host "=== JAR Execution Checker ===" -ForegroundColor Cyan
 Write-Host "Made by YarpLetapStan" -ForegroundColor Gray
-Write-Host "Scanning msmpeng.exe memory for executed JAR files..." -ForegroundColor Yellow
+Write-Host "Scanning dcomlaunch.exe memory for executed JAR files..." -ForegroundColor Yellow
 Write-Host ""
 
-# Find msmpeng.exe process
-$msmpeng = Get-Process -Name "MsMpEng" -ErrorAction SilentlyContinue
+# Find dcomlaunch.exe process
+$dcomlaunch = Get-Process -Name "dcomlaunch" -ErrorAction SilentlyContinue
 
-if (-not $msmpeng) {
-    Write-Host "ERROR: msmpeng.exe process not found!" -ForegroundColor Red
-    Write-Host "Windows Defender may not be running." -ForegroundColor Yellow
+if (-not $dcomlaunch) {
+    Write-Host "ERROR: dcomlaunch.exe process not found!" -ForegroundColor Red
     pause
     exit
 }
 
-$processId = $msmpeng.Id
-Write-Host "Found msmpeng.exe (PID: $processId)" -ForegroundColor Green
+$processId = $dcomlaunch.Id
+Write-Host "Found dcomlaunch.exe (PID: $processId)" -ForegroundColor Green
 Write-Host ""
 
 # Memory reading requires admin privileges
@@ -88,13 +87,12 @@ if ($processHandle -eq [IntPtr]::Zero) {
     Write-Host "Error Code: $lastError" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Possible reasons:" -ForegroundColor Yellow
-    Write-Host "  - Need to run as SYSTEM (not just Administrator)" -ForegroundColor Gray
-    Write-Host "  - Windows Defender has protected process light (PPL)" -ForegroundColor Gray
-    Write-Host "  - Anti-tampering protection is enabled" -ForegroundColor Gray
+    Write-Host "  - dcomlaunch.exe may be protected" -ForegroundColor Gray
+    Write-Host "  - Need higher privileges" -ForegroundColor Gray
     Write-Host ""
     Write-Host "Try using System Informer/Process Hacker instead:" -ForegroundColor Cyan
     Write-Host "  1. Open System Informer as Admin" -ForegroundColor White
-    Write-Host "  2. Right-click MsMpEng.exe > Properties" -ForegroundColor White
+    Write-Host "  2. Right-click dcomlaunch.exe > Properties" -ForegroundColor White
     Write-Host "  3. Memory tab > Options > Strings" -ForegroundColor White
     Write-Host "  4. Min length: 5, Check all boxes" -ForegroundColor White
     Write-Host "  5. Search for: -jar" -ForegroundColor White
