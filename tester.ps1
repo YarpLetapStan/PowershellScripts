@@ -296,10 +296,12 @@ if ($unknownMods.Count -gt 0) {
 	foreach ($mod in $unknownMods) {
 		if ($mod.ZoneId) {
 			Write-Host ("> {0, -30}" -f $mod.FileName) -ForegroundColor Yellow -NoNewline
-			Write-Host "$($mod.ZoneId)" -ForegroundColor DarkGray
+			Write-Host "$($mod.ZoneId)" -ForegroundColor DarkGray -NoNewline
+			Write-Host " ($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
 			continue
 		}
-		Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
+		Write-Host "> $($mod.FileName)" -ForegroundColor Yellow -NoNewline
+		Write-Host " ($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
 	}
 	Write-Host
 }
@@ -312,7 +314,8 @@ if ($cheatMods.Count -gt 0) {
 			Write-Host " ->" -ForegroundColor Gray -NoNewline
 			Write-Host " $($mod.DepFileName)" -ForegroundColor Red -NoNewline
 		}
-		Write-Host " [$($mod.StringsFound)]" -ForegroundColor Magenta
+		Write-Host " [$($mod.StringsFound)]" -ForegroundColor Magenta -NoNewline
+		Write-Host " ($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
 	}
 	Write-Host
 }
