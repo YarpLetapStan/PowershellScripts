@@ -24,21 +24,11 @@ if (-not $process) {
 }
 
 $startTime = $null
-$processStartFileSizes = @{}
 
 if ($process) {
     try {
         $startTime = $process.StartTime
         $elapsedTime = (Get-Date) - $startTime
-        
-        # Get file sizes at process start time by checking all jar files
-        $jarFilesAtStart = Get-ChildItem -Path $mods -Filter *.jar -ErrorAction SilentlyContinue
-        foreach ($file in $jarFilesAtStart) {
-            # If file was created/modified before javaw started, record its size
-            if ($file.LastWriteTime -le $startTime) {
-                $processStartFileSizes[$file.Name] = $file.Length
-            }
-        }
     } catch {}
 
     Write-Host "{ Minecraft Uptime }" -ForegroundColor Cyan
@@ -74,11 +64,17 @@ function Fetch-Modrinth {
 		if ($response.project_id) {
             $projectResponse = "https://api.modrinth.com/v2/project/$($response.project_id)"
             $projectData = Invoke-RestMethod -Uri $projectResponse -Method Get -UseBasicParsing -ErrorAction Stop
-            return @{ Name = $projectData.title; Slug = $projectData.slug }
+            return @{ 
+                Name = $projectData.title
+                Slug = $projectData.slug
+                ExpectedSize = $response.files[0].size
+                VersionNumber = $response.version_number
+                VersionName = $response.name
+            }
         }
     } catch {}
 	
-    return @{ Name = ""; Slug = "" }
+    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; VersionName = "" }
 }
 
 function Fetch-Megabase {
@@ -160,7 +156,7 @@ $verifiedMods = @()
 $unknownMods = @()
 $cheatMods = @()
 $modifiedMods = @()
-$sizeChangedMods = @()
+$sizeModifiedMods = @()
 
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 
@@ -178,32 +174,41 @@ foreach ($file in $jarFiles) {
 		$modifiedMods += [PSCustomObject]@{ FileName = $file.Name; ModifiedTime = $file.LastWriteTime }
 	}
 	
-	# Check if file size changed since javaw started
-	if ($processStartFileSizes.ContainsKey($file.Name)) {
-		$originalSize = $processStartFileSizes[$file.Name]
-		$currentSize = $file.Length
-		if ($originalSize -ne $currentSize) {
-			$sizeDiff = $currentSize - $originalSize
-			$sizeChangedMods += [PSCustomObject]@{ 
-				FileName = $file.Name
-				OriginalSize = $originalSize
-				CurrentSize = $currentSize
-				SizeDiff = $sizeDiff
-			}
-		}
-	}
-	
 	$hash = Get-SHA1 -filePath $file.FullName
 	
     $modDataModrinth = Fetch-Modrinth -hash $hash
     if ($modDataModrinth.Slug) {
-		$verifiedMods += [PSCustomObject]@{ ModName = $modDataModrinth.Name; FileName = $file.Name }
+		# Check if file size matches expected size from Modrinth
+		$actualSize = $file.Length
+		$expectedSize = $modDataModrinth.ExpectedSize
+		
+		if ($expectedSize -gt 0 -and $actualSize -ne $expectedSize) {
+			$sizeDiff = $actualSize - $expectedSize
+			$sizeModifiedMods += [PSCustomObject]@{
+				ModName = $modDataModrinth.Name
+				FileName = $file.Name
+				Version = $modDataModrinth.VersionName
+				ExpectedSize = $expectedSize
+				ActualSize = $actualSize
+				SizeDiff = $sizeDiff
+			}
+		}
+		
+		$verifiedMods += [PSCustomObject]@{ 
+			ModName = $modDataModrinth.Name
+			FileName = $file.Name
+			Version = $modDataModrinth.VersionName
+		}
 		continue;
     }
 	
 	$modDataMegabase = Fetch-Megabase -hash $hash
 	if ($modDataMegabase.name) {
-		$verifiedMods += [PSCustomObject]@{ ModName = $modDataMegabase.Name; FileName = $file.Name }
+		$verifiedMods += [PSCustomObject]@{ 
+			ModName = $modDataMegabase.Name
+			FileName = $file.Name
+			Version = "Unknown"
+		}
 		continue;
 	}
 	
@@ -271,7 +276,12 @@ if ($verifiedMods.Count -gt 0) {
 	Write-Host "{ Verified Mods }" -ForegroundColor Cyan
 	foreach ($mod in $verifiedMods) {
 		Write-Host ("> {0, -30}" -f $mod.ModName) -ForegroundColor Green -NoNewline
-		Write-Host "$($mod.FileName)" -ForegroundColor Gray
+		Write-Host "$($mod.FileName)" -ForegroundColor Gray -NoNewline
+		if ($mod.Version -and $mod.Version -ne "Unknown") {
+			Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray
+		} else {
+			Write-Host ""
+		}
 	}
 	Write-Host
 }
@@ -311,13 +321,14 @@ if ($modifiedMods.Count -gt 0) {
 	Write-Host
 }
 
-if ($sizeChangedMods.Count -gt 0) {
-	Write-Host "{ File Size Changes }" -ForegroundColor Cyan
-	foreach ($mod in $sizeChangedMods) {
+if ($sizeModifiedMods.Count -gt 0) {
+	Write-Host "{ File Size Mismatch (Modified Files) }" -ForegroundColor Cyan
+	foreach ($mod in $sizeModifiedMods) {
 		$sizeChangeText = if ($mod.SizeDiff -gt 0) { "+$($mod.SizeDiff) bytes" } else { "$($mod.SizeDiff) bytes" }
-		$sizeColor = if ($mod.SizeDiff -gt 0) { "Red" } else { "Yellow" }
-		Write-Host "> $($mod.FileName)" -ForegroundColor $sizeColor -NoNewline
-		Write-Host " ($([math]::Round($mod.OriginalSize/1KB, 2)) KB -> $([math]::Round($mod.CurrentSize/1KB, 2)) KB | $sizeChangeText)" -ForegroundColor DarkGray
+		Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline
+		Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray
+		Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
+		Write-Host "  Expected: $([math]::Round($mod.ExpectedSize/1KB, 2)) KB | Actual: $([math]::Round($mod.ActualSize/1KB, 2)) KB | Difference: $sizeChangeText" -ForegroundColor Magenta
 	}
 	Write-Host
 }
