@@ -34,22 +34,26 @@ Write-Host ""
 Write-Host "[*] Admin privileges: YES" -ForegroundColor Green
 Write-Host ""
 
-# EXACT CHEAT STRINGS FROM YOUR HABIBI OUTPUT
+# COMBINED CHEAT STRINGS (Habibi + your requests) - No AutoBuilding
 $searchStrings = @(
-    # From Habibi output - these are the EXACT strings to search for
-    "AutoCrystal", "AutoTotem", "AutoAnchor", "AutoArmor",
-    "InventoryTotem", "JumpReset", "PingReset", "SelfDestruct",
-    "TriggerBot", "Velocity", "AxeSpam", "WebMacro", "FastPlace",
-    
-    # Additional variations (case-insensitive)
-    "autocrystal", "autototem", "autoanchor", "autoarmor",
-    "inventorytotem", "jumpreset", "pingreset", "selfdestruct",
-    "triggerbot", "velocity", "axespam", "webmacro", "fastplace",
-    
-    # Module/class patterns (from JAR files)
-    "AutoCrystal", "AutoTotem", "AutoAnchor", # Exact class names
-    "CrystalAura", "Crystal", "Aura",         # Common cheat names
-    "Anchor", "Totem", "Armor"                # Component names
+    # Combined unique strings only
+    "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
+    "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
+    "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
+    "autopot", "auto pot", "velocity",
+    "autodoublehand", "auto double hand",
+    "autoarmor", "auto armor",
+    "automace",
+    "aimassist", "aim assist",
+    "triggerbot", "trigger bot",
+    "shieldbreaker", "shield breaker",
+    "axespam", "axe spam",
+    "jumpreset", "jump reset",
+    "pingspoof", "ping spoof", "pingreset",
+    "fastplace", "fast place",
+    "webmacro", "web macro",
+    "selfdestruct", "self destruct",
+    "hitboxes"
 )
 
 # Add memory scanning capabilities
