@@ -1,190 +1,201 @@
 <#
 .SYNOPSIS
-    Java Process Cheat Scanner by YarpLetapStan
+    Java Process String Scanner by YarpLetapStan
 .DESCRIPTION
-    Scans running Java processes for specific cheat/mod strings in memory and command line.
+    Scans running Java processes for cheat strings (like Habibi script but for processes)
 .NOTES
     Author: YarpLetapStan
-    Version: 1.2
-    Requires: Administrator for full memory scan
+    Version: 1.0
 #>
 
 # Set execution policy
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 
-# Combined cheat strings to search for (unique, no duplicates)
+# Cheat strings to search for
 $cheatStrings = @(
-    # Auto/automated features
-    "autocrystal", "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
+    "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
     "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
     "autopot", "auto pot", "velocity autopot",
     "autodoublehand", "auto double hand",
     "autoarmor", "auto armor",
     "automace",
-    
-    # Combat/aim features
     "aimassist", "aim assist",
     "triggerbot", "trigger bot",
     "velocity",
     "shieldbreaker", "shield breaker",
     "axespam", "axe spam",
-    
-    # Movement/player features
     "jumpreset", "jump reset",
     "pingspoof", "ping spoof",
     "fastplace", "fast place",
     "webmacro", "web macro",
-    
-    # Visual/esp features
     "hitboxes", "hitbox",
     "playeresp",
-    
-    # Utility/misc features
-    "selfdestruct", "self destruct",
-    "aimassist"
+    "selfdestruct", "self destruct"
 )
 
+# Colors for output
+$Red = "Red"
+$Yellow = "Yellow"
+$Green = "Green"
+$Cyan = "Cyan"
+$Gray = "Gray"
+
 function Get-JavaProcesses {
+    Write-Host "[*] Looking for Java processes..." -ForegroundColor $Cyan
     try {
-        return Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.Responding -eq $true }
+        $processes = Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object {
+            $_.Responding -eq $true
+        }
+        return $processes
     }
     catch {
-        Write-Host "No javaw processes found." -ForegroundColor Yellow
+        Write-Host "[X] Error finding processes: $_" -ForegroundColor $Red
         return @()
     }
 }
 
-function Get-ProcessCommandLine {
-    param([int]$ProcessId)
+function Get-ProcessStrings {
+    param(
+        [System.Diagnostics.Process]$Process
+    )
+    
+    $foundStrings = @()
     
     try {
-        $process = Get-WmiObject Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
-        return $process.CommandLine
+        # 1. Check command line
+        $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($Process.Id)" -ErrorAction SilentlyContinue).CommandLine
+        if ($cmdLine) {
+            foreach ($cheat in $cheatStrings) {
+                if ($cmdLine -match $cheat) {
+                    $foundStrings += [PSCustomObject]@{
+                        Type = "Command Line"
+                        Cheat = $cheat
+                        Context = $cmdLine
+                    }
+                }
+            }
+        }
+        
+        # 2. Check window title
+        $windowTitle = $Process.MainWindowTitle
+        if ($windowTitle) {
+            foreach ($cheat in $cheatStrings) {
+                if ($windowTitle -match $cheat) {
+                    $foundStrings += [PSCustomObject]@{
+                        Type = "Window Title"
+                        Cheat = $cheat
+                        Context = $windowTitle
+                    }
+                }
+            }
+        }
+        
+        # 3. Check process name
+        $procName = $Process.ProcessName
+        foreach ($cheat in $cheatStrings) {
+            if ($procName -match $cheat) {
+                $foundStrings += [PSCustomObject]@{
+                    Type = "Process Name"
+                    Cheat = $cheat
+                    Context = $procName
+                }
+            }
+        }
+        
     }
     catch {
-        return $null
-    }
-}
-
-function Search-ProcessInfo {
-    param(
-        [System.Diagnostics.Process]$Process,
-        [string[]]$SearchStrings
-    )
-    
-    $found = @()
-    
-    # Check window title
-    if ($Process.MainWindowTitle) {
-        $title = $Process.MainWindowTitle.ToLower()
-        foreach ($cheat in $SearchStrings) {
-            if ($title.Contains($cheat)) {
-                $found += "Window: '$cheat' in title"
-            }
-        }
+        Write-Host "  [X] Error scanning process: $_" -ForegroundColor $Red
     }
     
-    # Check process name (sometimes cheats rename javaw)
-    $procName = $Process.ProcessName.ToLower()
-    foreach ($cheat in $SearchStrings) {
-        if ($procName.Contains($cheat)) {
-            $found += "Process name contains: $cheat"
-        }
-    }
-    
-    return $found
-}
-
-function Analyze-Process {
-    param(
-        [System.Diagnostics.Process]$Process,
-        [string[]]$CheatStrings
-    )
-    
-    Write-Host "`n=== Scanning PID $($Process.Id) ===" -ForegroundColor Cyan
-    
-    $suspicious = @()
-    
-    # Get command line
-    $cmdLine = Get-ProcessCommandLine -ProcessId $Process.Id
-    if ($cmdLine) {
-        $lowerCmd = $cmdLine.ToLower()
-        
-        # Display truncated command line
-        if ($cmdLine.Length -gt 100) {
-            Write-Host "CMD: $($cmdLine.Substring(0, 100))..." -ForegroundColor Gray
-        } else {
-            Write-Host "CMD: $cmdLine" -ForegroundColor Gray
-        }
-        
-        # Search command line
-        foreach ($cheat in $CheatStrings) {
-            if ($lowerCmd.Contains($cheat)) {
-                $suspicious += "CMD contains: $cheat"
-                Write-Host "  [!] Found: $cheat" -ForegroundColor Red
-            }
-        }
-    } else {
-        Write-Host "CMD: (Unable to retrieve command line)" -ForegroundColor DarkGray
-    }
-    
-    # Search process info
-    $procHits = Search-ProcessInfo -Process $Process -SearchStrings $CheatStrings
-    if ($procHits.Count -gt 0) {
-        $suspicious += $procHits
-        foreach ($hit in $procHits) {
-            Write-Host "  [!] $hit" -ForegroundColor Red
-        }
-    }
-    
-    # Summary for this process
-    if ($suspicious.Count -eq 0) {
-        Write-Host "  [✓] Clean" -ForegroundColor Green
-        return $false
-    } else {
-        Write-Host "  [⚠] $($suspicious.Count) red flags" -ForegroundColor Yellow
-        return $true
-    }
+    return $foundStrings
 }
 
 # Main execution
 Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "  Java Cheat Scanner by YarpLetapStan" -ForegroundColor Magenta
+Write-Host "  Java Process String Scanner" -ForegroundColor Magenta
+Write-Host "  by YarpLetapStan" -ForegroundColor Magenta
 Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "Scanning for $($cheatStrings.Count) cheat indicators..." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "[*] Scanning for $($cheatStrings.Count) cheat strings..." -ForegroundColor $Cyan
 Write-Host ""
 
 # Get Java processes
 $processes = Get-JavaProcesses
+
 if ($processes.Count -eq 0) {
-    Write-Host "No Java processes running." -ForegroundColor Yellow
-    Write-Host "Start Minecraft/Java first!" -ForegroundColor Red
+    Write-Host "[X] No Java processes found!" -ForegroundColor $Red
+    Write-Host "    Make sure Minecraft/Java is running" -ForegroundColor $Yellow
     timeout /t 5
     exit
 }
 
-Write-Host "Found $($processes.Count) Java process(es)`n" -ForegroundColor Green
+Write-Host "[✓] Found $($processes.Count) Java process(es)" -ForegroundColor $Green
+Write-Host ""
 
-# Scan each process
-$dirtyCount = 0
+$totalDetections = 0
+$allDetections = @()
+
 foreach ($proc in $processes) {
-    $isDirty = Analyze-Process -Process $proc -CheatStrings $cheatStrings
-    if ($isDirty) { $dirtyCount++ }
+    Write-Host "=== Scanning Process: $($proc.ProcessName) (PID: $($proc.Id)) ===" -ForegroundColor $Cyan
+    
+    if ($proc.MainWindowTitle) {
+        Write-Host "  Window: $($proc.MainWindowTitle)" -ForegroundColor $Gray
+    }
+    
+    # Get cheat strings from this process
+    $detections = Get-ProcessStrings -Process $proc
+    
+    if ($detections.Count -eq 0) {
+        Write-Host "  [✓] No cheat strings found" -ForegroundColor $Green
+    }
+    else {
+        Write-Host "  [X] Found $($detections.Count) cheat string(s):" -ForegroundColor $Red
+        foreach ($detect in $detections) {
+            Write-Host "      - $($detect.Type): $($detect.Cheat)" -ForegroundColor $Red
+            # Show context if it's not too long
+            if ($detect.Context.Length -lt 150) {
+                Write-Host "        Context: $($detect.Context)" -ForegroundColor $Gray
+            }
+        }
+        $totalDetections += $detections.Count
+        $allDetections += $detections
+    }
+    
+    Write-Host ""
 }
 
 # Final report
-Write-Host "`n========================================" -ForegroundColor Magenta
-Write-Host "           SCAN COMPLETE" -ForegroundColor Magenta
 Write-Host "========================================" -ForegroundColor Magenta
+Write-Host "           SCAN RESULTS" -ForegroundColor Magenta
+Write-Host "========================================" -ForegroundColor Magenta
+Write-Host ""
 
-if ($dirtyCount -eq 0) {
-    Write-Host "`n[✓] All $($processes.Count) processes appear clean" -ForegroundColor Green
-} else {
-    Write-Host "`n[!] $dirtyCount out of $($processes.Count) process(es) show cheat indicators" -ForegroundColor Red
-    Write-Host "    Potential cheats detected!" -ForegroundColor Red
+if ($totalDetections -eq 0) {
+    Write-Host "[✓] SCAN CLEAN" -ForegroundColor $Green
+    Write-Host "    No cheat strings found in any Java process" -ForegroundColor $Green
+}
+else {
+    Write-Host "[X] CHEAT STRINGS DETECTED!" -ForegroundColor $Red
+    Write-Host "    Found $totalDetections cheat string(s) across $($processes.Count) process(es)" -ForegroundColor $Red
+    Write-Host ""
+    
+    # Group by process
+    $processGroups = $allDetections | Group-Object { $_.Context }
+    
+    foreach ($group in $processGroups) {
+        Write-Host "  In: $($group.Name)" -ForegroundColor $Yellow
+        foreach ($detect in $group.Group) {
+            Write-Host "    - $($detect.Type): $($detect.Cheat)" -ForegroundColor $Red
+        }
+        Write-Host ""
+    }
 }
 
-Write-Host "`nTotal cheat patterns scanned: $($cheatStrings.Count)" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Magenta
+Write-Host "Processes scanned: $($processes.Count)" -ForegroundColor $Cyan
+Write-Host "Cheat patterns: $($cheatStrings.Count)" -ForegroundColor $Cyan
+Write-Host ""
+
 Write-Host "Press any key to exit..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
