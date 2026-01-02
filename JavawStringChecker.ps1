@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Java Process Memory Scanner by YarpLetapStan
+    Java Process Unicode Memory Scanner by YarpLetapStan
 .DESCRIPTION
-    Scans running Java processes memory for cheat strings (like System Informer)
+    Scans running Java processes memory for UNICODE cheat strings (like System Informer String Search)
 .NOTES
     Author: YarpLetapStan
-    Version: 2.0
+    Version: 3.0
     Requires: Administrator privileges
 #>
 
@@ -23,7 +23,7 @@ if (-not $isAdmin) {
     exit
 }
 
-# Cheat strings to search for
+# Cheat strings to search for (Java stores strings as Unicode!)
 $cheatStrings = @(
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
@@ -41,12 +41,8 @@ $cheatStrings = @(
     "pingspoof", "ping spoof",
     "fastplace", "fast place",
     "webmacro", "web macro",
-    "hitboxes", "hitbox",
-    "playeresp",
+    "hitboxes", 
     "selfdestruct", "self destruct",
-    "killaura", "reach", "nofall", "speed", "fly", "phase", "scaffold",
-    "xray", "esp", "tracers", "radar", "fullbright", "nohurtcam",
-    "antiknockback", "antivoid", "jetpack", "timer", "step"
 )
 
 # Add .NET memory reading capabilities
@@ -69,6 +65,9 @@ public class MemoryReader {
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern int VirtualQueryEx(IntPtr hProcess, IntPtr lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, uint dwLength);
     
+    [DllImport("psapi.dll", SetLastError = true)]
+    public static extern bool GetMappedFileName(IntPtr hProcess, IntPtr lpv, System.Text.StringBuilder lpFilename, uint nSize);
+    
     [StructLayout(LayoutKind.Sequential)]
     public struct MEMORY_BASIC_INFORMATION {
         public IntPtr BaseAddress;
@@ -83,14 +82,24 @@ public class MemoryReader {
     public const int PROCESS_VM_READ = 0x0010;
     public const int PROCESS_QUERY_INFORMATION = 0x0400;
     public const int MEM_COMMIT = 0x1000;
-    public const int PAGE_READABLE = 0x02; // PAGE_READONLY
+    public const int MEM_IMAGE = 0x1000000;
+    public const int MEM_MAPPED = 0x40000;
+    public const int MEM_PRIVATE = 0x20000;
+    public const int PAGE_READONLY = 0x02;
     public const int PAGE_READWRITE = 0x04;
     public const int PAGE_EXECUTE_READ = 0x20;
     public const int PAGE_EXECUTE_READWRITE = 0x40;
     
     public static bool IsReadable(uint protect) {
-        return (protect == PAGE_READABLE || protect == PAGE_READWRITE || 
+        return (protect == PAGE_READONLY || protect == PAGE_READWRITE || 
                 protect == PAGE_EXECUTE_READ || protect == PAGE_EXECUTE_READWRITE);
+    }
+    
+    public static string GetRegionType(uint type) {
+        if ((type & MEM_IMAGE) != 0) return "Image";
+        if ((type & MEM_MAPPED) != 0) return "Mapped";
+        if ((type & MEM_PRIVATE) != 0) return "Private";
+        return "Unknown";
     }
 }
 "@
@@ -109,7 +118,42 @@ function Get-JavaProcesses {
     }
 }
 
-function Scan-ProcessMemoryRegions {
+function Search-BufferForUnicodeStrings {
+    param(
+        [byte[]]$Buffer,
+        [string[]]$SearchStrings
+    )
+    
+    $found = @()
+    
+    # Convert buffer to Unicode string (UTF-16LE)
+    # Java strings are stored as UTF-16 with 2 bytes per character
+    $unicodeText = [System.Text.Encoding]::Unicode.GetString($Buffer)
+    
+    # Also check for ASCII (some strings might be stored differently)
+    $asciiText = [System.Text.Encoding]::ASCII.GetString($Buffer)
+    
+    foreach ($cheat in $SearchStrings) {
+        # Search in Unicode (UTF-16) - this is what Java uses!
+        if ($unicodeText.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            $found += @{
+                Cheat = $cheat
+                Encoding = "Unicode"
+            }
+        }
+        # Also check ASCII just in case
+        elseif ($asciiText.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            $found += @{
+                Cheat = $cheat
+                Encoding = "ASCII"
+            }
+        }
+    }
+    
+    return $found
+}
+
+function Scan-ProcessMemoryLikeSystemInformer {
     param(
         [System.Diagnostics.Process]$Process,
         [string[]]$SearchStrings
@@ -120,7 +164,6 @@ function Scan-ProcessMemoryRegions {
     try {
         Write-Host "  [*] Opening process for memory access..." -ForegroundColor Gray
         
-        # Open the process with memory reading permissions
         $hProcess = [MemoryReader]::OpenProcess(
             [MemoryReader]::PROCESS_VM_READ -bor [MemoryReader]::PROCESS_QUERY_INFORMATION,
             $false,
@@ -132,7 +175,7 @@ function Scan-ProcessMemoryRegions {
             return $foundStrings
         }
         
-        Write-Host "  [*] Scanning memory regions..." -ForegroundColor Gray
+        Write-Host "  [*] Scanning memory regions (like System Informer)..." -ForegroundColor Gray
         
         $address = [IntPtr]::Zero
         $mbi = New-Object MemoryReader+MEMORY_BASIC_INFORMATION
@@ -140,69 +183,85 @@ function Scan-ProcessMemoryRegions {
         
         $totalBytesScanned = 0
         $regionCount = 0
+        $privateRegions = 0
+        $imageRegions = 0
+        $mappedRegions = 0
         
-        # Walk through all memory regions
+        # Scan like System Informer does
         while ([MemoryReader]::VirtualQueryEx($hProcess, $address, [ref] $mbi, $mbiSize) -ne 0) {
             $regionSize = $mbi.RegionSize.ToInt64()
+            $regionType = [MemoryReader]::GetRegionType($mbi.Type)
             
-            # Only scan committed, readable memory regions
+            # Only scan committed, readable memory
             if ($mbi.State -eq [MemoryReader]::MEM_COMMIT -and 
                 [MemoryReader]::IsReadable($mbi.Protect) -and
-                $regionSize -gt 0 -and $regionSize -lt 100MB) {
+                $regionSize -gt 0 -and $regionSize -lt 50MB) {
+                
+                # Track region types
+                switch ($regionType) {
+                    "Private" { $privateRegions++ }
+                    "Image" { $imageRegions++ }
+                    "Mapped" { $mappedRegions++ }
+                }
                 
                 $regionCount++
-                Write-Host "    Scanning region $regionCount (Size: $($regionSize/1KB)KB)..." -ForegroundColor DarkGray -NoNewline
+                
+                # Show progress every 10 regions
+                if ($regionCount % 10 -eq 0) {
+                    Write-Host "    Scanned $regionCount regions ($($totalBytesScanned/1MB)MB)..." -ForegroundColor DarkGray
+                }
                 
                 # Read the memory region
                 $buffer = New-Object byte[] $regionSize
                 $bytesRead = 0
                 
-                if ([MemoryReader]::ReadProcessMemory($hProcess, $mbi.BaseAddress, $buffer, $regionSize, [ref] $bytesRead)) {
+                if ([MemoryReader]::ReadProcessMemory($hProcess, $mbi.BaseAddress, $buffer, $regionSize, [ref] $bytesRead) -and $bytesRead -gt 100) {
                     $totalBytesScanned += $bytesRead
                     
-                    # Convert bytes to ASCII string for searching
-                    $asciiText = [System.Text.Encoding]::ASCII.GetString($buffer, 0, [Math]::Min($bytesRead, 1000000))
+                    # Search for Unicode strings (like System Informer does)
+                    $hits = Search-BufferForUnicodeStrings -Buffer $buffer[0..($bytesRead-1)] -SearchStrings $SearchStrings
                     
-                    # Search for cheat strings
-                    foreach ($cheat in $SearchStrings) {
-                        if ($asciiText.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    if ($hits.Count -gt 0) {
+                        foreach ($hit in $hits) {
                             $foundStrings += [PSCustomObject]@{
-                                Cheat = $cheat
+                                Cheat = $hit.Cheat
                                 Address = "0x" + $mbi.BaseAddress.ToString("X")
                                 RegionSize = "$($regionSize/1KB)KB"
+                                RegionType = $regionType
+                                Encoding = $hit.Encoding
                             }
-                            Write-Host " FOUND: $cheat" -ForegroundColor Red -NoNewline
-                            break
                         }
+                        
+                        Write-Host "    [$regionType] FOUND: $($hits[0].Cheat) ($($hits[0].Encoding))" -ForegroundColor Red
                     }
-                    
-                    Write-Host ""  # New line after region scan
                 }
             }
             
             # Move to next region
             $address = [IntPtr]::Add($mbi.BaseAddress, $mbi.RegionSize)
             
-            # Safety check - don't scan forever
-            if ($regionCount -gt 500) {
-                Write-Host "  [!] Stopping after 500 regions (safety limit)" -ForegroundColor Yellow
+            # Safety limit
+            if ($regionCount -gt 1000) {
+                Write-Host "  [!] Stopping after 1000 regions" -ForegroundColor Yellow
                 break
             }
         }
         
-        Write-Host "  [*] Scanned $totalBytesScanned bytes in $regionCount regions" -ForegroundColor Gray
+        Write-Host "  [*] Memory scan complete:" -ForegroundColor Gray
+        Write-Host "      Regions: $regionCount (Private: $privateRegions, Image: $imageRegions, Mapped: $mappedRegions)" -ForegroundColor Gray
+        Write-Host "      Bytes scanned: $($totalBytesScanned/1MB)MB" -ForegroundColor Gray
         
         [MemoryReader]::CloseHandle($hProcess)
         
     }
     catch {
-        Write-Host "  [X] Error scanning memory: $_" -ForegroundColor DarkRed
+        Write-Host "  [X] Error: $_" -ForegroundColor DarkRed
     }
     
     return $foundStrings
 }
 
-function Scan-ProcessModules {
+function Scan-JavaHeapSpecific {
     param(
         [System.Diagnostics.Process]$Process,
         [string[]]$SearchStrings
@@ -211,25 +270,72 @@ function Scan-ProcessModules {
     $foundStrings = @()
     
     try {
-        Write-Host "  [*] Checking loaded modules..." -ForegroundColor Gray
+        Write-Host "  [*] Looking for Java heap regions (large Private regions)..." -ForegroundColor Gray
         
-        foreach ($module in $Process.Modules) {
-            $moduleName = $module.ModuleName.ToLower()
-            $fileName = $module.FileName.ToLower()
+        $hProcess = [MemoryReader]::OpenProcess(
+            [MemoryReader]::PROCESS_VM_READ -bor [MemoryReader]::PROCESS_QUERY_INFORMATION,
+            $false,
+            $Process.Id
+        )
+        
+        if ($hProcess -eq [IntPtr]::Zero) {
+            return $foundStrings
+        }
+        
+        $address = [IntPtr]::Zero
+        $mbi = New-Object MemoryReader+MEMORY_BASIC_INFORMATION
+        $mbiSize = [System.Runtime.InteropServices.Marshal]::SizeOf($mbi)
+        
+        # Java heap is usually large Private regions (100MB+)
+        while ([MemoryReader]::VirtualQueryEx($hProcess, $address, [ref] $mbi, $mbiSize) -ne 0) {
+            $regionSize = $mbi.RegionSize.ToInt64()
+            $regionType = [MemoryReader]::GetRegionType($mbi.Type)
             
-            foreach ($cheat in $SearchStrings) {
-                if ($moduleName.Contains($cheat) -or $fileName.Contains($cheat)) {
-                    $foundStrings += [PSCustomObject]@{
-                        Cheat = $cheat
-                        Source = "Module"
-                        Module = $module.ModuleName
+            # Look for large Private regions (likely Java heap)
+            if ($mbi.State -eq [MemoryReader]::MEM_COMMIT -and 
+                $regionType -eq "Private" -and
+                $regionSize -gt 50MB -and $regionSize -lt 2GB) {
+                
+                Write-Host "    [Heap] Scanning large Private region: $($regionSize/1MB)MB" -ForegroundColor DarkCyan
+                
+                # Sample the region (don't read it all at once)
+                $sampleSize = [Math]::Min($regionSize, 10MB)
+                $buffer = New-Object byte[] $sampleSize
+                $bytesRead = 0
+                
+                # Sample from beginning, middle, and end of region
+                $sampleOffsets = @(0, $regionSize/3, 2*$regionSize/3)
+                
+                foreach ($offset in $sampleOffsets) {
+                    if ($offset + $sampleSize -lt $regionSize) {
+                        $sampleAddr = [IntPtr]::Add($mbi.BaseAddress, [int]$offset)
+                        
+                        if ([MemoryReader]::ReadProcessMemory($hProcess, $sampleAddr, $buffer, $sampleSize, [ref] $bytesRead)) {
+                            $hits = Search-BufferForUnicodeStrings -Buffer $buffer[0..($bytesRead-1)] -SearchStrings $SearchStrings
+                            
+                            if ($hits.Count -gt 0) {
+                                foreach ($hit in $hits) {
+                                    $foundStrings += [PSCustomObject]@{
+                                        Cheat = $hit.Cheat
+                                        Address = "0x" + $sampleAddr.ToString("X")
+                                        Source = "Java Heap"
+                                        Encoding = $hit.Encoding
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
+            
+            $address = [IntPtr]::Add($mbi.BaseAddress, $mbi.RegionSize)
         }
+        
+        [MemoryReader]::CloseHandle($hProcess)
+        
     }
     catch {
-        Write-Host "  [X] Error scanning modules: $_" -ForegroundColor DarkRed
+        # Silent fail for heap scan
     }
     
     return $foundStrings
@@ -237,12 +343,14 @@ function Scan-ProcessModules {
 
 # Main execution
 Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "  Java Process Memory Scanner" -ForegroundColor Magenta
+Write-Host "  Java Memory String Scanner" -ForegroundColor Magenta
+Write-Host "  (System Informer Style - Unicode Scan)" -ForegroundColor Magenta
 Write-Host "  by YarpLetapStan" -ForegroundColor Magenta
 Write-Host "========================================" -ForegroundColor Magenta
 Write-Host ""
 Write-Host "[*] Running as Administrator: YES" -ForegroundColor Green
-Write-Host "[*] Scanning for $($cheatStrings.Count) cheat strings in memory..." -ForegroundColor Cyan
+Write-Host "[*] Scanning for UNICODE cheat strings (Java uses UTF-16)" -ForegroundColor Cyan
+Write-Host "[*] Search strings: $($cheatStrings.Count)" -ForegroundColor Cyan
 Write-Host ""
 
 # Get Java processes
@@ -270,37 +378,38 @@ foreach ($proc in $processes) {
     }
     
     Write-Host "  Memory: $($proc.WorkingSet64/1MB)MB" -ForegroundColor Gray
+    Write-Host "  [*] This will scan memory like System Informer String Search..." -ForegroundColor Yellow
+    Write-Host "  [*] Scanning Private/Image/Mapped regions for Unicode strings..." -ForegroundColor Yellow
     
     $detections = @()
     
-    # 1. Scan modules first (fast)
-    $moduleDetections = Scan-ProcessModules -Process $proc -SearchStrings $cheatStrings
-    $detections += $moduleDetections
-    
-    # 2. Scan memory regions (slower, but finds strings in heap/memory)
-    Write-Host "  [*] Memory scan may take 10-30 seconds..." -ForegroundColor Yellow
-    $memoryDetections = Scan-ProcessMemoryRegions -Process $proc -SearchStrings $cheatStrings
+    # 1. Full memory scan (like System Informer)
+    $memoryDetections = Scan-ProcessMemoryLikeSystemInformer -Process $proc -SearchStrings $cheatStrings
     $detections += $memoryDetections
     
-    # Display results for this process
+    # 2. Special Java heap scan
+    $heapDetections = Scan-JavaHeapSpecific -Process $proc -SearchStrings $cheatStrings
+    $detections += $heapDetections
+    
+    # Display results
     if ($detections.Count -eq 0) {
-        Write-Host "  [✓] No cheat strings found in memory" -ForegroundColor Green
+        Write-Host "  [✓] No cheat strings found" -ForegroundColor Green
     }
     else {
-        Write-Host "  [X] Found $($detections.Count) cheat string(s) in memory:" -ForegroundColor Red
+        Write-Host "  [X] Found $($detections.Count) cheat string(s):" -ForegroundColor Red
         
-        # Group by cheat type
-        $grouped = $detections | Group-Object Cheat
+        # Group by cheat and show details
+        $grouped = $detections | Group-Object Cheat | Sort-Object Count -Descending
         
         foreach ($group in $grouped) {
-            Write-Host "      - $($group.Name):" -ForegroundColor Red
-            foreach ($item in $group.Group) {
-                if ($item.Source -eq "Module") {
-                    Write-Host "        Module: $($item.Module)" -ForegroundColor Yellow
-                }
-                else {
-                    Write-Host "        Memory at $($item.Address) ($($item.RegionSize))" -ForegroundColor Yellow
-                }
+            $cheatName = $group.Name
+            $count = $group.Count
+            $encodings = ($group.Group | Select-Object -ExpandProperty Encoding -Unique) -join "/"
+            $sources = ($group.Group | Select-Object -ExpandProperty RegionType -Unique | Where-Object { $_ }) -join ", "
+            
+            Write-Host "      [$count×] $cheatName" -ForegroundColor Red
+            if ($sources) {
+                Write-Host "        Found in: $sources ($encodings)" -ForegroundColor Yellow
             }
         }
         
@@ -313,29 +422,32 @@ foreach ($proc in $processes) {
 
 # Final report
 Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "           MEMORY SCAN COMPLETE" -ForegroundColor Magenta
+Write-Host "           SCAN COMPLETE" -ForegroundColor Magenta
 Write-Host "========================================" -ForegroundColor Magenta
 Write-Host ""
 
 if ($totalDetections -eq 0) {
-    Write-Host "[✓] MEMORY SCAN CLEAN" -ForegroundColor Green
-    Write-Host "    No cheat strings found in Java process memory" -ForegroundColor Green
+    Write-Host "[✓] NO CHEAT STRINGS FOUND IN MEMORY" -ForegroundColor Green
+    Write-Host "    Note: Cheats may use obfuscated names or different encodings" -ForegroundColor Gray
 }
 else {
-    Write-Host "[X] CHEAT STRINGS FOUND IN MEMORY!" -ForegroundColor Red
-    Write-Host "    Found $totalDetections cheat string(s) across $($processes.Count) process(es)" -ForegroundColor Red
-    Write-Host ""
+    Write-Host "[X] CHEAT STRINGS DETECTED IN MEMORY!" -ForegroundColor Red
+    Write-Host "    Found $totalDetections instances across $($processes.Count) process(es)" -ForegroundColor Red
     
-    # Summary of what was found
-    $uniqueCheats = $allDetections | Select-Object -ExpandProperty Cheat -Unique
-    Write-Host "  Cheats detected: $($uniqueCheats -join ', ')" -ForegroundColor Yellow
+    # Show top findings
+    $topCheats = $allDetections | Group-Object Cheat | Sort-Object Count -Descending | Select-Object -First 5
+    Write-Host ""
+    Write-Host "  Most common findings:" -ForegroundColor Yellow
+    foreach ($cheat in $topCheats) {
+        Write-Host "    $($cheat.Name): $($cheat.Count) times" -ForegroundColor Red
+    }
 }
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "Processes scanned: $($processes.Count)" -ForegroundColor Cyan
-Write-Host "Cheat patterns: $($cheatStrings.Count)" -ForegroundColor Cyan
-Write-Host "Scan time: Memory regions scanned (actual System Informer style)" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor DarkGray
+Write-Host "Scan Method: System Informer-style Unicode memory scan" -ForegroundColor Gray
+Write-Host "Memory Regions: Private, Image, Mapped (all readable regions)" -ForegroundColor Gray
+Write-Host "Encoding: UTF-16 Unicode (Java standard)" -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "Press any key to exit..."
