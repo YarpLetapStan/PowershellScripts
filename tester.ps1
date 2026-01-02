@@ -164,7 +164,6 @@ $unknownMods = @()
 $cheatMods = @()
 $modifiedMods = @()
 $sizeModifiedMods = @()
-$unknownSizeMismatch = @()
 
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 
@@ -223,7 +222,15 @@ foreach ($file in $jarFiles) {
 	}
 	
 	$zoneId = Get-ZoneIdentifier $file.FullName
-	$unknownMods += [PSCustomObject]@{ FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneId; FileSize = $file.Length }
+	
+	# Try to check expected size by filename
+	$filenameCheck = Fetch-Modrinth-By-Filename -filename $file.Name
+	$expectedSize = 0
+	if ($filenameCheck.Found -and $filenameCheck.ExpectedSize -gt 0) {
+		$expectedSize = $filenameCheck.ExpectedSize
+	}
+	
+	$unknownMods += [PSCustomObject]@{ FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneId; FileSize = $file.Length; ExpectedSize = $expectedSize }
 }
 
 if ($unknownMods.Count -gt 0) {
@@ -282,33 +289,6 @@ if ($unknownMods.Count -gt 0) {
 
 Write-Host "`r$(' ' * 80)`r" -NoNewline
 
-# For unknown mods, try to check file size by filename
-if ($unknownMods.Count -gt 0) {
-	$counter = 0
-	foreach ($mod in $unknownMods) {
-		$counter++
-		$spin = $spinner[$counter % $spinner.Length]
-		Write-Host "`r[$spin] Checking unknown mod sizes by filename..." -ForegroundColor Magenta -NoNewline
-		
-		$filenameCheck = Fetch-Modrinth-By-Filename -filename $mod.FileName
-		if ($filenameCheck.Found -and $filenameCheck.ExpectedSize -gt 0) {
-			if ($mod.FileSize -ne $filenameCheck.ExpectedSize) {
-				$sizeDiff = $mod.FileSize - $filenameCheck.ExpectedSize
-				$unknownSizeMismatch += [PSCustomObject]@{
-					ModName = $filenameCheck.ModName
-					FileName = $mod.FileName
-					Version = $filenameCheck.Version
-					ExpectedSize = $filenameCheck.ExpectedSize
-					ActualSize = $mod.FileSize
-					SizeDiff = $sizeDiff
-					ZoneId = $mod.ZoneId
-				}
-			}
-		}
-	}
-	Write-Host "`r$(' ' * 80)`r" -NoNewline
-}
-
 if ($verifiedMods.Count -gt 0) {
 	Write-Host "{ Verified Mods }" -ForegroundColor Cyan
 	foreach ($mod in $verifiedMods) {
@@ -329,14 +309,26 @@ if ($verifiedMods.Count -gt 0) {
 if ($unknownMods.Count -gt 0) {
 	Write-Host "{ Unknown Mods }" -ForegroundColor Cyan
 	foreach ($mod in $unknownMods) {
+		$sizeMismatch = $false
+		
+		if ($mod.ExpectedSize -gt 0 -and $mod.FileSize -ne $mod.ExpectedSize) {
+			$sizeMismatch = $true
+		}
+		
 		if ($mod.ZoneId) {
 			Write-Host ("> {0, -30}" -f $mod.FileName) -ForegroundColor Yellow -NoNewline
-			Write-Host "$($mod.ZoneId)" -ForegroundColor DarkGray -NoNewline
-			Write-Host " ($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
-			continue
+			Write-Host "$($mod.ZoneId) " -ForegroundColor DarkGray -NoNewline
+		} else {
+			Write-Host "> $($mod.FileName) " -ForegroundColor Yellow -NoNewline
 		}
-		Write-Host "> $($mod.FileName)" -ForegroundColor Yellow -NoNewline
-		Write-Host " ($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
+		
+		if ($sizeMismatch) {
+			$sizeDiff = $mod.FileSize - $mod.ExpectedSize
+			$sizeChangeText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
+			Write-Host "Expected: $([math]::Round($mod.ExpectedSize/1KB, 2)) KB | Actual: $([math]::Round($mod.FileSize/1KB, 2)) KB | Difference: $sizeChangeText" -ForegroundColor Red
+		} else {
+			Write-Host "($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
+		}
 	}
 	Write-Host
 }
@@ -372,21 +364,6 @@ if ($sizeModifiedMods.Count -gt 0) {
 		Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray
 		Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
 		Write-Host "  Expected: $([math]::Round($mod.ExpectedSize/1KB, 2)) KB | Actual: $([math]::Round($mod.ActualSize/1KB, 2)) KB | Difference: $sizeChangeText" -ForegroundColor Magenta
-	}
-	Write-Host
-}
-
-if ($unknownSizeMismatch.Count -gt 0) {
-	Write-Host "{ Unknown Mods - Size Mismatch }" -ForegroundColor Cyan
-	foreach ($mod in $unknownSizeMismatch) {
-		$sizeChangeText = if ($mod.SizeDiff -gt 0) { "+$($mod.SizeDiff) bytes" } else { "$($mod.SizeDiff) bytes" }
-		Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline
-		Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray
-		Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
-		Write-Host "  Expected: $([math]::Round($mod.ExpectedSize/1KB, 2)) KB | Actual: $([math]::Round($mod.ActualSize/1KB, 2)) KB | Difference: $sizeChangeText" -ForegroundColor Magenta
-		if ($mod.ZoneId) {
-			Write-Host "  Source: $($mod.ZoneId)" -ForegroundColor DarkGray
-		}
 	}
 	Write-Host
 }) {
