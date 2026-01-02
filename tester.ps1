@@ -2,46 +2,60 @@
 # Scans JAR files for cheat strings and checks modification times
 
 param(
-    [Parameter(Mandatory=$false)]
-    [string]$Path = ".",
-    [Parameter(Mandatory=$false)]
-    [switch]$Recursive
+    [Parameter(Mandatory=$true, Position=0)]
+    [string]$FolderPath
 )
 
 # Cheat-related strings to search for
 $cheatStrings = @(
-    "killaura",
-    "antikb",
-    "autoclick",
-    "reach",
+    "autocrystal",
+    "auto crystal",
+    "cw crystal",
+    "autohitcrystal",
+    "autoanchor",
+    "auto anchor",
+    "anchortweaks",
+    "anchor macro",
+    "autototem",
+    "auto totem",
+    "legittotem",
+    "inventorytotem",
+    "hover totem",
+    "autopot",
+    "auto pot",
     "velocity",
-    "scaffold",
-    "fly",
-    "speed",
-    "bhop",
-    "aimbot",
-    "esp",
-    "xray",
-    "freecam",
-    "noclip",
-    "antiafk",
-    "autotool",
-    "fastbreak",
-    "nuker",
-    "phase",
-    "step",
-    "wallhack",
+    "autodoublehand",
+    "auto double hand",
+    "autoarmor",
+    "auto armor",
+    "automace",
+    "aimassist",
+    "aim assist",
     "triggerbot",
-    "autopotion",
-    "criticals",
-    "noslow",
-    "legitmode",
-    "blatant",
-    "ghost",
-    "inject"
+    "trigger bot",
+    "shieldbreaker",
+    "shield breaker",
+    "axespam",
+    "axe spam",
+    "pingspoof",
+    "ping spoof",
+    "webmacro",
+    "web macro",
+    "selfdestruct",
+    "self destruct",
+    "hitboxes"
 )
 
 Write-Host "=== JAR Cheat Scanner ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Validate folder path
+if (-not (Test-Path -Path $FolderPath -PathType Container)) {
+    Write-Host "Error: Folder path '$FolderPath' does not exist or is not a directory" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Scanning folder: $FolderPath" -ForegroundColor White
 Write-Host ""
 
 # Get javaw process start time
@@ -57,21 +71,12 @@ if ($javawProcess) {
 
 Write-Host ""
 
-# Find JAR files
-$searchParams = @{
-    Path = $Path
-    Filter = "*.jar"
-}
-
-if ($Recursive) {
-    $searchParams.Add("Recurse", $true)
-}
-
-$jarFiles = Get-ChildItem @searchParams
+# Find all JAR files in the folder
+$jarFiles = Get-ChildItem -Path $FolderPath -Filter "*.jar" -File
 
 if ($jarFiles.Count -eq 0) {
-    Write-Host "No JAR files found in $Path" -ForegroundColor Red
-    exit
+    Write-Host "No JAR files found in $FolderPath" -ForegroundColor Red
+    exit 0
 }
 
 Write-Host "Found $($jarFiles.Count) JAR file(s) to scan" -ForegroundColor Cyan
@@ -89,17 +94,23 @@ function Search-JarFile {
         $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
         
         foreach ($entry in $zip.Entries) {
-            if ($entry.Name -match '\.(class|java|txt|json|yml|properties)$') {
-                $stream = $entry.Open()
-                $reader = New-Object System.IO.StreamReader($stream)
-                $content = $reader.ReadToEnd().ToLower()
-                $reader.Close()
-                $stream.Close()
-                
-                foreach ($cheatString in $cheatStrings) {
-                    if ($content -match $cheatString) {
-                        $detections += "$cheatString (in $($entry.FullName))"
+            # Search in class files, source files, and config files
+            if ($entry.Name -match '\.(class|java|txt|json|yml|yaml|properties|cfg|toml)$') {
+                try {
+                    $stream = $entry.Open()
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $content = $reader.ReadToEnd().ToLower()
+                    $reader.Close()
+                    $stream.Close()
+                    
+                    foreach ($cheatString in $cheatStrings) {
+                        if ($content -match [regex]::Escape($cheatString.ToLower())) {
+                            $detections += "$cheatString (in $($entry.FullName))"
+                        }
                     }
+                }
+                catch {
+                    # Skip files that can't be read as text
                 }
             }
         }
@@ -114,14 +125,20 @@ function Search-JarFile {
 }
 
 # Scan each JAR file
+$suspiciousCount = 0
+$modifiedCount = 0
+
 foreach ($jar in $jarFiles) {
     Write-Host "Scanning: $($jar.Name)" -ForegroundColor White
     
     # Check modification time
+    $wasModified = $false
     if ($processStartTime) {
         if ($jar.LastWriteTime -gt $processStartTime) {
             Write-Host "  [!] FILE MODIFIED AFTER JAVA STARTED" -ForegroundColor Red
             Write-Host "      Modified: $($jar.LastWriteTime)" -ForegroundColor Red
+            $wasModified = $true
+            $modifiedCount++
         } else {
             Write-Host "  [✓] Not modified since Java started" -ForegroundColor Green
         }
@@ -133,9 +150,11 @@ foreach ($jar in $jarFiles) {
     
     if ($detections.Count -gt 0) {
         Write-Host "  [!] SUSPICIOUS STRINGS DETECTED ($($detections.Count)):" -ForegroundColor Red
-        foreach ($detection in $detections | Select-Object -Unique) {
+        $uniqueDetections = $detections | Select-Object -Unique
+        foreach ($detection in $uniqueDetections) {
             Write-Host "      - $detection" -ForegroundColor Yellow
         }
+        $suspiciousCount++
     } else {
         Write-Host "  [✓] No suspicious strings found" -ForegroundColor Green
     }
@@ -144,3 +163,8 @@ foreach ($jar in $jarFiles) {
 }
 
 Write-Host "=== Scan Complete ===" -ForegroundColor Cyan
+Write-Host "Total JAR files scanned: $($jarFiles.Count)" -ForegroundColor White
+Write-Host "Files with suspicious strings: $suspiciousCount" -ForegroundColor $(if ($suspiciousCount -gt 0) { "Red" } else { "Green" })
+if ($processStartTime) {
+    Write-Host "Files modified after Java started: $modifiedCount" -ForegroundColor $(if ($modifiedCount -gt 0) { "Red" } else { "Green" })
+}
