@@ -17,8 +17,8 @@ if (-not $msmpeng) {
     exit
 }
 
-$pid = $msmpeng.Id
-Write-Host "Found msmpeng.exe (PID: $pid)" -ForegroundColor Green
+$processId = $msmpeng.Id
+Write-Host "Found msmpeng.exe (PID: $processId)" -ForegroundColor Green
 Write-Host ""
 
 # Memory reading requires admin privileges
@@ -74,7 +74,7 @@ public class MemoryReader {
 
 Write-Host "Opening process memory..." -ForegroundColor Yellow
 
-$processHandle = [MemoryReader]::OpenProcess(0x0410, $false, $pid)
+$processHandle = [MemoryReader]::OpenProcess(0x0410, $false, $processId)
 if ($processHandle -eq [IntPtr]::Zero) {
     Write-Host "ERROR: Could not open process!" -ForegroundColor Red
     pause
@@ -96,12 +96,13 @@ while ([MemoryReader]::VirtualQueryEx($processHandle, $address, [ref]$mbi, $mbiS
         ($mbi.Type -eq 0x1000000 -or $mbi.Type -eq 0x40000 -or $mbi.Type -eq 0x20000) -and
         ($mbi.Protect -eq 0x04 -or $mbi.Protect -eq 0x02 -or $mbi.Protect -eq 0x20)) {
         
-        $regionSize = [int]$mbi.RegionSize
+        $regionSize = [int64]$mbi.RegionSize
         if ($regionSize -gt 0 -and $regionSize -lt 100MB) {
-            $buffer = New-Object byte[] $regionSize
-            $bytesRead = 0
-            
-            if ([MemoryReader]::ReadProcessMemory($processHandle, $mbi.BaseAddress, $buffer, $regionSize, [ref]$bytesRead)) {
+            try {
+                $buffer = New-Object byte[] $regionSize
+                $bytesRead = 0
+                
+                if ([MemoryReader]::ReadProcessMemory($processHandle, $mbi.BaseAddress, $buffer, $regionSize, [ref]$bytesRead)) {
                 # Search for ASCII strings containing "-jar" (minimum length 5)
                 $ascii = [System.Text.Encoding]::ASCII.GetString($buffer)
                 if ($ascii -match '-jar') {
@@ -123,6 +124,8 @@ while ([MemoryReader]::VirtualQueryEx($processHandle, $address, [ref]$mbi, $mbiS
                         }
                     }
                 }
+            } catch {
+                # Skip regions that can't be read
             }
         }
         $scanned++
