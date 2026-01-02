@@ -1,24 +1,20 @@
 <#
 .SYNOPSIS
-    Process String Scanner by YarpLetapStan
+    Process Scanner by YarpLetapStan
 .DESCRIPTION
-    Simple memory string scanner for Java processes
+    Simple scanner for Java processes
 .NOTES
     Author: YarpLetapStan
-    Version: 1.1
 #>
 
-# Set execution policy
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 
-# Check if running as administrator
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+Write-Host "================================" -ForegroundColor Magenta
+Write-Host "  Process Scanner" -ForegroundColor Magenta
+Write-Host "  by YarpLetapStan" -ForegroundColor Magenta
+Write-Host "================================" -ForegroundColor Magenta
+Write-Host ""
 
-if (-not $isAdmin) {
-    Write-Host "[!] Run as Administrator for best results" -ForegroundColor Yellow
-}
-
-# Cheat strings to search for (not shown to user)
 $cheatStrings = @(
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
@@ -38,114 +34,79 @@ $cheatStrings = @(
     "selfdestruct", "self destruct"
 )
 
-# Simple banner
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "  Process Scanner" -ForegroundColor Magenta
-Write-Host "  by YarpLetapStan" -ForegroundColor Magenta
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host ""
+Write-Host "[*] Looking for Java processes..." -ForegroundColor Cyan
 
-# Get Java processes
-Write-Host "[*] Finding Java processes..." -ForegroundColor Cyan
-$processes = Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.Responding -eq $true }
+$processes = Get-Process javaw, java -ErrorAction SilentlyContinue
 
 if ($processes.Count -eq 0) {
     Write-Host "[X] No Java processes found" -ForegroundColor Red
-    timeout /t 3
+    pause
     exit
 }
 
 Write-Host "[✓] Found $($processes.Count) process(es)" -ForegroundColor Green
 Write-Host ""
 
-$foundCheats = @()
-$processCount = 0
+$foundAnything = $false
+$allFindings = @()
 
 foreach ($proc in $processes) {
-    $processCount++
-    Write-Host "--- Scanning Process $processCount ---" -ForegroundColor Cyan
-    Write-Host "PID: $($proc.Id)" -ForegroundColor Gray
-    Write-Host "Name: $($proc.ProcessName)" -ForegroundColor Gray
+    Write-Host "--- Process: $($proc.ProcessName) (PID: $($proc.Id)) ---" -ForegroundColor Cyan
     
-    if ($proc.MainWindowTitle) {
-        Write-Host "Window: $($proc.MainWindowTitle)" -ForegroundColor Gray
-    }
+    $findings = @()
     
-    $processCheats = @()
-    
-    # Simple checks (like Habibi)
-    
-    # 1. Check command line
+    # Check command line
+    $cmd = ""
     try {
-        $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction SilentlyContinue).CommandLine
-        if ($cmdLine) {
-            foreach ($cheat in $cheatStrings) {
-                if ($cmdLine -match $cheat) {
-                    $processCheats += "$cheat (command line)"
-                }
-            }
-        }
+        $cmd = (Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
     } catch {}
     
-    # 2. Check window title
-    if ($proc.MainWindowTitle) {
+    if ($cmd) {
         foreach ($cheat in $cheatStrings) {
-            if ($proc.MainWindowTitle -match $cheat) {
-                $processCheats += "$cheat (window title)"
+            if ($cmd.ToLower().Contains($cheat)) {
+                $findings += "Found '$cheat' in command line"
             }
         }
     }
     
-    # 3. Check modules (simple memory check)
-    try {
-        foreach ($module in $proc.Modules) {
-            $moduleName = $module.ModuleName
-            foreach ($cheat in $cheatStrings) {
-                if ($moduleName -match $cheat) {
-                    $processCheats += "$cheat (module: $moduleName)"
-                }
+    # Check window title
+    $title = $proc.MainWindowTitle
+    if ($title) {
+        foreach ($cheat in $cheatStrings) {
+            if ($title.ToLower().Contains($cheat)) {
+                $findings += "Found '$cheat' in window title"
             }
         }
-    } catch {}
+    }
     
-    # Show results for this process
-    if ($processCheats.Count -eq 0) {
+    # Show results
+    if ($findings.Count -eq 0) {
         Write-Host "[✓] Clean" -ForegroundColor Green
     } else {
-        Write-Host "[!] Found $($processCheats.Count) string(s)" -ForegroundColor Red
-        foreach ($cheat in $processCheats) {
-            Write-Host "  - $cheat" -ForegroundColor Yellow
+        Write-Host "[!] Found:" -ForegroundColor Red
+        foreach ($finding in $findings) {
+            Write-Host "  - $finding" -ForegroundColor Yellow
         }
-        $foundCheats += $processCheats
+        $foundAnything = $true
+        $allFindings += $findings
     }
     
     Write-Host ""
 }
 
-# Final summary (like Habibi)
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "           SCAN RESULTS" -ForegroundColor Magenta
-Write-Host "========================================" -ForegroundColor Magenta
+Write-Host "================================" -ForegroundColor Magenta
+Write-Host "          RESULTS" -ForegroundColor Magenta
+Write-Host "================================" -ForegroundColor Magenta
 Write-Host ""
 
-if ($foundCheats.Count -eq 0) {
+if (-not $foundAnything) {
     Write-Host "[✓] SCAN CLEAN" -ForegroundColor Green
     Write-Host "No suspicious strings found" -ForegroundColor Green
 } else {
-    Write-Host "[!] SUSPICIOUS STRINGS FOUND" -ForegroundColor Red
-    Write-Host "Total findings: $($foundCheats.Count)" -ForegroundColor Red
-    
-    # Group by cheat type
-    $grouped = $foundCheats | Group-Object { ($_ -split ' ')[0] }
-    
-    foreach ($group in $grouped) {
-        $count = $group.Count
-        $cheatName = $group.Name
-        Write-Host "  $cheatName: $count instance(s)" -ForegroundColor Yellow
-    }
+    Write-Host "[!] FOUND $($allFindings.Count) SUSPICIOUS ITEM(S)" -ForegroundColor Red
 }
 
 Write-Host ""
 Write-Host "Processes scanned: $($processes.Count)" -ForegroundColor Gray
 Write-Host "Press any key to exit..." -ForegroundColor Gray
-[Console]::ReadKey($true) | Out-Null
+pause
