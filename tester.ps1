@@ -5,15 +5,12 @@ Write-Host "YarpLetapStan"
 Write-Host
 
 Write-Host "Enter path to the mods folder: " -NoNewline
-Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
-$mods = Read-Host "PATH"
+$mods = Read-Host
 Write-Host
 
 if (-not $mods) {
-    $mods = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
-	Write-Host "Continuing with " -NoNewline
-	Write-Host $mods -ForegroundColor White
-	Write-Host
+    Write-Host "No path provided!" -ForegroundColor Red
+    exit 1
 }
 
 if (-not (Test-Path $mods -PathType Container)) {
@@ -26,10 +23,22 @@ if (-not $process) {
     $process = Get-Process java -ErrorAction SilentlyContinue
 }
 
+$startTime = $null
+$processStartFileSizes = @{}
+
 if ($process) {
     try {
         $startTime = $process.StartTime
         $elapsedTime = (Get-Date) - $startTime
+        
+        # Get file sizes at process start time by checking all jar files
+        $jarFilesAtStart = Get-ChildItem -Path $mods -Filter *.jar -ErrorAction SilentlyContinue
+        foreach ($file in $jarFilesAtStart) {
+            # If file was created/modified before javaw started, record its size
+            if ($file.LastWriteTime -le $startTime) {
+                $processStartFileSizes[$file.Name] = $file.Length
+            }
+        }
     } catch {}
 
     Write-Host "{ Minecraft Uptime }" -ForegroundColor Cyan
@@ -151,6 +160,7 @@ $verifiedMods = @()
 $unknownMods = @()
 $cheatMods = @()
 $modifiedMods = @()
+$sizeChangedMods = @()
 
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 
@@ -164,8 +174,23 @@ foreach ($file in $jarFiles) {
 	Write-Host "`r[$spin] Scanning mods: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
 	
 	# Check if file was modified after javaw started
-	if ($process -and $file.LastWriteTime -gt $startTime) {
+	if ($process -and $startTime -and $file.LastWriteTime -gt $startTime) {
 		$modifiedMods += [PSCustomObject]@{ FileName = $file.Name; ModifiedTime = $file.LastWriteTime }
+	}
+	
+	# Check if file size changed since javaw started
+	if ($processStartFileSizes.ContainsKey($file.Name)) {
+		$originalSize = $processStartFileSizes[$file.Name]
+		$currentSize = $file.Length
+		if ($originalSize -ne $currentSize) {
+			$sizeDiff = $currentSize - $originalSize
+			$sizeChangedMods += [PSCustomObject]@{ 
+				FileName = $file.Name
+				OriginalSize = $originalSize
+				CurrentSize = $currentSize
+				SizeDiff = $sizeDiff
+			}
+		}
 	}
 	
 	$hash = Get-SHA1 -filePath $file.FullName
@@ -282,6 +307,17 @@ if ($modifiedMods.Count -gt 0) {
 	foreach ($mod in $modifiedMods) {
 		Write-Host "> $($mod.FileName)" -ForegroundColor Red -NoNewline
 		Write-Host " (Modified: $($mod.ModifiedTime))" -ForegroundColor DarkGray
+	}
+	Write-Host
+}
+
+if ($sizeChangedMods.Count -gt 0) {
+	Write-Host "{ File Size Changes }" -ForegroundColor Cyan
+	foreach ($mod in $sizeChangedMods) {
+		$sizeChangeText = if ($mod.SizeDiff -gt 0) { "+$($mod.SizeDiff) bytes" } else { "$($mod.SizeDiff) bytes" }
+		$sizeColor = if ($mod.SizeDiff -gt 0) { "Red" } else { "Yellow" }
+		Write-Host "> $($mod.FileName)" -ForegroundColor $sizeColor -NoNewline
+		Write-Host " ($([math]::Round($mod.OriginalSize/1KB, 2)) KB -> $([math]::Round($mod.CurrentSize/1KB, 2)) KB | $sizeChangeText)" -ForegroundColor DarkGray
 	}
 	Write-Host
 }
