@@ -1,195 +1,287 @@
-# JAR Cheat Scanner by YarpLetapStan
-# Scans JAR files for cheat strings and checks modification times
-
 Clear-Host
+Write-Host "YarpLetapStan Mod Analyzer" -ForegroundColor Magenta
+Write-Host "Made by " -ForegroundColor DarkGray -NoNewline
+Write-Host "YarpLetapStan"
+Write-Host
 
-Write-Host "==================================" -ForegroundColor Magenta
-Write-Host "   JAR Cheat Scanner" -ForegroundColor Cyan
-Write-Host "   by YarpLetapStan" -ForegroundColor Cyan
-Write-Host "==================================" -ForegroundColor Magenta
-Write-Host ""
+Write-Host "Enter path to the mods folder: " -NoNewline
+Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
+$mods = Read-Host "PATH"
+Write-Host
 
-# Get javaw process and its start time
-$javawProcess = Get-Process -Name "javaw" -ErrorAction SilentlyContinue | Sort-Object StartTime | Select-Object -First 1
+if (-not $mods) {
+    $mods = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
+	Write-Host "Continuing with " -NoNewline
+	Write-Host $mods -ForegroundColor White
+	Write-Host
+}
 
-if (-not $javawProcess) {
-    Write-Host "[ERROR] No javaw process is currently running!" -ForegroundColor Red
-    Write-Host "Please start Minecraft/Java and try again." -ForegroundColor Yellow
+if (-not (Test-Path $mods -PathType Container)) {
+    Write-Host "Invalid Path!" -ForegroundColor Red
+    exit 1
+}
+
+$process = Get-Process javaw -ErrorAction SilentlyContinue
+if (-not $process) {
+    $process = Get-Process java -ErrorAction SilentlyContinue
+}
+
+if ($process) {
+    try {
+        $startTime = $process.StartTime
+        $elapsedTime = (Get-Date) - $startTime
+    } catch {}
+
+    Write-Host "{ Minecraft Uptime }" -ForegroundColor Cyan
+    Write-Host "$($process.Name) PID $($process.Id) started at $startTime and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s"
     Write-Host ""
-    Read-Host "Press Enter to exit"
-    exit 1
 }
 
-$processStartTime = $javawProcess.StartTime
-$processPath = $javawProcess.Path
-
-Write-Host "[INFO] Found javaw process" -ForegroundColor Green
-Write-Host "       Started at: $processStartTime" -ForegroundColor Gray
-Write-Host "       Path: $processPath" -ForegroundColor Gray
-Write-Host ""
-
-# Try to determine mods folder from process path
-$modsFolder = $null
-if ($processPath -match "\.minecraft") {
-    $minecraftPath = $processPath -replace "\\(bin|runtime)\\.*", ""
-    $modsFolder = Join-Path $minecraftPath "mods"
+function Get-SHA1 {
+    param (
+        [string]$filePath
+    )
+    return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash
 }
 
-# Prompt for folder path
-if ($modsFolder -and (Test-Path $modsFolder)) {
-    Write-Host "[DETECTED] Minecraft mods folder: $modsFolder" -ForegroundColor Cyan
-    $useDetected = Read-Host "Use this folder? (Y/N)"
-    if ($useDetected -eq "Y" -or $useDetected -eq "y" -or $useDetected -eq "") {
-        $FolderPath = $modsFolder
-    } else {
-        $FolderPath = Read-Host "Enter folder path to scan"
-    }
-} else {
-    $FolderPath = Read-Host "Enter folder path to scan for JAR files"
+function Get-ZoneIdentifier {
+    param (
+        [string]$filePath
+    )
+	$ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue
+	if ($ads -match "HostUrl=(.+)") {
+		return $matches[1]
+	}
+	
+	return $null
 }
 
-if ([string]::IsNullOrWhiteSpace($FolderPath)) {
-    Write-Host "[ERROR] No folder path provided" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
+function Fetch-Modrinth {
+    param (
+        [string]$hash
+    )
+    try {
+        $response = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop
+		if ($response.project_id) {
+            $projectResponse = "https://api.modrinth.com/v2/project/$($response.project_id)"
+            $projectData = Invoke-RestMethod -Uri $projectResponse -Method Get -UseBasicParsing -ErrorAction Stop
+            return @{ Name = $projectData.title; Slug = $projectData.slug }
+        }
+    } catch {}
+	
+    return @{ Name = ""; Slug = "" }
 }
 
-$FolderPath = $FolderPath.Trim('"').Trim("'")
-
-if (-not (Test-Path -Path $FolderPath -PathType Container)) {
-    Write-Host "[ERROR] Folder '$FolderPath' does not exist" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
+function Fetch-Megabase {
+    param (
+        [string]$hash
+    )
+    try {
+        $response = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop
+		if (-not $response.error) {
+			return $response.data
+		}
+    } catch {}
+	
+    return $null
 }
 
-Write-Host ""
-Write-Host "[SCANNING] $FolderPath" -ForegroundColor Magenta
-Write-Host ""
-
-# Cheat strings to search for
 $cheatStrings = @(
-    "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
-    "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
-    "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
-    "autopot", "auto pot", "velocity",
-    "autodoublehand", "auto double hand",
-    "autoarmor", "auto armor",
-    "automace",
-    "aimassist", "aim assist",
-    "triggerbot", "trigger bot",
-    "shieldbreaker", "shield breaker",
-    "axespam", "axe spam",
-    "pingspoof", "ping spoof",
-    "webmacro", "web macro",
-    "selfdestruct", "self destruct",
-    "hitboxes"
+	"autocrystal",
+	"auto crystal",
+	"cw crystal",
+	"autohitcrystal",
+	"autoanchor",
+	"auto anchor",
+	"anchortweaks",
+	"anchor macro",
+	"autototem",
+	"auto totem",
+	"legittotem",
+	"inventorytotem",
+	"hover totem",
+	"autopot",
+	"auto pot",
+	"velocity",
+	"autodoublehand",
+	"auto double hand",
+	"autoarmor",
+	"auto armor",
+	"automace",
+	"aimassist",
+	"aim assist",
+	"triggerbot",
+	"trigger bot",
+	"shieldbreaker",
+	"shield breaker",
+	"axespam",
+	"axe spam",
+	"pingspoof",
+	"ping spoof",
+	"webmacro",
+	"web macro",
+	"selfdestruct",
+	"self destruct",
+	"hitboxes"
 )
 
-# Find JAR files
-$jarFiles = Get-ChildItem -Path $FolderPath -Filter "*.jar" -File -ErrorAction SilentlyContinue
-
-if ($jarFiles.Count -eq 0) {
-    Write-Host "[WARNING] No JAR files found in folder" -ForegroundColor Yellow
-    Read-Host "Press Enter to exit"
-    exit 0
+function Check-Strings {
+	param (
+        [string]$filePath
+    )
+	
+	$stringsFound = [System.Collections.Generic.HashSet[string]]::new()
+	
+	$fileContent = Get-Content -Raw $filePath
+	
+	foreach ($line in $fileContent) {
+		foreach ($string in $cheatStrings) {
+			if ($line -match $string) {
+				$stringsFound.Add($string) | Out-Null
+				continue
+			}
+		}
+	}
+	
+	return $stringsFound
 }
 
-Write-Host "[INFO] Found $($jarFiles.Count) JAR file(s)" -ForegroundColor Green
-Write-Host ""
 
-# Search function
-function Search-JarFile {
-    param($jarPath)
-    
-    $detections = @()
-    
-    try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
-        
-        foreach ($entry in $zip.Entries) {
-            if ($entry.Name -match '\.(class|java|txt|json|yml|yaml|properties|cfg|toml)$') {
-                try {
-                    $stream = $entry.Open()
-                    $reader = New-Object System.IO.StreamReader($stream)
-                    $content = $reader.ReadToEnd().ToLower()
-                    $reader.Close()
-                    $stream.Close()
-                    
-                    foreach ($cheatString in $cheatStrings) {
-                        if ($content -match [regex]::Escape($cheatString.ToLower())) {
-                            $detections += "$cheatString"
-                        }
-                    }
-                }
-                catch { }
-            }
-        }
-        
-        $zip.Dispose()
+$verifiedMods = @()
+$unknownMods = @()
+$cheatMods = @()
+$modifiedMods = @()
+
+$jarFiles = Get-ChildItem -Path $mods -Filter *.jar
+
+$spinner = @("|", "/", "-", "\")
+$totalMods = $jarFiles.Count
+$counter = 0
+
+foreach ($file in $jarFiles) {
+	$counter++
+	$spin = $spinner[$counter % $spinner.Length]
+	Write-Host "`r[$spin] Scanning mods: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
+	
+	# Check if file was modified after javaw started
+	if ($process -and $file.LastWriteTime -gt $startTime) {
+		$modifiedMods += [PSCustomObject]@{ FileName = $file.Name; ModifiedTime = $file.LastWriteTime }
+	}
+	
+	$hash = Get-SHA1 -filePath $file.FullName
+	
+    $modDataModrinth = Fetch-Modrinth -hash $hash
+    if ($modDataModrinth.Slug) {
+		$verifiedMods += [PSCustomObject]@{ ModName = $modDataModrinth.Name; FileName = $file.Name }
+		continue;
     }
-    catch { }
-    
-    return ($detections | Select-Object -Unique)
+	
+	$modDataMegabase = Fetch-Megabase -hash $hash
+	if ($modDataMegabase.name) {
+		$verifiedMods += [PSCustomObject]@{ ModName = $modDataMegabase.Name; FileName = $file.Name }
+		continue;
+	}
+	
+	$zoneId = Get-ZoneIdentifier $file.FullName
+	$unknownMods += [PSCustomObject]@{ FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneId }
 }
 
-# Scan files
-$suspiciousFiles = @()
-$modifiedFiles = @()
-
-foreach ($jar in $jarFiles) {
-    Write-Host "► $($jar.Name)" -ForegroundColor White
-    
-    # Check if modified after javaw started
-    if ($jar.LastWriteTime -gt $processStartTime) {
-        Write-Host "  [!] MODIFIED AFTER JAVAW STARTED" -ForegroundColor Red
-        Write-Host "      Last Modified: $($jar.LastWriteTime)" -ForegroundColor Yellow
-        $modifiedFiles += $jar.Name
-    } else {
-        Write-Host "  [✓] File not modified since javaw started" -ForegroundColor Gray
-    }
-    
-    # Scan contents
-    $detections = Search-JarFile -jarPath $jar.FullName
-    
-    if ($detections.Count -gt 0) {
-        Write-Host "  [!] CHEAT STRINGS DETECTED: $($detections.Count)" -ForegroundColor Red
-        foreach ($detection in $detections) {
-            Write-Host "      • $detection" -ForegroundColor Magenta
-        }
-        $suspiciousFiles += $jar.Name
-    } else {
-        Write-Host "  [✓] No suspicious strings found" -ForegroundColor Green
-    }
-    
-    Write-Host ""
+if ($unknownMods.Count -gt 0) {
+	$tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
+	
+	$counter = 0
+	
+	try {
+		if (Test-Path $tempDir) {
+			Remove-Item -Recurse -Force $tempDir
+		}
+		
+		New-Item -ItemType Directory -Path $tempDir | Out-Null
+		Add-Type -AssemblyName System.IO.Compression.FileSystem
+	
+		foreach ($mod in $unknownMods) {
+			$counter++
+			$spin = $spinner[$counter % $spinner.Length]
+			Write-Host "`r[$spin] Scanning unknown mods for cheat strings..." -ForegroundColor Magenta -NoNewline
+			
+			$modStrings = Check-Strings $mod.FilePath
+			if ($modStrings.Count -gt 0) {
+				$unknownMods = @($unknownMods | Where-Object -FilterScript {$_ -ne $mod})
+				$cheatMods += [PSCustomObject]@{ FileName = $mod.FileName; StringsFound = $modStrings }
+				continue
+			}
+			
+			$fileNameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($mod.FileName)
+			$extractPath = Join-Path $tempDir $fileNameWithoutExt
+			New-Item -ItemType Directory -Path $extractPath | Out-Null
+			
+			[System.IO.Compression.ZipFile]::ExtractToDirectory($mod.FilePath, $extractPath)
+			
+			$depJarsPath = Join-Path $extractPath "META-INF/jars"
+			if (-not $(Test-Path $depJarsPath)) {
+				continue
+			}
+			
+			$depJars = Get-ChildItem -Path $depJarsPath
+			foreach ($jar in $depJars) {
+				$depStrings = Check-Strings $jar.FullName
+				if (-not $depStrings) {
+					continue
+				}
+				$unknownMods = @($unknownMods | Where-Object -FilterScript {$_ -ne $mod})
+				$cheatMods += [PSCustomObject]@{ FileName = $mod.FileName; DepFileName = $jar.Name; StringsFound = $depStrings }
+			}
+			
+		}
+	} catch {
+		Write-Host "Error occured while scanning jar files! $($_.Exception.Message)" -ForegroundColor Red
+	} finally {
+		Remove-Item -Recurse -Force $tempDir
+	}
 }
 
-# Summary
-Write-Host "==================================" -ForegroundColor Magenta
-Write-Host "   SCAN RESULTS" -ForegroundColor Cyan
-Write-Host "==================================" -ForegroundColor Magenta
-Write-Host "Total files scanned: $($jarFiles.Count)" -ForegroundColor White
-Write-Host "Suspicious files: $($suspiciousFiles.Count)" -ForegroundColor $(if ($suspiciousFiles.Count -gt 0) { "Red" } else { "Green" })
-Write-Host "Modified files: $($modifiedFiles.Count)" -ForegroundColor $(if ($modifiedFiles.Count -gt 0) { "Red" } else { "Green" })
+Write-Host "`r$(' ' * 80)`r" -NoNewline
 
-if ($suspiciousFiles.Count -gt 0) {
-    Write-Host ""
-    Write-Host "[FLAGGED FILES]" -ForegroundColor Red
-    foreach ($file in $suspiciousFiles) {
-        Write-Host "  • $file" -ForegroundColor Yellow
-    }
+if ($verifiedMods.Count -gt 0) {
+	Write-Host "{ Verified Mods }" -ForegroundColor Cyan
+	foreach ($mod in $verifiedMods) {
+		Write-Host ("> {0, -30}" -f $mod.ModName) -ForegroundColor Green -NoNewline
+		Write-Host "$($mod.FileName)" -ForegroundColor Gray
+	}
+	Write-Host
 }
 
-if ($modifiedFiles.Count -gt 0) {
-    Write-Host ""
-    Write-Host "[MODIFIED FILES]" -ForegroundColor Red
-    foreach ($file in $modifiedFiles) {
-        Write-Host "  • $file" -ForegroundColor Yellow
-    }
+if ($unknownMods.Count -gt 0) {
+	Write-Host "{ Unknown Mods }" -ForegroundColor Cyan
+	foreach ($mod in $unknownMods) {
+		if ($mod.ZoneId) {
+			Write-Host ("> {0, -30}" -f $mod.FileName) -ForegroundColor Yellow -NoNewline
+			Write-Host "$($mod.ZoneId)" -ForegroundColor DarkGray
+			continue
+		}
+		Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
+	}
+	Write-Host
 }
 
-Write-Host ""
-Write-Host "Scan completed by YarpLetapStan" -ForegroundColor Cyan
-Write-Host ""
-Read-Host "Press Enter to exit"
+if ($cheatMods.Count -gt 0) {
+	Write-Host "{ Cheat Mods }" -ForegroundColor Cyan
+	foreach ($mod in $cheatMods) {
+		Write-Host "> $($mod.FileName)" -ForegroundColor Red -NoNewline
+		if ($mod.DepFileName) {
+			Write-Host " ->" -ForegroundColor Gray -NoNewline
+			Write-Host " $($mod.DepFileName)" -ForegroundColor Red -NoNewline
+		}
+		Write-Host " [$($mod.StringsFound)]" -ForegroundColor Magenta
+	}
+	Write-Host
+}
+
+if ($modifiedMods.Count -gt 0) {
+	Write-Host "{ Modified After Javaw Started }" -ForegroundColor Cyan
+	foreach ($mod in $modifiedMods) {
+		Write-Host "> $($mod.FileName)" -ForegroundColor Red -NoNewline
+		Write-Host " (Modified: $($mod.ModifiedTime))" -ForegroundColor DarkGray
+	}
+	Write-Host
+}
