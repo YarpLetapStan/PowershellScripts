@@ -75,9 +75,29 @@ public class MemoryReader {
 
 Write-Host "Opening process memory..." -ForegroundColor Yellow
 
-$processHandle = [MemoryReader]::OpenProcess(0x0410, $false, $processId)
+# Try with PROCESS_ALL_ACCESS first
+$processHandle = [MemoryReader]::OpenProcess(0x1F0FFF, $false, $processId)
 if ($processHandle -eq [IntPtr]::Zero) {
+    # Try with minimum required access
+    $processHandle = [MemoryReader]::OpenProcess(0x0410, $false, $processId)
+}
+
+if ($processHandle -eq [IntPtr]::Zero) {
+    $lastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
     Write-Host "ERROR: Could not open process!" -ForegroundColor Red
+    Write-Host "Error Code: $lastError" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Possible reasons:" -ForegroundColor Yellow
+    Write-Host "  - Need to run as SYSTEM (not just Administrator)" -ForegroundColor Gray
+    Write-Host "  - Windows Defender has protected process light (PPL)" -ForegroundColor Gray
+    Write-Host "  - Anti-tampering protection is enabled" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Try using System Informer/Process Hacker instead:" -ForegroundColor Cyan
+    Write-Host "  1. Open System Informer as Admin" -ForegroundColor White
+    Write-Host "  2. Right-click MsMpEng.exe > Properties" -ForegroundColor White
+    Write-Host "  3. Memory tab > Options > Strings" -ForegroundColor White
+    Write-Host "  4. Min length: 5, Check all boxes" -ForegroundColor White
+    Write-Host "  5. Search for: -jar" -ForegroundColor White
     pause
     exit
 }
