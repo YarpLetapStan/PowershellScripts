@@ -1,117 +1,106 @@
-# Jar Execution Checker by YarpLetapStan
-# Checks for JAR files executed since last PC shutdown
-# github.com/YarpLetapStan
+# JAR Execution Checker
+# Created by YarpLetapStan
+# Checks for JAR files executed since last system boot
 
-# Open clean window immediately
-Start-Process powershell.exe -WindowStyle Normal -ArgumentList @"
--NoExit -Command "& {
-    Clear-Host
-    Write-Host '============================================' -ForegroundColor Cyan
-    Write-Host '     Jar Execution Checker by YarpLetapStan' -ForegroundColor Cyan
-    WriteHost '============================================' -ForegroundColor Cyan
-    Write-Host ''
-    
-    # Get last shutdown time
-    try {
-        `$shutdown = Get-WinEvent -FilterHashtable @{LogName='System';ID=6006} -MaxEvents 1 -ErrorAction Stop
-        Write-Host 'Last system shutdown: ' -NoNewline
-        Write-Host `$shutdown.TimeCreated -ForegroundColor Yellow
-    } catch {
-        `$uptime = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-        Write-Host 'System up since: ' -NoNewline
-        Write-Host `$uptime -ForegroundColor Yellow
-    }
-    
-    Write-Host ''
-    Write-Host 'Scanning for JAR files executed since shutdown...' -ForegroundColor White
-    Write-Host '--------------------------------------------' -ForegroundColor Gray
-    
-    # Check for running JAR processes
-    `$jarProcesses = @()
-    Get-Process java, javaw -ErrorAction SilentlyContinue | ForEach-Object {
-        `$cmdLine = (Get-CimInstance Win32_Process -Filter \"ProcessId=`$(`$_.Id)\").CommandLine
-        if (`$cmdLine -match '\.jar') {
-            `$jarProcesses += [PSCustomObject]@{
-                Type = 'Running JAR'
-                PID = `$_.Id
-                Name = `$_.ProcessName
-                Command = `$cmdLine
-                StartTime = `$_.StartTime
-            }
-        }
-    }
-    
-    # Check prefetch for recent JAR execution
-    `$prefetchJars = @()
-    `$prefetchPath = \"`$env:SystemRoot\\Prefetch\"
-    if (Test-Path `$prefetchPath) {
-        `$lastBoot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-        Get-ChildItem -Path `$prefetchPath -Filter \"*.pf\" -ErrorAction SilentlyContinue | 
-            Where-Object { `$_.LastWriteTime -gt `$lastBoot } |
-            ForEach-Object {
-                if (`$_.Name -match 'java|javaw|jar') {
-                    `$prefetchJars += [PSCustomObject]@{
-                        Type = 'Prefetch'
-                        Name = `$_.Name
-                        LastRun = `$_.LastWriteTime
-                        Path = `$_.FullName
-                    }
-                }
-            }
-    }
-    
-    # Combine results
-    `$allResults = `$jarProcesses + `$prefetchJars
-    
-    # Display results
-    if (`$allResults.Count -gt 0) {
-        Write-Host \"`nFound `$(`$allResults.Count) evidence(s) of JAR execution:\" -ForegroundColor Yellow
-        Write-Host ''
-        
-        # Show running processes
-        if (`$jarProcesses.Count -gt 0) {
-            Write-Host 'Currently Running JAR Processes:' -ForegroundColor Cyan
-            foreach (`$proc in `$jarProcesses) {
-                Write-Host \"  PID `$(`$proc.PID) (`$(`$proc.Name))\" -ForegroundColor White
-                Write-Host \"    Started: `$(`$proc.StartTime)\" -ForegroundColor Gray
-                Write-Host \"    Command: `$(`$proc.Command)\" -ForegroundColor Gray
-                Write-Host ''
-            }
-        }
-        
-        # Show prefetch evidence
-        if (`$prefetchJars.Count -gt 0) {
-            Write-Host 'Prefetch Evidence (recent executions):' -ForegroundColor Cyan
-            foreach (`$pf in `$prefetchJars) {
-                Write-Host \"  `$(`$pf.Name)\" -ForegroundColor White
-                Write-Host \"    Last Run: `$(`$pf.LastRun)\" -ForegroundColor Gray
-                Write-Host ''
-            }
-        }
-        
-        # Summary
-        Write-Host 'Summary:' -ForegroundColor Yellow
-        Write-Host \"  Running JAR processes: `$(`$jarProcesses.Count)\" -ForegroundColor White
-        Write-Host \"  Prefetch evidence: `$(`$prefetchJars.Count)\" -ForegroundColor White
-        Write-Host \"  Total findings: `$(`$allResults.Count)\" -ForegroundColor White
-        
-    } else {
-        Write-Host '`nNo evidence of JAR files executed since last shutdown.' -ForegroundColor Green
-    }
-    
-    Write-Host ''
-    Write-Host '--------------------------------------------' -ForegroundColor Gray
-    Write-Host 'github.com/YarpLetapStan' -ForegroundColor Gray
-    Write-Host 'Script by YarpLetapStan' -ForegroundColor Gray
-    Write-Host ''
-    Write-Host 'Window closes in 30 seconds or press any key...' -ForegroundColor Cyan
-    try {
-        `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown,AllowCtrlC')
-    } catch {
-        Start-Sleep -Seconds 30
-    }
-}"
-"@
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "   JAR Execution Checker v1.0" -ForegroundColor Cyan
+Write-Host "   By YarpLetapStan" -ForegroundColor Cyan
+Write-Host "========================================`n" -ForegroundColor Cyan
 
-# Exit the original window
-Stop-Process -Id $PID
+# Get last boot time
+$bootTime = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+Write-Host "[INFO] System last booted: $bootTime`n" -ForegroundColor Yellow
+
+# Initialize results array
+$executedJars = @()
+
+# Check Prefetch for JAR executions
+Write-Host "[SCANNING] Checking Prefetch data..." -ForegroundColor Green
+$prefetchPath = "$env:SystemRoot\Prefetch"
+if (Test-Path $prefetchPath) {
+    $prefetchFiles = Get-ChildItem -Path $prefetchPath -Filter "JAVA*.pf" -ErrorAction SilentlyContinue
+    foreach ($file in $prefetchFiles) {
+        if ($file.LastWriteTime -gt $bootTime) {
+            $executedJars += [PSCustomObject]@{
+                Source = "Prefetch"
+                File = $file.Name
+                LastAccess = $file.LastWriteTime
+                Path = $file.FullName
+            }
+        }
+    }
+}
+
+# Check Recent Items
+Write-Host "[SCANNING] Checking Recent Items..." -ForegroundColor Green
+$recentPath = "$env:APPDATA\Microsoft\Windows\Recent"
+if (Test-Path $recentPath) {
+    $recentJars = Get-ChildItem -Path $recentPath -Filter "*.jar.lnk" -ErrorAction SilentlyContinue
+    foreach ($file in $recentJars) {
+        if ($file.LastWriteTime -gt $bootTime) {
+            $executedJars += [PSCustomObject]@{
+                Source = "Recent Items"
+                File = $file.Name -replace '.lnk$', ''
+                LastAccess = $file.LastWriteTime
+                Path = $file.FullName
+            }
+        }
+    }
+}
+
+# Check Windows Event Logs for process creation
+Write-Host "[SCANNING] Checking Event Logs..." -ForegroundColor Green
+try {
+    $events = Get-WinEvent -FilterHashtable @{
+        LogName = 'Microsoft-Windows-Sysmon/Operational', 'Security'
+        ID = 1, 4688
+        StartTime = $bootTime
+    } -ErrorAction SilentlyContinue | Where-Object {
+        $_.Message -match '\.jar' -or $_.Message -match 'java.*\.jar'
+    }
+    
+    foreach ($event in $events) {
+        $executedJars += [PSCustomObject]@{
+            Source = "Event Log"
+            File = "JAR execution detected"
+            LastAccess = $event.TimeCreated
+            Path = "Event ID: $($event.Id)"
+        }
+    }
+} catch {
+    Write-Host "[WARN] Limited access to event logs (requires admin)" -ForegroundColor Yellow
+}
+
+# Check common temp directories
+Write-Host "[SCANNING] Checking temp directories..." -ForegroundColor Green
+$tempPaths = @($env:TEMP, "$env:LOCALAPPDATA\Temp", "$env:SystemRoot\Temp")
+foreach ($tempPath in $tempPaths) {
+    if (Test-Path $tempPath) {
+        $tempJars = Get-ChildItem -Path $tempPath -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastAccessTime -gt $bootTime }
+        
+        foreach ($jar in $tempJars) {
+            $executedJars += [PSCustomObject]@{
+                Source = "Temp Directory"
+                File = $jar.Name
+                LastAccess = $jar.LastAccessTime
+                Path = $jar.FullName
+            }
+        }
+    }
+}
+
+# Display results
+Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "   RESULTS" -ForegroundColor Cyan
+Write-Host "========================================`n" -ForegroundColor Cyan
+
+if ($executedJars.Count -eq 0) {
+    Write-Host "[RESULT] No JAR file executions detected since last boot." -ForegroundColor Green
+} else {
+    Write-Host "[RESULT] Found $($executedJars.Count) JAR-related activity:`n" -ForegroundColor Yellow
+    $executedJars | Sort-Object LastAccess -Descending | Format-Table -AutoSize
+}
+
+Write-Host "`n[INFO] Scan complete. Press any key to exit..." -ForegroundColor Cyan
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
