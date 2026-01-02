@@ -113,6 +113,7 @@ function Fetch-Modrinth-By-Filename {
         
         # Search Modrinth API
         $searchUrl = "https://api.modrinth.com/v2/search?query=`"$cleanName`"&facets=`"[[`"project_type:mod`"]]`""
+        Write-Host "  Searching Modrinth for: $cleanName" -ForegroundColor DarkGray
         $searchResponse = Invoke-RestMethod -Uri $searchUrl -Method Get -UseBasicParsing -ErrorAction Stop
         
         if ($searchResponse.hits -and $searchResponse.hits.Count -gt 0) {
@@ -142,7 +143,7 @@ function Fetch-Modrinth-By-Filename {
             }
         }
     } catch {
-        Write-Verbose "API error for $filename: $_"
+        Write-Host "  [WARN] API error for $filename" -ForegroundColor Yellow
     }
     
     return @{ Found = $false; ModName = ""; Version = ""; ExpectedSize = 0; FileName = "" }
@@ -154,6 +155,7 @@ function Fetch-Modrinth-By-Hash {
     )
     try {
         $url = "https://api.modrinth.com/v2/version_file/$hash?algorithm=sha1"
+        Write-Host "  Checking hash on Modrinth: $hash" -ForegroundColor DarkGray
         $response = Invoke-RestMethod -Uri $url -Method Get -UseBasicParsing -ErrorAction Stop
         
         if ($response.project_id) {
@@ -175,7 +177,7 @@ function Fetch-Modrinth-By-Hash {
     } catch {
         # 404 is expected for unknown files
         if ($_.Exception.Response.StatusCode -ne 404) {
-            Write-Verbose "Modrinth API error: $_"
+            Write-Host "  [WARN] Modrinth API error" -ForegroundColor Yellow
         }
     }
     
@@ -235,7 +237,7 @@ function Check-Strings {
             }
         }
     } catch {
-        Write-Verbose "Could not read file: $filePath"
+        Write-Host "  [WARN] Could not read file" -ForegroundColor Yellow
     }
     
     return $stringsFound
@@ -399,38 +401,21 @@ foreach ($file in $jarFiles) {
 if ($unknownMods.Count -gt 0) {
     Write-Host "`n{ Scanning Unknown Mods for Cheat Strings }" -ForegroundColor Cyan
     
-    $tempDir = Join-Path $env:TEMP "modanalyzer_$(Get-Random)"
     $counter = 0
     
-    try {
-        if (Test-Path $tempDir) {
-            Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
-        }
+    foreach ($mod in $unknownMods) {
+        $counter++
+        $spin = $spinner[$counter % $spinner.Length]
+        Write-Host "`r[$spin] Scanning unknown mods: $counter / $($unknownMods.Count)" -ForegroundColor Magenta -NoNewline
         
-        New-Item -ItemType Directory -Path $tempDir | Out-Null
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-    
-        foreach ($mod in $unknownMods) {
-            $counter++
-            $spin = $spinner[$counter % $spinner.Length]
-            Write-Host "`r[$spin] Scanning unknown mods: $counter / $($unknownMods.Count)" -ForegroundColor Magenta -NoNewline
-            
-            $modStrings = Check-Strings $mod.FilePath
-            if ($modStrings.Count -gt 0) {
-                $cheatMods += [PSCustomObject]@{ 
-                    FileName = $mod.FileName
-                    StringsFound = $modStrings
-                    FileSize = $mod.FileSize
-                    FilePath = $mod.FilePath
-                }
-                continue
+        $modStrings = Check-Strings $mod.FilePath
+        if ($modStrings.Count -gt 0) {
+            $cheatMods += [PSCustomObject]@{ 
+                FileName = $mod.FileName
+                StringsFound = $modStrings
+                FileSize = $mod.FileSize
+                FilePath = $mod.FilePath
             }
-        }
-    } catch {
-        Write-Host "`n  Error while scanning: $_" -ForegroundColor Red
-    } finally {
-        if (Test-Path $tempDir) {
-            Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
         }
     }
 }
