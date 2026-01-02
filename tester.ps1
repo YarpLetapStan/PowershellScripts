@@ -198,6 +198,7 @@ foreach ($file in $jarFiles) {
 			ModName = $modDataModrinth.Name
 			FileName = $file.Name
 			Version = $modDataModrinth.VersionName
+			ExpectedSize = $expectedSize
 		}
 		continue;
     }
@@ -208,6 +209,7 @@ foreach ($file in $jarFiles) {
 			ModName = $modDataMegabase.Name
 			FileName = $file.Name
 			Version = "Unknown"
+			ExpectedSize = 0
 		}
 		continue;
 	}
@@ -278,7 +280,10 @@ if ($verifiedMods.Count -gt 0) {
 		Write-Host ("> {0, -30}" -f $mod.ModName) -ForegroundColor Green -NoNewline
 		Write-Host "$($mod.FileName)" -ForegroundColor Gray -NoNewline
 		if ($mod.Version -and $mod.Version -ne "Unknown") {
-			Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray
+			Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray -NoNewline
+		}
+		if ($mod.ExpectedSize -and $mod.ExpectedSize -gt 0) {
+			Write-Host " ($([math]::Round($mod.ExpectedSize/1KB, 2)) KB)" -ForegroundColor DarkGray
 		} else {
 			Write-Host ""
 		}
