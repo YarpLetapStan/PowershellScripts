@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-    Memory Scanner by YarpLetapStan
+    Java Memory Cheat Detector by YarpLetapStan
 .DESCRIPTION
-    Scans Java process memory for cheat strings
+    Detects cheat strings in Java process memory
 .NOTES
     Author: YarpLetapStan
     Requires: Administrator privileges
@@ -27,36 +27,29 @@ if (-not $isAdmin) {
 }
 
 Write-Host "==========================================" -ForegroundColor Magenta
-Write-Host "  Java Memory Scanner" -ForegroundColor Magenta
+Write-Host "  Java Cheat Detector" -ForegroundColor Magenta
 Write-Host "  by YarpLetapStan" -ForegroundColor Magenta
 Write-Host "==========================================" -ForegroundColor Magenta
 Write-Host ""
 Write-Host "[*] Admin privileges: YES" -ForegroundColor Green
 Write-Host ""
 
-# Cheat strings to search for with more variations
+# EXACT CHEAT STRINGS FROM YOUR HABIBI OUTPUT
 $searchStrings = @(
-    "autocrystal", "AutoCrystal", "AUTOCRYSTAL", "auto crystal", "Auto Crystal",
-    "cw crystal", "CWcrystal", "autohitcrystal", "AutoHitCrystal",
-    "autoanchor", "AutoAnchor", "auto anchor", "Auto Anchor",
-    "anchortweaks", "AnchorTweaks", "anchor macro", "Anchor Macro",
-    "autototem", "AutoTotem", "auto totem", "Auto Totem",
-    "legittotem", "LegitTotem", "inventorytotem", "InventoryTotem",
-    "hover totem", "HoverTotem", "Hover Totem",
-    "autopot", "AutoPot", "auto pot", "Auto Pot",
-    "velocity", "Velocity", "VELOCITY",
-    "autodoublehand", "AutoDoubleHand", "auto double hand", "Auto Double Hand",
-    "autoarmor", "AutoArmor", "auto armor", "Auto Armor",
-    "automace", "AutoMace", "auto mace", "Auto Mace",
-    "aimassist", "AimAssist", "aim assist", "Aim Assist",
-    "triggerbot", "TriggerBot", "trigger bot", "Trigger Bot",
-    "shieldbreaker", "ShieldBreaker", "shield breaker", "Shield Breaker",
-    "axespam", "AxeSpam", "axe spam", "Axe Spam",
-    "jumpreset", "JumpReset", "jump reset", "Jump Reset",
-    "pingspoof", "PingSpoof", "ping spoof", "Ping Spoof",
-    "fastplace", "FastPlace", "fast place", "Fast Place",
-    "webmacro", "WebMacro", "web macro", "Web Macro",
-    "selfdestruct", "SelfDestruct", "self destruct", "Self Destruct"
+    # From Habibi output - these are the EXACT strings to search for
+    "AutoCrystal", "AutoTotem", "AutoAnchor", "AutoArmor",
+    "InventoryTotem", "JumpReset", "PingReset", "SelfDestruct",
+    "TriggerBot", "Velocity", "AxeSpam", "WebMacro", "FastPlace",
+    
+    # Additional variations (case-insensitive)
+    "autocrystal", "autototem", "autoanchor", "autoarmor",
+    "inventorytotem", "jumpreset", "pingreset", "selfdestruct",
+    "triggerbot", "velocity", "axespam", "webmacro", "fastplace",
+    
+    # Module/class patterns (from JAR files)
+    "AutoCrystal", "AutoTotem", "AutoAnchor", # Exact class names
+    "CrystalAura", "Crystal", "Aura",         # Common cheat names
+    "Anchor", "Totem", "Armor"                # Component names
 )
 
 # Add memory scanning capabilities
@@ -80,36 +73,36 @@ public class MemoryScanner {
 "@
 
 Write-Host "[*] Looking for Java processes..." -ForegroundColor Cyan
-$processes = Get-Process javaw, java -ErrorAction SilentlyContinue | Where-Object { $_.Responding -eq $true }
+$processes = Get-Process javaw -ErrorAction SilentlyContinue | Where-Object { $_.Responding -eq $true }
 
 if ($processes.Count -eq 0) {
-    Write-Host "[X] No Java processes found" -ForegroundColor Red
+    Write-Host "[X] No javaw processes found" -ForegroundColor Red
+    Write-Host "    Make sure Minecraft is running" -ForegroundColor Yellow
     pause
     exit
 }
 
-Write-Host "[✓] Found $($processes.Count) Java process(es)" -ForegroundColor Green
+Write-Host "[✓] Found $($processes.Count) javaw process(es)" -ForegroundColor Green
 Write-Host ""
 
-$foundAnything = $false
-$realFindings = @()
+$foundCheats = @()
+$cheatDetails = @()
 
 foreach ($proc in $processes) {
     Write-Host "==========================================" -ForegroundColor DarkCyan
-    Write-Host "[SCANNING] $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor Cyan
+    Write-Host "[SCANNING] javaw (PID: $($proc.Id))" -ForegroundColor Cyan
     
     if ($proc.MainWindowTitle) {
-        Write-Host "Title: $($proc.MainWindowTitle)" -ForegroundColor Gray
+        Write-Host "Client: $($proc.MainWindowTitle)" -ForegroundColor Gray
     }
     
     Write-Host "Memory: $([math]::Round($proc.WorkingSet64/1MB, 1)) MB" -ForegroundColor Gray
     Write-Host ""
     
-    $processFindings = @()
+    Write-Host "[*] Opening process memory..." -ForegroundColor Yellow
     
     try {
         # Open process for memory reading
-        Write-Host "[*] Opening process for memory access..." -ForegroundColor Yellow
         $hProcess = [MemoryScanner]::OpenProcess(
             [MemoryScanner]::PROCESS_VM_READ -bor [MemoryScanner]::PROCESS_QUERY_INFORMATION,
             $false,
@@ -122,68 +115,44 @@ foreach ($proc in $processes) {
             continue
         }
         
-        Write-Host "[*] Scanning memory modules..." -ForegroundColor Yellow
+        Write-Host "[*] Scanning loaded modules..." -ForegroundColor Yellow
         
-        # List of Windows system files to IGNORE (avoid false positives)
-        $systemFiles = @(
-            "kernel32.dll", "kernelbase.dll", "ntdll.dll", "user32.dll",
-            "gdi32.dll", "advapi32.dll", "msvcrt.dll", "ole32.dll",
-            "oleaut32.dll", "shell32.dll", "shlwapi.dll", "ws2_32.dll",
-            "wininet.dll", "urlmon.dll", "crypt32.dll", "secur32.dll",
-            "imm32.dll", "comctl32.dll", "comdlg32.dll", "winmm.dll",
-            "version.dll", "psapi.dll", "powrprof.dll", "setupapi.dll",
-            "dwmapi.dll", "uxtheme.dll", "dinput8.dll", "xinput1_3.dll",
-            "xinput1_4.dll", "d3d9.dll", "d3d11.dll", "dxgi.dll",
-            "opengl32.dll", "glu32.dll", "ddraw.dll", "dsound.dll",
-            "msacm32.dll", "winspool.drv", "apphelp.dll", "cryptbase.dll",
-            "bcrypt.dll", "ncrypt.dll", "rsaenh.dll", "dpapi.dll",
-            "credui.dll", "netapi32.dll", "netutils.dll", "wtsapi32.dll",
-            "winsta.dll", "cscapi.dll", "mpr.dll", "iphlpapi.dll",
-            "dhcpcsvc.dll", "dhcpcsvc6.dll", "dnsapi.dll", "wsock32.dll",
-            "msimg32.dll", "usp10.dll", "gdiplus.dll", "windowscodecs.dll",
-            "propsys.dll", "audioeng.dll", "audioses.dll", "avrt.dll",
-            "mf.dll", "mfplat.dll", "mfreadwrite.dll", "msvcp", "msvcr",
-            "vcruntime", "concrt", "api-ms-win", "openal.dll", "dxgl.dll"
-        )
-        
-        # Get process modules to scan
+        # Scan each module in the process
         foreach ($module in $proc.Modules) {
             $moduleName = $module.ModuleName.ToLower()
             
-            # Skip Windows system files to avoid false positives
-            $isSystemFile = $false
-            foreach ($sysFile in $systemFiles) {
-                if ($moduleName.Contains($sysFile)) {
-                    $isSystemFile = $true
-                    break
-                }
+            # Skip common Windows system files
+            if ($moduleName -match "kernel|ntdll|user32|gdi32|advapi|msvcrt|ole32|shell32") {
+                continue
             }
             
-            if ($isSystemFile) {
-                continue  # Skip this system file
+            # Skip very small modules
+            if ($module.ModuleMemorySize -lt 4096) {
+                continue
             }
             
             try {
-                $moduleSize = $module.ModuleMemorySize
-                if ($moduleSize -gt 0 -and $moduleSize -lt 50000000) { # Less than 50MB
-                    # Read module memory
-                    $buffer = New-Object byte[] $moduleSize
-                    $bytesRead = 0
-                    
-                    if ([MemoryScanner]::ReadProcessMemory($hProcess, $module.BaseAddress, $buffer, $moduleSize, [ref] $bytesRead)) {
-                        if ($bytesRead -gt 100) {
-                            # Convert to text and search
-                            $asciiText = [System.Text.Encoding]::ASCII.GetString($buffer, 0, [Math]::Min($bytesRead, 1000000))
-                            $unicodeText = [System.Text.Encoding]::Unicode.GetString($buffer, 0, [Math]::Min($bytesRead, 1000000))
-                            
-                            foreach ($search in $searchStrings) {
-                                # Search in ASCII
-                                if ($asciiText.IndexOf($search, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                                    $processFindings += "$search (in $($module.ModuleName))"
+                # Read module memory
+                $bufferSize = [Math]::Min($module.ModuleMemorySize, 10485760) # Max 10MB
+                $buffer = New-Object byte[] $bufferSize
+                $bytesRead = 0
+                
+                if ([MemoryScanner]::ReadProcessMemory($hProcess, $module.BaseAddress, $buffer, $bufferSize, [ref] $bytesRead)) {
+                    if ($bytesRead -gt 1000) {
+                        # Convert to Unicode (Java uses UTF-16)
+                        $unicodeText = [System.Text.Encoding]::Unicode.GetString($buffer, 0, $bytesRead)
+                        
+                        # Search for each cheat string
+                        foreach ($cheat in $searchStrings) {
+                            if ($unicodeText.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                                $cheatDetails += [PSCustomObject]@{
+                                    CheatName = $cheat
+                                    Module = $module.ModuleName
+                                    ProcessId = $proc.Id
                                 }
-                                # Search in Unicode (UTF-16)
-                                elseif ($unicodeText.IndexOf($search, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                                    $processFindings += "$search (in $($module.ModuleName))"
+                                
+                                if (-not ($foundCheats -contains $cheat)) {
+                                    $foundCheats += $cheat
                                 }
                             }
                         }
@@ -198,18 +167,18 @@ foreach ($proc in $processes) {
         [MemoryScanner]::CloseHandle($hProcess)
         
     } catch {
-        Write-Host "[X] Error: $_" -ForegroundColor Red
+        Write-Host "[X] Error scanning memory: $_" -ForegroundColor Red
     }
     
-    # Show results for this process
-    if ($processFindings.Count -eq 0) {
+    # Show preliminary results for this process
+    $processCheats = $cheatDetails | Where-Object { $_.ProcessId -eq $proc.Id } | Select-Object -ExpandProperty CheatName -Unique
+    
+    if ($processCheats.Count -eq 0) {
         Write-Host "[✓] No cheat strings found" -ForegroundColor Green
     } else {
-        Write-Host "[!] FOUND $($processFindings.Count) STRING(S):" -ForegroundColor Red
-        foreach ($finding in $processFindings | Select-Object -Unique) {
-            Write-Host "  - $finding" -ForegroundColor Yellow
-            $foundAnything = $true
-            $realFindings += $finding
+        Write-Host "[!] Found in this process:" -ForegroundColor Red
+        foreach ($cheat in $processCheats) {
+            Write-Host "  - $cheat" -ForegroundColor Yellow
         }
     }
     
@@ -217,34 +186,43 @@ foreach ($proc in $processes) {
 }
 
 Write-Host "==========================================" -ForegroundColor Magenta
-Write-Host "          SCAN COMPLETE" -ForegroundColor Magenta
+Write-Host "          DETECTION RESULTS" -ForegroundColor Magenta
 Write-Host "==========================================" -ForegroundColor Magenta
 Write-Host ""
 
-if ($foundAnything) {
-    Write-Host "[!] CHEAT STRINGS DETECTED!" -ForegroundColor Red
-    Write-Host "    Found in memory scan" -ForegroundColor Red
-    
-    # Show unique findings
-    Write-Host ""
-    Write-Host "Unique findings:" -ForegroundColor Yellow
-    foreach ($finding in $realFindings | Select-Object -Unique) {
-        $cheatName = ($finding -split ' ')[0]
-        Write-Host "  - $cheatName" -ForegroundColor Red
-    }
-} else {
-    Write-Host "[✓] No cheat strings found" -ForegroundColor Green
+if ($foundCheats.Count -eq 0) {
+    Write-Host "[✓] NO CHEATS DETECTED" -ForegroundColor Green
     Write-Host ""
     Write-Host "[?] Possible reasons:" -ForegroundColor Yellow
-    Write-Host "    - Cheats may use different naming" -ForegroundColor Gray
-    Write-Host "    - Try different string variations" -ForegroundColor Gray
-    Write-Host "    - Cheats might be packed/obfuscated" -ForegroundColor Gray
+    Write-Host "    - Cheats not loaded into memory yet" -ForegroundColor Gray
+    Write-Host "    - Cheats use obfuscated names" -ForegroundColor Gray
+    Write-Host "    - Different string encoding" -ForegroundColor Gray
+} else {
+    Write-Host "[!] CHEATS DETECTED IN MEMORY!" -ForegroundColor Red
+    Write-Host "    Found $($foundCheats.Count) cheat type(s)" -ForegroundColor Red
+    Write-Host ""
+    
+    Write-Host "Detected cheats:" -ForegroundColor Yellow
+    foreach ($cheat in $foundCheats | Sort-Object) {
+        $count = ($cheatDetails | Where-Object { $_.CheatName -eq $cheat }).Count
+        Write-Host "  - $cheat ($count instances)" -ForegroundColor Red
+    }
+    
+    Write-Host ""
+    Write-Host "Found in modules:" -ForegroundColor Gray
+    $uniqueModules = $cheatDetails | Select-Object -ExpandProperty Module -Unique
+    foreach ($module in $uniqueModules) {
+        $moduleCheats = $cheatDetails | Where-Object { $_.Module -eq $module } | Select-Object -ExpandProperty CheatName -Unique
+        Write-Host "  $module : $($moduleCheats -join ', ')" -ForegroundColor DarkGray
+    }
 }
 
 Write-Host ""
-Write-Host "Processes scanned: $($processes.Count)" -ForegroundColor Gray
-Write-Host "String patterns: $($searchStrings.Count)" -ForegroundColor Gray
-Write-Host "Memory scan: Java process modules" -ForegroundColor Gray
+Write-Host "==========================================" -ForegroundColor DarkGray
+Write-Host "Scan summary:" -ForegroundColor Gray
+Write-Host "  Processes scanned: $($processes.Count)" -ForegroundColor Gray
+Write-Host "  Cheat patterns: $($searchStrings.Count)" -ForegroundColor Gray
+Write-Host "  Scan type: Memory string search" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Press any key to exit..." -ForegroundColor Gray
 pause
