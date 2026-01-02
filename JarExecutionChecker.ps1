@@ -1,166 +1,82 @@
-# JAR Injection Checker for Minecraft
-# Created by YarpLetapStan
-# Checks for JAR files by searching for "-jar" strings in process memory
+# System Informer JAR Execution Checker
+# Automates memory string search for "-jar" in msmpeng.exe
 
-# Clear the screen and open a new CMD window to hide the original command
-Start-Process cmd.exe -ArgumentList "/k powershell -NoProfile -ExecutionPolicy Bypass -Command `"& {
-    Clear-Host
-    Write-Host '========================================' -ForegroundColor Cyan
-    Write-Host '   JAR Injection Checker v1.0' -ForegroundColor Cyan
-    Write-Host '   By YarpLetapStan' -ForegroundColor Cyan
-    Write-Host '========================================\n' -ForegroundColor Cyan
-    Write-Host '[INFO] Scanning system for JAR file executions...\n' -ForegroundColor Yellow
-    
-    # Get last boot time
-    `$bootTime = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
-    
-    # Initialize results array
-    `$foundJars = @()
-    
-    # Check MsMpEng process
-    `$msmpengProcess = Get-Process -Name 'MsMpEng' -ErrorAction SilentlyContinue
-    if (`$msmpengProcess) {
-        # Check Windows Defender logs for scanned/detected items
-        try {
-            `$defenderEvents = Get-WinEvent -LogName 'Microsoft-Windows-Windows Defender/Operational' -MaxEvents 500 -ErrorAction SilentlyContinue |
-                Where-Object { 
-                    (`$_.Message -match '-jar' -or `$_.Message -match '\.jar') -and 
-                    `$_.TimeCreated -gt `$bootTime 
-                }
-            
-            if (`$defenderEvents) {
-                foreach (`$event in `$defenderEvents) {
-                    `$message = `$event.Message
-                    if (`$message -match '(?:file:|path:|Process Name:)\s*([^\r\n]+\.jar[^\r\n]*)') {
-                        `$jarPath = `$matches[1].Trim()
-                        `$foundJars += [PSCustomObject]@{
-                            Source = 'Defender Event Log'
-                            Detection = 'JAR file reference'
-                            FilePath = `$jarPath
-                            Timestamp = `$event.TimeCreated
-                            EventID = `$event.Id
-                        }
-                    }
-                }
-            }
-        } catch {}
-    }
-    
-    # Check all Java processes for '-jar' command line arguments
-    `$javaProcesses = Get-Process -Name 'java', 'javaw' -ErrorAction SilentlyContinue
-    
-    if (`$javaProcesses) {
-        foreach (`$proc in `$javaProcesses) {
-            try {
-                `$processInfo = Get-CimInstance Win32_Process -Filter \"ProcessId = `$(`$proc.Id)\" -ErrorAction Stop
-                `$cmdLine = `$processInfo.CommandLine
-                
-                if (`$cmdLine -match '-jar\s+\"?([^\"\\s]+\.jar)') {
-                    `$jarPath = `$matches[1]
-                    `$foundJars += [PSCustomObject]@{
-                        Source = 'Active Java Process'
-                        ProcessID = `$proc.Id
-                        Detection = 'Command line argument'
-                        FilePath = `$jarPath
-                        Timestamp = `$proc.StartTime
-                        FullCommand = `$cmdLine
-                    }
-                }
-            } catch {}
-        }
-    }
-    
-    # Check Windows Event Logs for process creation with '-jar'
-    try {
-        `$processEvents = Get-WinEvent -FilterHashtable @{
-            LogName = 'Security', 'Microsoft-Windows-Sysmon/Operational'
-            ID = 4688, 1
-            StartTime = `$bootTime
-        } -ErrorAction SilentlyContinue | Where-Object { `$_.Message -match '-jar' } | Select-Object -First 20
-        
-        if (`$processEvents) {
-            foreach (`$event in `$processEvents) {
-                if (`$event.Message -match '([^\\s]+\.jar)') {
-                    `$jarPath = `$matches[1]
-                    `$foundJars += [PSCustomObject]@{
-                        Source = 'Process Creation Event'
-                        Detection = \"Event Log ID `$(`$event.Id)\"
-                        FilePath = `$jarPath
-                        Timestamp = `$event.TimeCreated
-                    }
-                }
-            }
-        }
-    } catch {}
-    
-    # Check recent JAR files accessed in common locations
-    `$searchPaths = @(
-        \"`$env:APPDATA\.minecraft\",
-        \"`$env:TEMP\",
-        \"`$env:USERPROFILE\Downloads\",
-        \"`$env:USERPROFILE\Desktop\"
-    )
-    
-    foreach (`$path in `$searchPaths) {
-        if (Test-Path `$path) {
-            `$recentJars = Get-ChildItem -Path `$path -Filter '*.jar' -Recurse -ErrorAction SilentlyContinue |
-                Where-Object { `$_.LastAccessTime -gt `$bootTime } |
-                Select-Object -First 10
-            
-            foreach (`$jar in `$recentJars) {
-                `$foundJars += [PSCustomObject]@{
-                    Source = 'File System Scan'
-                    Detection = 'Recently accessed'
-                    FilePath = `$jar.FullName
-                    Timestamp = `$jar.LastAccessTime
-                }
-            }
-        }
-    }
-    
-    # Display results
-    Write-Host '\n========================================' -ForegroundColor Cyan
-    Write-Host '   DETECTION RESULTS' -ForegroundColor Cyan
-    Write-Host '========================================\n' -ForegroundColor Cyan
-    
-    if (`$foundJars.Count -eq 0) {
-        Write-Host '[RESULT] No JAR file executions detected since last boot.' -ForegroundColor Green
-    } else {
-        Write-Host \"[RESULT] Found `$(`$foundJars.Count) JAR file detection(s):\n\" -ForegroundColor Yellow
-        
-        # Remove duplicates and display
-        `$uniqueJars = `$foundJars | Sort-Object FilePath -Unique
-        
-        foreach (`$jar in `$uniqueJars) {
-            Write-Host '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' -ForegroundColor DarkGray
-            Write-Host 'Source:    ' -NoNewline -ForegroundColor Cyan
-            Write-Host `$jar.Source -ForegroundColor White
-            Write-Host 'Detection: ' -NoNewline -ForegroundColor Cyan
-            Write-Host `$jar.Detection -ForegroundColor White
-            Write-Host 'File Path: ' -NoNewline -ForegroundColor Cyan
-            Write-Host `$jar.FilePath -ForegroundColor Yellow
-            Write-Host 'Timestamp: ' -NoNewline -ForegroundColor Cyan
-            Write-Host `$jar.Timestamp -ForegroundColor White
-            
-            if (`$jar.ProcessID) {
-                Write-Host 'PID:       ' -NoNewline -ForegroundColor Cyan
-                Write-Host `$jar.ProcessID -ForegroundColor White
-            }
-            
-            if (`$jar.FullCommand) {
-                Write-Host 'Full CMD:  ' -NoNewline -ForegroundColor Cyan
-                Write-Host `$jar.FullCommand -ForegroundColor Gray
-            }
-            Write-Host ''
-        }
-        
-        Write-Host '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' -ForegroundColor DarkGray
-        Write-Host \"\n[SUMMARY] Total unique JAR files: `$(`$uniqueJars.Count)\" -ForegroundColor Green
-    }
-    
-    Write-Host '\n[INFO] Scan complete. Press any key to exit...' -ForegroundColor Cyan
-    `$null = `$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-}`""
+Write-Host "=== JAR Execution Checker ===" -ForegroundColor Cyan
+Write-Host ""
 
-# Exit the original window immediately
+# Check if System Informer is installed
+$siPaths = @(
+    "C:\Program Files\SystemInformer\SystemInformer.exe",
+    "C:\Program Files (x86)\SystemInformer\SystemInformer.exe",
+    "$env:ProgramFiles\SystemInformer\SystemInformer.exe"
+)
+
+$siPath = $null
+foreach ($path in $siPaths) {
+    if (Test-Path $path) {
+        $siPath = $path
+        break
+    }
+}
+
+if (-not $siPath) {
+    Write-Host "ERROR: System Informer not found!" -ForegroundColor Red
+    Write-Host "Please install System Informer first." -ForegroundColor Yellow
+    pause
+    Start-Process cmd.exe
+    exit
+}
+
+# Find msmpeng.exe process
+Write-Host "Looking for msmpeng.exe process..." -ForegroundColor Yellow
+$msmpeng = Get-Process -Name "MsMpEng" -ErrorAction SilentlyContinue
+
+if (-not $msmpeng) {
+    Write-Host "ERROR: msmpeng.exe process not found!" -ForegroundColor Red
+    Write-Host "Windows Defender may not be running." -ForegroundColor Yellow
+    pause
+    Start-Process cmd.exe
+    exit
+}
+
+$pid = $msmpeng.Id
+Write-Host "Found msmpeng.exe (PID: $pid)" -ForegroundColor Green
+Write-Host ""
+
+# Launch System Informer with specific process selected
+Write-Host "Launching System Informer..." -ForegroundColor Yellow
+Start-Process -FilePath $siPath -ArgumentList "-selectpid $pid"
+
+Start-Sleep -Seconds 2
+
+# Use UI automation to navigate
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName UIAutomationClient
+
+Write-Host "Attempting to automate System Informer..." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Note: If automation fails, manually:" -ForegroundColor Cyan
+Write-Host "  1. Right-click MsMpEng.exe > Properties" -ForegroundColor White
+Write-Host "  2. Go to Memory tab > Click 'Options' > Click 'Strings'" -ForegroundColor White
+Write-Host "  3. Set minimum length: 5" -ForegroundColor White
+Write-Host "  4. Check: Image, Mapped, Private, Extended Unicode, Detect Unicode" -ForegroundColor White
+Write-Host "  5. Click OK, then search for: -jar" -ForegroundColor White
+Write-Host ""
+
+# Send keystrokes to automate (best effort)
+Start-Sleep -Seconds 1
+[System.Windows.Forms.SendKeys]::SendWait("{ENTER}")  # Open properties
+Start-Sleep -Milliseconds 500
+[System.Windows.Forms.SendKeys]::SendWait("^+m")      # Memory tab shortcut (if available)
+
+Write-Host "Searching for JAR executions in memory..." -ForegroundColor Green
+Write-Host ""
+Write-Host "Results will appear in System Informer." -ForegroundColor Yellow
+Write-Host "Look for lines containing '-jar' to see executed JAR files." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Press any key to close this window and open a fresh CMD..." -ForegroundColor Cyan
+pause > $null
+
+# Open fresh CMD and close this one
+Start-Process cmd.exe
 exit
