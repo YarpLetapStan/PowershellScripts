@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Java Memory Cheat Detector by YarpLetapStan
+    Java Cheat Detector by YarpLetapStan
 .DESCRIPTION
-    Simple cheat string scanner for javaw processes
+    Hybrid scanner: tries memory scanning first, falls back to module scanning
 .NOTES
-    File: JavawStringChecker.ps1
+    File: JavawStringChecker_Hybrid.ps1
     Run as Administrator
 #>
 
@@ -54,8 +54,20 @@ if (-not $javaw) {
 Write-Host "Found $($javaw.Count) javaw process(es)" -ForegroundColor Gray
 Write-Host ""
 
-# Win32 API for memory scanning
-Add-Type @"
+$foundCheats = @{}
+$totalInstances = 0
+$scanMethod = "Memory"
+
+foreach ($proc in $javaw) {
+    Write-Host "Scanning PID $($proc.Id)..." -ForegroundColor DarkGray
+    $cheatsInProcess = 0
+    
+    # TRY MEMORY SCANNING FIRST
+    $memoryScanSuccess = $false
+    $memoryRegionsScanned = 0
+    
+    try {
+        Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public class MemScan {
@@ -79,67 +91,102 @@ public class MemScan {
     public const uint MEM_COMMIT = 0x1000;
 }
 "@
-
-$foundCheats = @{}
-$totalInstances = 0
-
-foreach ($proc in $javaw) {
-    Write-Host "Scanning PID $($proc.Id)..." -ForegroundColor DarkGray
-    
-    $hProcess = [MemScan]::OpenProcess([MemScan]::PROCESS_VM_READ -bor [MemScan]::PROCESS_QUERY_INFORMATION, $false, $proc.Id)
-    if ($hProcess -eq [IntPtr]::Zero) { 
-        Write-Host "  Cannot access memory" -ForegroundColor DarkGray
-        continue 
+        
+        $hProcess = [MemScan]::OpenProcess([MemScan]::PROCESS_VM_READ -bor [MemScan]::PROCESS_QUERY_INFORMATION, $false, $proc.Id)
+        
+        if ($hProcess -ne [IntPtr]::Zero) {
+            $address = [IntPtr]::Zero
+            $mbi = New-Object MemScan+MEMORY_BASIC_INFORMATION
+            $mbiSize = [System.Runtime.InteropServices.Marshal]::SizeOf($mbi)
+            
+            while ([MemScan]::VirtualQueryEx($hProcess, $address, [ref] $mbi, $mbiSize)) {
+                $regionSize = $mbi.RegionSize.ToInt64()
+                if ($mbi.State -eq [MemScan]::MEM_COMMIT -and $regionSize -gt 1024 -and $regionSize -lt 10485760) {
+                    $memoryRegionsScanned++
+                    
+                    try {
+                        $buffer = New-Object byte[] ([Math]::Min($regionSize, 524288))
+                        $bytesRead = 0
+                        
+                        if ([MemScan]::ReadProcessMemory($hProcess, $mbi.BaseAddress, $buffer, $buffer.Length, [ref] $bytesRead)) {
+                            if ($bytesRead -gt 100) {
+                                $text = [System.Text.Encoding]::ASCII.GetString($buffer, 0, [Math]::Min($bytesRead, 100000))
+                                foreach ($cheat in $cheats) {
+                                    if ($text.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                                        if (-not $foundCheats.ContainsKey($cheat)) {
+                                            $foundCheats[$cheat] = 0
+                                        }
+                                        $foundCheats[$cheat]++
+                                        $totalInstances++
+                                        $cheatsInProcess++
+                                        $memoryScanSuccess = $true
+                                    }
+                                }
+                            }
+                        }
+                    } catch { }
+                }
+                $address = [IntPtr]($address.ToInt64() + $regionSize)
+                if ($address.ToInt64() -gt 0x40000000) { break }
+            }
+            
+            [MemScan]::CloseHandle($hProcess)
+        }
+    } catch {
+        $memoryScanSuccess = $false
     }
     
-    $address = [IntPtr]::Zero
-    $mbi = New-Object MemScan+MEMORY_BASIC_INFORMATION
-    $mbiSize = [System.Runtime.InteropServices.Marshal]::SizeOf($mbi)
-    $regionsScanned = 0
-    
-    while ([MemScan]::VirtualQueryEx($hProcess, $address, [ref] $mbi, $mbiSize)) {
-        $regionSize = $mbi.RegionSize.ToInt64()
-        $isReadable = $mbi.Protect -band 0x02 -or $mbi.Protect -band 0x04 -or $mbi.Protect -band 0x08 -or $mbi.Protect -band 0x10
-        $isCommitted = $mbi.State -eq [MemScan]::MEM_COMMIT
+    # IF MEMORY SCAN FAILED OR FOUND NOTHING, TRY MODULE SCANNING
+    if (-not $memoryScanSuccess -or $memoryRegionsScanned -eq 0) {
+        $scanMethod = "Module"
+        Write-Host "  Memory scan failed, trying module scan..." -ForegroundColor Yellow
         
-        if ($isReadable -and $isCommitted -and $regionSize -gt 1024 -and $regionSize -lt 10485760) {
-            $regionsScanned++
-            
-            try {
-                $buffer = New-Object byte[] ([Math]::Min($regionSize, 2097152))
-                $bytesRead = 0
+        try {
+            $modulesScanned = 0
+            foreach ($module in $proc.Modules) {
+                $modulesScanned++
+                $moduleName = $module.ModuleName.ToLower()
                 
-                if ([MemScan]::ReadProcessMemory($hProcess, $mbi.BaseAddress, $buffer, $buffer.Length, [ref] $bytesRead)) {
-                    if ($bytesRead -gt 100) {
-                        $asciiText = [System.Text.Encoding]::ASCII.GetString($buffer, 0, [Math]::Min($bytesRead, 1000000))
-                        $unicodeText = [System.Text.Encoding]::Unicode.GetString($buffer, 0, [Math]::Min($bytesRead, 1000000))
+                if ($moduleName -match "kernel|ntdll|windows|system32") {
+                    continue
+                }
+                
+                try {
+                    $modulePath = $module.FileName
+                    if ($modulePath -and (Test-Path $modulePath)) {
+                        $bytes = [System.IO.File]::ReadAllBytes($modulePath)
+                        $text = [System.Text.Encoding]::ASCII.GetString($bytes)
                         
                         foreach ($cheat in $cheats) {
-                            $foundInAscii = $asciiText.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0
-                            $foundInUnicode = $unicodeText.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0
-                            
-                            if ($foundInAscii -or $foundInUnicode) {
+                            if ($text.IndexOf($cheat, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
                                 if (-not $foundCheats.ContainsKey($cheat)) {
                                     $foundCheats[$cheat] = 0
                                 }
                                 $foundCheats[$cheat]++
                                 $totalInstances++
+                                $cheatsInProcess++
+                                
+                                Write-Host "  [!] Found '$cheat' in $moduleName" -ForegroundColor Red
                             }
                         }
                     }
-                }
-            } catch { }
+                } catch { }
+            }
+            Write-Host "  Scanned $modulesScanned modules" -ForegroundColor DarkGray
+        } catch {
+            Write-Host "  Module scan also failed" -ForegroundColor Red
         }
-        
-        $address = [IntPtr]($address.ToInt64() + $regionSize)
-        if ($address.ToInt64() -gt 0x80000000) { break }
+    } else {
+        Write-Host "  Scanned $memoryRegionsScanned memory regions" -ForegroundColor DarkGray
     }
     
-    [MemScan]::CloseHandle($hProcess)
-    Write-Host "  Scanned $regionsScanned memory regions" -ForegroundColor DarkGray
+    if ($cheatsInProcess -gt 0) {
+        Write-Host "  Found $cheatsInProcess cheat instances" -ForegroundColor Red
+    }
+    
+    Write-Host ""
 }
 
-Write-Host ""
 Write-Host "========================" -ForegroundColor DarkGray
 
 if ($foundCheats.Count -eq 0) {
@@ -152,6 +199,7 @@ if ($foundCheats.Count -eq 0) {
     Write-Host ""
     Write-Host "Found $($foundCheats.Count) cheat type(s)" -ForegroundColor Red
     Write-Host "Total instances: $totalInstances" -ForegroundColor Red
+    Write-Host "Scan method: $scanMethod" -ForegroundColor Gray
 }
 
 Write-Host "========================" -ForegroundColor DarkGray
