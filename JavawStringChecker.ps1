@@ -5,7 +5,7 @@
     Scans running Java processes memory for UNICODE cheat strings (like System Informer String Search)
 .NOTES
     Author: YarpLetapStan
-    Version: 3.0
+    Version: 3.1
     Requires: Administrator privileges
 #>
 
@@ -41,8 +41,9 @@ $cheatStrings = @(
     "pingspoof", "ping spoof",
     "fastplace", "fast place",
     "webmacro", "web macro",
-    "hitboxes", 
-    "selfdestruct", "self destruct",
+    "hitboxes", "hitbox",
+    "playeresp",
+    "selfdestruct", "self destruct"
 )
 
 # Add .NET memory reading capabilities
@@ -448,6 +449,7 @@ Write-Host "========================================" -ForegroundColor DarkGray
 Write-Host "Scan Method: System Informer-style Unicode memory scan" -ForegroundColor Gray
 Write-Host "Memory Regions: Private, Image, Mapped (all readable regions)" -ForegroundColor Gray
 Write-Host "Encoding: UTF-16 Unicode (Java standard)" -ForegroundColor Gray
+Write-Host "Cheat Strings: $($cheatStrings.Count) specific patterns" -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "Press any key to exit..."
