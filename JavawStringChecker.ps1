@@ -5,7 +5,7 @@
     Simple memory string scanner for Java processes
 .NOTES
     Author: YarpLetapStan
-    Version: 1.0
+    Version: 1.1
 #>
 
 # Set execution policy
