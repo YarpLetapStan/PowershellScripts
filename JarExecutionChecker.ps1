@@ -42,7 +42,7 @@ public class MemoryReader {
     public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
     
     [DllImport("kernel32.dll")]
-    public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, int dwSize, out int lpNumberOfBytesRead);
+    public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, long dwSize, out long lpNumberOfBytesRead);
     
     [DllImport("kernel32.dll")]
     public static extern bool CloseHandle(IntPtr hObject);
@@ -66,6 +66,7 @@ public class MemoryReader {
     public const uint MEM_COMMIT = 0x1000;
     public const uint PAGE_READWRITE = 0x04;
     public const uint PAGE_READONLY = 0x02;
+    public const uint PAGE_EXECUTE_READ = 0x20;
     public const uint MEM_PRIVATE = 0x20000;
     public const uint MEM_IMAGE = 0x1000000;
     public const uint MEM_MAPPED = 0x40000;
@@ -81,54 +82,62 @@ if ($processHandle -eq [IntPtr]::Zero) {
     exit
 }
 
-$jarStrings = @()
+$jarStrings = New-Object System.Collections.Generic.HashSet[string]
 $address = [IntPtr]::Zero
 $mbi = New-Object MemoryReader+MEMORY_BASIC_INFORMATION
 $mbiSize = [Runtime.InteropServices.Marshal]::SizeOf($mbi)
 
 Write-Host "Scanning memory regions (this may take a minute)..." -ForegroundColor Yellow
+Write-Host ""
 
 # Scan memory regions
 $scanned = 0
+$totalRegions = 0
+
 while ([MemoryReader]::VirtualQueryEx($processHandle, $address, [ref]$mbi, $mbiSize) -ne 0) {
+    $totalRegions++
+    
     # Check if region is committed and readable (Image, Mapped, or Private)
     if ($mbi.State -eq 0x1000 -and 
         ($mbi.Type -eq 0x1000000 -or $mbi.Type -eq 0x40000 -or $mbi.Type -eq 0x20000) -and
         ($mbi.Protect -eq 0x04 -or $mbi.Protect -eq 0x02 -or $mbi.Protect -eq 0x20)) {
         
-        $regionSize = [int64]$mbi.RegionSize
+        $regionSize = [long]$mbi.RegionSize
         if ($regionSize -gt 0 -and $regionSize -lt 100MB) {
             try {
                 $buffer = New-Object byte[] $regionSize
-                $bytesRead = 0
+                $bytesRead = [long]0
                 
-                if ([MemoryReader]::ReadProcessMemory($processHandle, $mbi.BaseAddress, $buffer, $regionSize, [ref]$bytesRead)) {
-                # Search for ASCII strings containing "-jar" (minimum length 5)
-                $ascii = [System.Text.Encoding]::ASCII.GetString($buffer)
-                if ($ascii -match '-jar') {
+                if ([MemoryReader]::ReadProcessMemory($processHandle, $mbi.BaseAddress, $buffer, $regionSize, [ref]$bytesRead) -and $bytesRead -gt 0) {
+                    # Search for ASCII strings containing "-jar" (minimum length 5)
+                    $ascii = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $bytesRead)
                     $matches = [regex]::Matches($ascii, '[\x20-\x7E]{5,}')
                     foreach ($match in $matches) {
                         if ($match.Value -match '-jar') {
-                            $jarStrings += $match.Value
+                            [void]$jarStrings.Add($match.Value.Trim())
                         }
                     }
-                }
-                
-                # Search for Unicode strings containing "-jar"
-                $unicode = [System.Text.Encoding]::Unicode.GetString($buffer)
-                if ($unicode -match '-jar') {
-                    $matches = [regex]::Matches($unicode, '[\x20-\x7E]{5,}')
-                    foreach ($match in $matches) {
-                        if ($match.Value -match '-jar') {
-                            $jarStrings += $match.Value
+                    
+                    # Search for Unicode strings containing "-jar"
+                    try {
+                        $unicode = [System.Text.Encoding]::Unicode.GetString($buffer, 0, $bytesRead)
+                        $matches = [regex]::Matches($unicode, '[\x20-\x7E]{5,}')
+                        foreach ($match in $matches) {
+                            if ($match.Value -match '-jar') {
+                                [void]$jarStrings.Add($match.Value.Trim())
+                            }
                         }
+                    } catch {
+                        # Unicode conversion can fail on some data
                     }
+                    
+                    $scanned++
+                    Write-Host "." -NoNewline -ForegroundColor Gray
                 }
             } catch {
                 # Skip regions that can't be read
             }
         }
-        $scanned++
     }
     
     # Move to next region (handle large addresses properly)
@@ -143,17 +152,27 @@ while ([MemoryReader]::VirtualQueryEx($processHandle, $address, [ref]$mbi, $mbiS
 [MemoryReader]::CloseHandle($processHandle)
 
 Write-Host ""
-Write-Host "Scan complete! Scanned $scanned memory regions." -ForegroundColor Green
+Write-Host ""
+Write-Host "Scan complete! Scanned $scanned readable regions out of $totalRegions total." -ForegroundColor Green
 Write-Host ""
 
 if ($jarStrings.Count -eq 0) {
     Write-Host "No JAR executions found in memory." -ForegroundColor Yellow
+    Write-Host "This could mean:" -ForegroundColor Gray
+    Write-Host "  - No JAR files have been executed recently" -ForegroundColor Gray
+    Write-Host "  - The strings have been cleared from memory" -ForegroundColor Gray
+    Write-Host "  - JAR executions are in protected memory regions" -ForegroundColor Gray
 } else {
-    Write-Host "Found $($jarStrings.Count) strings containing '-jar':" -ForegroundColor Green
+    Write-Host "Found $($jarStrings.Count) unique strings containing '-jar':" -ForegroundColor Green
     Write-Host ""
-    $jarStrings | Select-Object -Unique | ForEach-Object {
-        Write-Host "  $_" -ForegroundColor White
+    Write-Host "=================================" -ForegroundColor Cyan
+    $counter = 1
+    foreach ($str in $jarStrings | Sort-Object) {
+        Write-Host "[$counter] " -NoNewline -ForegroundColor Yellow
+        Write-Host "$str" -ForegroundColor White
+        $counter++
     }
+    Write-Host "=================================" -ForegroundColor Cyan
 }
 
 Write-Host ""
