@@ -35,6 +35,14 @@ function Search-ProcessMemory {
     
     Write-Host "[INFO] Found $ProcessName (PID: $($process.Id))" -ForegroundColor Cyan
     Write-Host "[INFO] Note: Direct memory scanning requires System Informer or similar tools" -ForegroundColor Yellow
+    Write-Host "[INFO] To manually search in System Informer:" -ForegroundColor Cyan
+    Write-Host "       1. Right-click MsMpEng.exe > Properties" -ForegroundColor Gray
+    Write-Host "       2. Go to Memory tab > Click 'Strings' button" -ForegroundColor Gray
+    Write-Host "       3. In String Search window:" -ForegroundColor Gray
+    Write-Host "          - Set Minimum length: 5" -ForegroundColor Gray
+    Write-Host "          - Check: Private, Image, Mapped" -ForegroundColor Gray
+    Write-Host "          - Search for: -jar" -ForegroundColor Gray
+    Write-Host "       4. Click OK to search`n" -ForegroundColor Gray
     Write-Host "[INFO] Checking alternative detection methods...`n" -ForegroundColor Yellow
     
     # Check Windows Defender logs for scanned/detected items
@@ -207,8 +215,12 @@ if ($foundJars.Count -eq 0) {
     Write-Host "`n[SUMMARY] Total unique JAR files: $($uniqueJars.Count)" -ForegroundColor Green
 }
 
-Write-Host "`n[TIP] For deeper memory analysis, use System Informer:" -ForegroundColor Cyan
-Write-Host "  String Search: MsMpEng.exe > Memory > Strings > Search '-jar'" -ForegroundColor Gray
+Write-Host "`n[TIP] For deeper memory analysis using System Informer:" -ForegroundColor Cyan
+Write-Host "  1. Find MsMpEng.exe in System Informer process list" -ForegroundColor Gray
+Write-Host "  2. Right-click > Properties" -ForegroundColor Gray
+Write-Host "  3. Memory tab > Click 'Strings' button" -ForegroundColor Gray
+Write-Host "  4. Set minimum length to 5, check Private/Image/Mapped" -ForegroundColor Gray
+Write-Host "  5. Search for '-jar' to find executed JAR files" -ForegroundColor Gray
 
 Write-Host "`n[INFO] Scan complete. Press any key to exit..." -ForegroundColor Cyan
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
