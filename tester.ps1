@@ -1,10 +1,8 @@
 # JAR Cheat Scanner
 # Scans JAR files for cheat strings and checks modification times
+# Usage: powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/YourUsername/YourRepo/main/JarCheatScanner.ps1)"
 
-param(
-    [Parameter(Mandatory=$true, Position=0)]
-    [string]$FolderPath
-)
+Clear-Host
 
 # Cheat-related strings to search for
 $cheatStrings = @(
@@ -49,9 +47,22 @@ $cheatStrings = @(
 Write-Host "=== JAR Cheat Scanner ===" -ForegroundColor Cyan
 Write-Host ""
 
+# Prompt for folder path
+$FolderPath = Read-Host "Enter the folder path to scan for JAR files"
+
+if ([string]::IsNullOrWhiteSpace($FolderPath)) {
+    Write-Host "Error: No folder path provided" -ForegroundColor Red
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+# Remove quotes if user pasted path with quotes
+$FolderPath = $FolderPath.Trim('"').Trim("'")
+
 # Validate folder path
 if (-not (Test-Path -Path $FolderPath -PathType Container)) {
     Write-Host "Error: Folder path '$FolderPath' does not exist or is not a directory" -ForegroundColor Red
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -72,10 +83,11 @@ if ($javawProcess) {
 Write-Host ""
 
 # Find all JAR files in the folder
-$jarFiles = Get-ChildItem -Path $FolderPath -Filter "*.jar" -File
+$jarFiles = Get-ChildItem -Path $FolderPath -Filter "*.jar" -File -ErrorAction SilentlyContinue
 
 if ($jarFiles.Count -eq 0) {
     Write-Host "No JAR files found in $FolderPath" -ForegroundColor Red
+    Read-Host "Press Enter to exit"
     exit 0
 }
 
@@ -168,3 +180,5 @@ Write-Host "Files with suspicious strings: $suspiciousCount" -ForegroundColor $(
 if ($processStartTime) {
     Write-Host "Files modified after Java started: $modifiedCount" -ForegroundColor $(if ($modifiedCount -gt 0) { "Red" } else { "Green" })
 }
+Write-Host ""
+Read-Host "Press Enter to exit"
