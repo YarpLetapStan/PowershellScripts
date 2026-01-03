@@ -10,7 +10,7 @@ Write-Host ""
 
 Write-Host "Made by " -ForegroundColor Blue -NoNewline
 Write-Host "YarpLetapStan" -ForegroundColor Blue
-Write-Host "Credit to Habibi Mod Analyzer" -ForegroundColor DarkGray
+Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host
 
 Write-Host "Enter path to the mods folder: " -NoNewline
