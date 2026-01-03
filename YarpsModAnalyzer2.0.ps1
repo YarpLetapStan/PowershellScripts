@@ -564,7 +564,7 @@ try {
 
 Write-Host "`r$(' ' * 80)`r" -NoNewline
 
-# Display results
+# Display results - CHANGED ORDER: Unknown Mods before Potentially Tampered Mods
 Write-Host "`n{ Results Summary }" -ForegroundColor Cyan
 Write-Host
 
@@ -616,25 +616,7 @@ if ($verifiedMods.Count -gt 0) {
     Write-Host ""
 }
 
-if ($tamperedMods.Count -gt 0) {
-    Write-Host "{ Potentially Tampered Mods }" -ForegroundColor Red
-    Write-Host "Total: $($tamperedMods.Count) ⚠ WARNING"
-    Write-Host
-    
-    foreach ($mod in $tamperedMods) {
-        $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
-        Write-Host "> $($mod.FileName)" -ForegroundColor Red
-        Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
-        Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Actual: $($mod.ActualSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
-        Write-Host "  ⚠ File size differs significantly from Modrinth version!" -ForegroundColor Red
-        
-        if ($mod.ModrinthUrl) {
-            Write-Host "  Verify: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
-        }
-        Write-Host ""
-    }
-}
-
+# CHANGED: Unknown Mods now come before Potentially Tampered Mods
 if ($unknownMods.Count -gt 0) {
     Write-Host "{ Unknown Mods }" -ForegroundColor Yellow
     Write-Host "Total: $($unknownMods.Count)"
@@ -657,6 +639,26 @@ if ($unknownMods.Count -gt 0) {
         }
         
         Write-Host "  Hash: $($mod.Hash)" -ForegroundColor DarkGray
+        Write-Host ""
+    }
+}
+
+# CHANGED: Potentially Tampered Mods now come after Unknown Mods
+if ($tamperedMods.Count -gt 0) {
+    Write-Host "{ Potentially Tampered Mods }" -ForegroundColor Red
+    Write-Host "Total: $($tamperedMods.Count) ⚠ WARNING"
+    Write-Host
+    
+    foreach ($mod in $tamperedMods) {
+        $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
+        Write-Host "> $($mod.FileName)" -ForegroundColor Red
+        Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
+        Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Actual: $($mod.ActualSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
+        Write-Host "  ⚠ File size differs significantly from Modrinth version!" -ForegroundColor Red
+        
+        if ($mod.ModrinthUrl) {
+            Write-Host "  Verify: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
+        }
         Write-Host ""
     }
 }
