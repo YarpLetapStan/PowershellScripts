@@ -151,7 +151,6 @@ function Get-Mod-Info-From-Jar {
                 if ($fabricData.breaks) { $modInfo.Breaks = $fabricData.breaks }
                 if ($fabricData.conflicts) { $modInfo.Conflicts = $fabricData.conflicts }
                 
-                $modInfo.Source = "fabric.mod.json"
                 $zip.Dispose()
                 return $modInfo
             } catch {
@@ -185,7 +184,6 @@ function Get-Mod-Info-From-Jar {
                 $modInfo.Authors = @($matches[1])
             }
             
-            $modInfo.Source = "META-INF/mods.toml"
             $zip.Dispose()
             return $modInfo
         }
@@ -208,7 +206,6 @@ function Get-Mod-Info-From-Jar {
                         $modInfo.ModId = $packageParts[-2]  # Often the mod ID is second-to-last part
                     }
                 }
-                $modInfo.Source = "mixins.json"
             } catch {
                 # JSON parsing failed
             }
@@ -624,7 +621,7 @@ foreach ($file in $jarFiles) {
     $actualSizeKB = [math]::Round($actualSize/1KB, 2)
     $zoneInfo = Get-ZoneIdentifier $file.FullName
     
-    # NEW: Extract mod info from JAR file
+    # Extract mod info from JAR file
     $jarModInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
     
     # Try Modrinth by hash first (most accurate)
@@ -633,7 +630,6 @@ foreach ($file in $jarFiles) {
     if ($modData.Name -and $modData.FoundByHash) {
         # Calculate size difference
         $sizeDiff = $actualSize - $modData.ExpectedSize
-        $sizeDiffText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
         $expectedSizeKB = [math]::Round($modData.ExpectedSize/1KB, 2)
         
         $modEntry = [PSCustomObject]@{ 
@@ -645,19 +641,16 @@ foreach ($file in $jarFiles) {
             ActualSize = $actualSize
             ActualSizeKB = $actualSizeKB
             SizeDiff = $sizeDiff
-            SizeDiffText = $sizeDiffText
             SizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
             DownloadSource = $zoneInfo.Source
             SourceURL = $zoneInfo.URL
             IsModrinthDownload = $zoneInfo.IsModrinth
             ModrinthUrl = $modData.ModrinthUrl
-            VerifiedBy = "Hash"
             IsVerified = $true
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
-            JarSource = $jarModInfo.Source
         }
         
         $verifiedMods += $modEntry
@@ -674,7 +667,7 @@ foreach ($file in $jarFiles) {
         continue
     }
     
-    # NEW: Try to find mod on Modrinth using mod ID from JAR file
+    # Try to find mod on Modrinth using mod ID from JAR file
     $modrinthInfoFromJar = $null
     if ($jarModInfo.ModId) {
         $modrinthInfoFromJar = Fetch-Modrinth-By-ModId -modId $jarModInfo.ModId -version $jarModInfo.Version
@@ -683,7 +676,6 @@ foreach ($file in $jarFiles) {
     if ($modrinthInfoFromJar -and $modrinthInfoFromJar.Name) {
         # Calculate size difference
         $sizeDiff = $actualSize - $modrinthInfoFromJar.ExpectedSize
-        $sizeDiffText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
         $expectedSizeKB = if ($modrinthInfoFromJar.ExpectedSize -gt 0) { [math]::Round($modrinthInfoFromJar.ExpectedSize/1KB, 2) } else { 0 }
         
         $modEntry = [PSCustomObject]@{ 
@@ -695,13 +687,11 @@ foreach ($file in $jarFiles) {
             ActualSize = $actualSize
             ActualSizeKB = $actualSizeKB
             SizeDiff = $sizeDiff
-            SizeDiffText = $sizeDiffText
             SizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
             DownloadSource = $zoneInfo.Source
             SourceURL = $zoneInfo.URL
             IsModrinthDownload = $zoneInfo.IsModrinth
             ModrinthUrl = $modrinthInfoFromJar.ModrinthUrl
-            VerifiedBy = "JAR Metadata"
             IsVerified = $true
             ExactMatch = $modrinthInfoFromJar.ExactMatch
             IsLatestVersion = $modrinthInfoFromJar.IsLatestVersion
@@ -709,7 +699,6 @@ foreach ($file in $jarFiles) {
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
-            JarSource = $jarModInfo.Source
         }
         
         $verifiedMods += $modEntry
@@ -733,7 +722,6 @@ foreach ($file in $jarFiles) {
     if ($modrinthInfo.Name) {
         # Calculate size difference
         $sizeDiff = $actualSize - $modrinthInfo.ExpectedSize
-        $sizeDiffText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
         $expectedSizeKB = if ($modrinthInfo.ExpectedSize -gt 0) { [math]::Round($modrinthInfo.ExpectedSize/1KB, 2) } else { 0 }
         
         $modEntry = [PSCustomObject]@{ 
@@ -745,13 +733,11 @@ foreach ($file in $jarFiles) {
             ActualSize = $actualSize
             ActualSizeKB = $actualSizeKB
             SizeDiff = $sizeDiff
-            SizeDiffText = $sizeDiffText
             SizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
             DownloadSource = $zoneInfo.Source
             SourceURL = $zoneInfo.URL
             IsModrinthDownload = $zoneInfo.IsModrinth
             ModrinthUrl = $modrinthInfo.ModrinthUrl
-            VerifiedBy = "Filename"
             IsVerified = $true
             ExactMatch = $modrinthInfo.ExactMatch
             IsLatestVersion = $modrinthInfo.IsLatestVersion
@@ -759,7 +745,6 @@ foreach ($file in $jarFiles) {
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
-            JarSource = $jarModInfo.Source
         }
         
         $verifiedMods += $modEntry
@@ -788,18 +773,15 @@ foreach ($file in $jarFiles) {
             ActualSize = $actualSize
             ActualSizeKB = $actualSizeKB
             SizeDiff = 0
-            SizeDiffText = "N/A"
             SizeDiffKB = 0
             DownloadSource = $zoneInfo.Source
             SourceURL = $zoneInfo.URL
             IsModrinthDownload = $zoneInfo.IsModrinth
-            VerifiedBy = "Megabase"
             IsVerified = $true
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
-            JarSource = $jarModInfo.Source
         }
         
         $verifiedMods += $modEntry
@@ -820,20 +802,57 @@ foreach ($file in $jarFiles) {
         ExpectedSize = 0
         ExpectedSizeKB = 0
         SizeDiff = 0
-        SizeDiffText = "N/A"
         SizeDiffKB = 0
         ModrinthUrl = ""
-        HasSizeInfo = $false
-        IsLatestVersion = $false
         ModName = ""
         JarModId = $jarModInfo.ModId
         JarName = $jarModInfo.Name
         JarVersion = $jarModInfo.Version
-        JarSource = $jarModInfo.Source
     }
     
     $unknownMods += $unknownModEntry
     $allModsInfo += $unknownModEntry
+}
+
+# For unknown mods, try to find Modrinth info AFTER scanning all mods
+for ($i = 0; $i -lt $unknownMods.Count; $i++) {
+    $mod = $unknownMods[$i]
+    
+    # Try by JAR mod ID first
+    $modrinthInfo = $null
+    if ($mod.JarModId) {
+        $modrinthInfo = Fetch-Modrinth-By-ModId -modId $mod.JarModId -version $mod.JarVersion
+    }
+    
+    # If not found, try by filename
+    if (-not $modrinthInfo -or -not $modrinthInfo.Name) {
+        $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName
+    }
+    
+    if ($modrinthInfo -and $modrinthInfo.Name) {
+        # Update the unknown mod entry with Modrinth info
+        $mod.ModName = $modrinthInfo.Name
+        $mod.ExpectedSize = $modrinthInfo.ExpectedSize
+        $mod.ExpectedSizeKB = if ($modrinthInfo.ExpectedSize -gt 0) { [math]::Round($modrinthInfo.ExpectedSize/1KB, 2) } else { 0 }
+        $mod.SizeDiff = $mod.FileSize - $modrinthInfo.ExpectedSize
+        $mod.SizeDiffKB = [math]::Round(($mod.FileSize - $modrinthInfo.ExpectedSize)/1KB, 2)
+        $mod.ModrinthUrl = $modrinthInfo.ModrinthUrl
+        $mod.ModName = $modrinthInfo.Name
+        
+        # Also update in allModsInfo array
+        for ($j = 0; $j -lt $allModsInfo.Count; $j++) {
+            if ($allModsInfo[$j].FileName -eq $mod.FileName) {
+                $allModsInfo[$j].ModName = $modrinthInfo.Name
+                $allModsInfo[$j].ExpectedSize = $modrinthInfo.ExpectedSize
+                $allModsInfo[$j].ExpectedSizeKB = $mod.ExpectedSizeKB
+                $allModsInfo[$j].SizeDiff = $mod.SizeDiff
+                $allModsInfo[$j].SizeDiffKB = $mod.SizeDiffKB
+                $allModsInfo[$j].ModrinthUrl = $modrinthInfo.ModrinthUrl
+                $allModsInfo[$j].ModName = $modrinthInfo.Name
+                break
+            }
+        }
+    }
 }
 
 # Scan ALL mods for cheat strings (including verified ones)
@@ -854,58 +873,19 @@ try {
         
         $modStrings = Check-Strings $mod.FilePath
         if ($modStrings.Count -gt 0) {
-            # Try to get Modrinth info for this cheat mod if we don't already have it
-            $expectedSizeKB = $mod.ExpectedSizeKB
-            $sizeDiffKB = $mod.SizeDiffKB
-            
-            # If this is an unknown mod or doesn't have size info, try to get it
-            if ($expectedSizeKB -eq 0 -or $mod.HasSizeInfo -eq $false) {
-                # Try to get Modrinth info by mod ID from JAR first
-                if ($mod.JarModId) {
-                    $modrinthInfoFromJar = Fetch-Modrinth-By-ModId -modId $mod.JarModId -version $mod.JarVersion
-                    if ($modrinthInfoFromJar.Name -and $modrinthInfoFromJar.ExpectedSize -gt 0) {
-                        $expectedSizeKB = [math]::Round($modrinthInfoFromJar.ExpectedSize/1KB, 2)
-                        $sizeDiff = $mod.FileSize - $modrinthInfoFromJar.ExpectedSize
-                        $sizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
-                        
-                        # Update the mod entry with this new info
-                        $mod.ExpectedSizeKB = $expectedSizeKB
-                        $mod.SizeDiffKB = $sizeDiffKB
-                        $mod.ModName = $modrinthInfoFromJar.Name
-                        $mod.ModrinthUrl = $modrinthInfoFromJar.ModrinthUrl
-                    }
-                }
-                
-                # If still no info, try by filename
-                if ($expectedSizeKB -eq 0) {
-                    $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName
-                    if ($modrinthInfo.Name -and $modrinthInfo.ExpectedSize -gt 0) {
-                        $expectedSizeKB = [math]::Round($modrinthInfo.ExpectedSize/1KB, 2)
-                        $sizeDiff = $mod.FileSize - $modrinthInfo.ExpectedSize
-                        $sizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
-                        
-                        # Update the mod entry with this new info
-                        $mod.ExpectedSizeKB = $expectedSizeKB
-                        $mod.SizeDiffKB = $sizeDiffKB
-                        $mod.ModName = $modrinthInfo.Name
-                        $mod.ModrinthUrl = $modrinthInfo.ModrinthUrl
-                    }
-                }
-            }
-            
             $cheatMods += [PSCustomObject]@{ 
                 FileName = $mod.FileName
                 StringsFound = $modStrings
                 FileSizeKB = $mod.FileSizeKB
                 DownloadSource = $mod.DownloadSource
                 SourceURL = $mod.ZoneId
-                ExpectedSizeKB = $expectedSizeKB
-                SizeDiffKB = $sizeDiffKB
+                ExpectedSizeKB = $mod.ExpectedSizeKB
+                SizeDiffKB = $mod.SizeDiffKB
                 IsVerifiedMod = ($mod.IsVerified -eq $true)
                 ModName = $mod.ModName
                 ModrinthUrl = $mod.ModrinthUrl
                 FilePath = $mod.FilePath
-                HasSizeMismatch = ($sizeDiffKB -ne 0 -and [math]::Abs($sizeDiffKB) -gt 1)
+                HasSizeMismatch = ($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1)
                 JarModId = $mod.JarModId
                 JarName = $mod.JarName
                 JarVersion = $mod.JarVersion
@@ -922,7 +902,7 @@ try {
 
 Write-Host "`r$(' ' * 80)`r" -NoNewline
 
-# Display results - CHANGED ORDER: Unknown Mods before Potentially Tampered Mods
+# Display results
 Write-Host "`n{ Results Summary }" -ForegroundColor Cyan
 Write-Host
 
@@ -961,8 +941,7 @@ if ($verifiedMods.Count -gt 0) {
             if ($mod.ActualSize -eq $mod.ExpectedSize) {
                 Write-Host "  Size: $($mod.ActualSizeKB) KB ✓" -ForegroundColor Green
             } else {
-                $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
-                # CHANGED: Make tampered mod size display in magenta
+                $sizeDiffSign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
                 if ($tamperedMods.FileName -contains $mod.FileName) {
                     Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Magenta
                 } else {
@@ -970,19 +949,10 @@ if ($verifiedMods.Count -gt 0) {
                 }
             }
         }
-        
-        # Show JAR metadata info if available
-        if ($mod.JarSource) {
-            Write-Host "  Source: $($mod.JarSource)" -ForegroundColor DarkGray
-            if ($mod.JarModId) {
-                Write-Host "  Mod ID: $($mod.JarModId)" -ForegroundColor DarkGray
-            }
-        }
     }
     Write-Host ""
 }
 
-# CHANGED: Unknown Mods now come before Potentially Tampered Mods
 if ($unknownMods.Count -gt 0) {
     Write-Host "{ Unknown Mods }" -ForegroundColor Yellow
     Write-Host "Total: $($unknownMods.Count)"
@@ -992,45 +962,36 @@ if ($unknownMods.Count -gt 0) {
         Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
         Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
         
-        # Show JAR metadata if we found any
-        if ($mod.JarSource) {
-            Write-Host "  Found in JAR: $($mod.JarSource)" -ForegroundColor DarkGray
-            if ($mod.JarModId) {
-                Write-Host "  Mod ID: $($mod.JarModId)" -ForegroundColor DarkGray
-            }
-            if ($mod.JarName) {
-                Write-Host "  Name: $($mod.JarName)" -ForegroundColor DarkGray
-            }
-            if ($mod.JarVersion) {
-                Write-Host "  Version: $($mod.JarVersion)" -ForegroundColor DarkGray
+        # Show Modrinth info if we found it
+        if ($mod.ModName) {
+            Write-Host "  Identified as: $($mod.ModName)" -ForegroundColor Cyan
+            
+            if ($mod.ExpectedSize -gt 0) {
+                if ($mod.FileSize -eq $mod.ExpectedSize) {
+                    Write-Host "  Size matches Modrinth: $($mod.FileSizeKB) KB ✓" -ForegroundColor Green
+                } else {
+                    $sizeDiffSign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
+                    Write-Host "  Size: $($mod.FileSizeKB) KB (Expected from Modrinth: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
+                }
             }
         }
         
         if ($mod.ZoneId) {
             $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "Yellow" }
             Write-Host "  Downloaded from: $($mod.DownloadSource)" -ForegroundColor $sourceColor
-            if ($mod.DownloadSource -eq "Other" -or $mod.DownloadSource -eq "Unknown") {
-                $displayUrl = $mod.ZoneId
-                if ($displayUrl.Length -gt 80) {
-                    $displayUrl = $displayUrl.Substring(0, 77) + "..."
-                }
-                Write-Host "  URL: $displayUrl" -ForegroundColor DarkGray
-            }
         }
         
-        Write-Host "  Hash: $($mod.Hash)" -ForegroundColor DarkGray
         Write-Host ""
     }
 }
 
-# CHANGED: Potentially Tampered Mods now come after Unknown Mods
 if ($tamperedMods.Count -gt 0) {
     Write-Host "{ Potentially Tampered Mods }" -ForegroundColor Red
     Write-Host "Total: $($tamperedMods.Count) ⚠ WARNING"
     Write-Host
     
     foreach ($mod in $tamperedMods) {
-        $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
+        $sizeDiffSign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
         Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
         Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Actual: $($mod.ActualSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
@@ -1038,14 +999,6 @@ if ($tamperedMods.Count -gt 0) {
         
         if ($mod.ModrinthUrl) {
             Write-Host "  Verify: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
-        }
-        
-        # Show JAR metadata
-        if ($mod.JarSource) {
-            Write-Host "  Source: $($mod.JarSource)" -ForegroundColor DarkGray
-            if ($mod.JarModId) {
-                Write-Host "  Mod ID: $($mod.JarModId)" -ForegroundColor DarkGray
-            }
         }
         
         Write-Host ""
@@ -1067,22 +1020,11 @@ if ($cheatMods.Count -gt 0) {
         Write-Host "  Cheat Strings: $($mod.StringsFound)" -ForegroundColor Magenta
         Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
         
-        # Show JAR metadata if available
-        if ($mod.JarModId) {
-            Write-Host "  Mod ID from JAR: $($mod.JarModId)" -ForegroundColor DarkGray
-            if ($mod.JarName) {
-                Write-Host "  Name from JAR: $($mod.JarName)" -ForegroundColor DarkGray
-            }
-            if ($mod.JarVersion) {
-                Write-Host "  Version from JAR: $($mod.JarVersion)" -ForegroundColor DarkGray
-            }
-        }
-        
-        # NEW: Show size comparison for cheat mods
+        # Show size comparison
         if ($mod.ExpectedSizeKB -gt 0) {
             $sizeDiffSign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
             if ($mod.SizeDiffKB -eq 0) {
-                Write-Host "  Expected: $($mod.ExpectedSizeKB) KB ✓ Matches Modrinth" -ForegroundColor Green
+                Write-Host "  Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Green
             } else {
                 Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Yellow
                 
@@ -1097,19 +1039,11 @@ if ($cheatMods.Count -gt 0) {
         
         if ($mod.DownloadSource -ne "Unknown") {
             Write-Host "  Source: $($mod.DownloadSource)" -ForegroundColor Yellow
-            if ($mod.SourceURL) {
-                Write-Host "  URL: $($mod.SourceURL)" -ForegroundColor DarkGray
-            }
         }
         
         if ($mod.IsVerifiedMod) {
             Write-Host "  ⚠ Legitimate mod contains cheat code!" -ForegroundColor Red
             Write-Host "  ⚠ This appears to be a tampered version of a legitimate mod" -ForegroundColor Red
-        }
-        
-        # Show Modrinth URL if available
-        if ($mod.ModrinthUrl) {
-            Write-Host "  Modrinth: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
         }
         
         Write-Host ""
