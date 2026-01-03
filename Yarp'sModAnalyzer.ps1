@@ -2,6 +2,7 @@ Clear-Host
 Write-Host "YarpLetapStan's Mod Analyzer" -ForegroundColor Magenta
 Write-Host "Made by " -ForegroundColor DarkGray -NoNewline
 Write-Host "YarpLetapStan"
+Write-Host "Credit to Habibi Mod Analyzer" -ForegroundColor Cyan
 Write-Host
 
 Write-Host "Enter path to the mods folder: " -NoNewline
@@ -548,8 +549,14 @@ if ($verifiedMods.Count -gt 0) {
     Write-Host
     
     foreach ($mod in $verifiedMods) {
-        Write-Host "> $($mod.ModName)" -ForegroundColor Green -NoNewline
-        Write-Host " - $($mod.FileName)" -ForegroundColor Gray -NoNewline
+        # CHANGED: Make tampered mods display in red and magenta
+        if ($tamperedMods.FileName -contains $mod.FileName) {
+            Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline
+            Write-Host " - $($mod.FileName)" -ForegroundColor Magenta -NoNewline
+        } else {
+            Write-Host "> $($mod.ModName)" -ForegroundColor Green -NoNewline
+            Write-Host " - $($mod.FileName)" -ForegroundColor Gray -NoNewline
+        }
         
         if ($mod.Version -and $mod.Version -ne "Unknown") {
             Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray -NoNewline
@@ -567,7 +574,12 @@ if ($verifiedMods.Count -gt 0) {
                 Write-Host "  Size: $($mod.ActualSizeKB) KB ✓" -ForegroundColor Green
             } else {
                 $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
-                Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
+                # CHANGED: Make tampered mod size display in magenta
+                if ($tamperedMods.FileName -contains $mod.FileName) {
+                    Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Magenta
+                } else {
+                    Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
+                }
             }
         }
     }
@@ -581,8 +593,9 @@ if ($tamperedMods.Count -gt 0) {
     
     foreach ($mod in $tamperedMods) {
         $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
+        # CHANGED: Make tampered mod display in red and magenta
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
-        Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Gray
+        Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
         Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Actual: $($mod.ActualSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
         Write-Host "  ⚠ File size differs significantly from Modrinth version!" -ForegroundColor Red
         
@@ -653,9 +666,6 @@ if ($cheatMods.Count -gt 0) {
         Write-Host ""
     }
 }
-
-# REMOVED the summary report generation entirely
-# No file saving, no report generation
 
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
