@@ -1,14 +1,14 @@
 Clear-Host
 Write-Host "Made by " -ForegroundColor Cyan -NoNewline
 Write-Host "YarpLetapStan" -ForegroundColor Cyan
-Write-Host "Credit to Habibi Mod Analyzer" -ForegroundColor DarkGray
+Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host
 
 # Create a box for the title
 $boxWidth = 38
 Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
 Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
-Write-Host "|" + ("YarpLetapStan Mod Analyzer V2.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|" -ForegroundColor Blue
+Write-Host "|" + ("YarpLetapStan's Mod Analyzer V2.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|" -ForegroundColor Blue
 Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
 Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
 Write-Host ""
