@@ -1,16 +1,28 @@
 Clear-Host
-Write-Host "YarpLetapStan Mod Analyzer" -ForegroundColor Magenta
-Write-Host "Made by " -ForegroundColor DarkGray -NoNewline
-Write-Host "YarpLetapStan"
+Write-Host "Made by " -ForegroundColor Cyan -NoNewline
+Write-Host "YarpLetapStan" -ForegroundColor Cyan
+Write-Host "Credit to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host
 
+# Create a box for the title
+$boxWidth = 38
+Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
+Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
+Write-Host "|" + ("YarpLetapStan Mod Analyzer V2.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|" -ForegroundColor Blue
+Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
+Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
+Write-Host ""
+
 Write-Host "Enter path to the mods folder: " -NoNewline
-$mods = Read-Host
+Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
+$mods = Read-Host "PATH"
 Write-Host
 
 if (-not $mods) {
-    Write-Host "No path provided!" -ForegroundColor Red
-    exit 1
+    $mods = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
+    Write-Host "Continuing with " -NoNewline
+    Write-Host $mods -ForegroundColor White
+    Write-Host
 }
 
 if (-not (Test-Path $mods -PathType Container)) {
@@ -22,8 +34,6 @@ $process = Get-Process javaw -ErrorAction SilentlyContinue
 if (-not $process) {
     $process = Get-Process java -ErrorAction SilentlyContinue
 }
-
-$startTime = $null
 
 if ($process) {
     try {
@@ -47,55 +57,31 @@ function Get-ZoneIdentifier {
     param (
         [string]$filePath
     )
-    $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue
-    if ($ads -match "HostUrl=(.+)") {
-        return $matches[1]
-    }
-    
-    return $null
-}
-
-function Fetch-Modrinth-By-Filename {
-    param (
-        [string]$filename
-    )
     try {
-        # Try to extract mod slug and version from filename
-        # Common patterns: modname-version.jar, modname-mc.version-modversion.jar
-        if ($filename -match '^([a-zA-Z0-9\-]+?)(?:-fabric|-forge|-mc\.[\d\.]+)?-([\d\.]+(?:\+mc[\d\.]+)?)[^\/]*\.jar$') {
-            $modSlug = $matches[1].ToLower()
-            $versionString = $matches[2]
+        $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue
+        if ($ads -match "HostUrl=(.+)") {
+            $url = $matches[1]
             
-            # Search Modrinth for the mod
-            $searchResponse = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$modSlug" -Method Get -UseBasicParsing -ErrorAction Stop
-            
-            if ($searchResponse.id) {
-                # Get all versions for this project
-                $versionsResponse = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($searchResponse.id)/version" -Method Get -UseBasicParsing -ErrorAction Stop
-                
-                # Try to find matching version
-                foreach ($version in $versionsResponse) {
-                    if ($version.files -and $version.files.Count -gt 0) {
-                        $versionFile = $version.files[0]
-                        if ($versionFile.filename -eq $filename) {
-                            return @{
-                                Found = $true
-                                ModName = $searchResponse.title
-                                Version = $version.name
-                                ExpectedSize = $versionFile.size
-                                FileName = $versionFile.filename
-                            }
-                        }
-                    }
-                }
+            # Classify download source
+            if ($url -match "modrinth\.com") {
+                return @{ Source = "Modrinth"; URL = $url; IsModrinth = $true }
+            }
+            elseif ($url -match "curseforge\.com") {
+                return @{ Source = "CurseForge"; URL = $url; IsModrinth = $false }
+            }
+            elseif ($url -match "github\.com") {
+                return @{ Source = "GitHub"; URL = $url; IsModrinth = $false }
+            }
+            else {
+                return @{ Source = "Other"; URL = $url; IsModrinth = $false }
             }
         }
     } catch {}
     
-    return @{ Found = $false; ModName = ""; Version = ""; ExpectedSize = 0; FileName = "" }
+    return @{ Source = "Unknown"; URL = ""; IsModrinth = $false }
 }
 
-function Fetch-Modrinth {
+function Fetch-Modrinth-By-Hash {
     param (
         [string]$hash
     )
@@ -104,17 +90,180 @@ function Fetch-Modrinth {
         if ($response.project_id) {
             $projectResponse = "https://api.modrinth.com/v2/project/$($response.project_id)"
             $projectData = Invoke-RestMethod -Uri $projectResponse -Method Get -UseBasicParsing -ErrorAction Stop
+            
+            # Get file info with size
+            $fileInfo = $response.files[0]
+            
             return @{ 
                 Name = $projectData.title
                 Slug = $projectData.slug
-                ExpectedSize = $response.files[0].size
+                ExpectedSize = $fileInfo.size
                 VersionNumber = $response.version_number
-                VersionName = $response.name
+                FileName = $fileInfo.filename
+                ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($response.id)"
+                FoundByHash = $true
             }
         }
     } catch {}
     
-    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; VersionName = "" }
+    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false }
+}
+
+function Fetch-Modrinth-By-Filename {
+    param (
+        [string]$filename
+    )
+    try {
+        # Clean the filename
+        $cleanFilename = $filename -replace '\.temp\.jar$', '.jar' -replace '\.tmp\.jar$', '.jar' -replace '_1\.jar$', '.jar'
+        $modNameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($cleanFilename)
+        
+        # SIMPLE APPROACH: Just extract the first part before any hyphen or underscore
+        $baseName = $modNameWithoutExt
+        if ($baseName -match '^([a-zA-Z0-9]+)') {
+            $baseName = $matches[1]
+        }
+        
+        # Try direct slug lookup first (most common mod slugs)
+        $possibleSlugs = @(
+            $baseName.ToLower(),
+            $modNameWithoutExt.ToLower()
+        )
+        
+        foreach ($slug in $possibleSlugs) {
+            try {
+                $projectUrl = "https://api.modrinth.com/v2/project/$slug"
+                $projectData = Invoke-RestMethod -Uri $projectUrl -Method Get -UseBasicParsing -ErrorAction Stop
+                
+                if ($projectData.id) {
+                    # Get all versions
+                    $versionsUrl = "https://api.modrinth.com/v2/project/$slug/version"
+                    $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
+                    
+                    # Try to find exact filename match
+                    foreach ($version in $versionsData) {
+                        foreach ($file in $version.files) {
+                            if ($file.filename -eq $cleanFilename) {
+                                return @{
+                                    Name = $projectData.title
+                                    Slug = $projectData.slug
+                                    ExpectedSize = $file.size
+                                    VersionNumber = $version.version_number
+                                    FileName = $file.filename
+                                    ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($version.id)"
+                                    FoundByHash = $false
+                                    ExactMatch = $true
+                                }
+                            }
+                        }
+                    }
+                    
+                    # If no exact match, try to find by version number
+                    if ($modNameWithoutExt -match '(\d+\.\d+(?:\.\d+)?)') {
+                        $fileVersion = $matches[1]
+                        foreach ($version in $versionsData) {
+                            if ($version.version_number -contains $fileVersion -or $version.version_number -match $fileVersion) {
+                                $file = $version.files[0]
+                                return @{
+                                    Name = $projectData.title
+                                    Slug = $projectData.slug
+                                    ExpectedSize = $file.size
+                                    VersionNumber = $version.version_number
+                                    FileName = $file.filename
+                                    ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($version.id)"
+                                    FoundByHash = $false
+                                    ExactMatch = false
+                                }
+                            }
+                        }
+                    }
+                    
+                    # Return latest version
+                    if ($versionsData.Count -gt 0) {
+                        $latestVersion = $versionsData[0]
+                        $latestFile = $latestVersion.files[0]
+                        
+                        return @{
+                            Name = $projectData.title
+                            Slug = $projectData.slug
+                            ExpectedSize = $latestFile.size
+                            VersionNumber = $latestVersion.version_number
+                            FileName = $latestFile.filename
+                            ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($latestVersion.id)"
+                            FoundByHash = $false
+                            ExactMatch = false
+                            IsLatestVersion = true
+                        }
+                    }
+                }
+            } catch {
+                # Continue to next slug
+            }
+        }
+        
+        # If direct slug search failed, try search API
+        $searchUrl = "https://api.modrinth.com/v2/search?query=`"$baseName`"&facets=`"[[`"project_type:mod`"]]`"&limit=5"
+        $searchData = Invoke-RestMethod -Uri $searchUrl -Method Get -UseBasicParsing -ErrorAction Stop
+        
+        if ($searchData.hits -and $searchData.hits.Count -gt 0) {
+            # Use the first search result
+            $hit = $searchData.hits[0]
+            
+            # Get versions for this project
+            $versionsUrl = "https://api.modrinth.com/v2/project/$($hit.project_id)/version"
+            $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
+            
+            # Try exact filename match
+            foreach ($version in $versionsData) {
+                foreach ($file in $version.files) {
+                    if ($file.filename -eq $cleanFilename) {
+                        return @{
+                            Name = $hit.title
+                            Slug = $hit.slug
+                            ExpectedSize = $file.size
+                            VersionNumber = $version.version_number
+                            FileName = $file.filename
+                            ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($version.id)"
+                            FoundByHash = $false
+                            ExactMatch = true
+                        }
+                    }
+                }
+            }
+            
+            # Return latest version
+            if ($versionsData.Count -gt 0) {
+                $latestVersion = $versionsData[0]
+                $latestFile = $latestVersion.files[0]
+                
+                return @{
+                    Name = $hit.title
+                    Slug = $hit.slug
+                    ExpectedSize = $latestFile.size
+                    VersionNumber = $latestVersion.version_number
+                    FileName = $latestFile.filename
+                    ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($latestVersion.id)"
+                    FoundByHash = $false
+                    ExactMatch = false
+                    IsLatestVersion = true
+                }
+            }
+        }
+        
+    } catch {
+        # Silently handle errors
+    }
+    
+    return @{ 
+        Name = ""; 
+        Slug = ""; 
+        ExpectedSize = 0; 
+        VersionNumber = ""; 
+        FileName = ""; 
+        FoundByHash = $false;
+        ExactMatch = $false;
+        IsLatestVersion = $false
+    }
 }
 
 function Fetch-Megabase {
@@ -131,43 +280,36 @@ function Fetch-Megabase {
     return $null
 }
 
+# Cheat strings - KEEP Velocity for detecting cheat clients
 $cheatStrings = @(
-    "autocrystal",
-    "auto crystal",
-    "cw crystal",
-    "autohitcrystal",
-    "autoanchor",
-    "auto anchor",
-    "anchortweaks",
-    "anchor macro",
-    "autototem",
-    "auto totem",
-    "legittotem",
-    "inventorytotem",
-    "hover totem",
-    "autopot",
-    "auto pot",
-    "velocity",
-    "autodoublehand",
-    "auto double hand",
-    "autoarmor",
-    "auto armor",
-    "automace",
-    "aimassist",
-    "aim assist",
-    "triggerbot",
-    "trigger bot",
-    "shieldbreaker",
-    "shield breaker",
-    "axespam",
-    "axe spam",
-    "pingspoof",
-    "ping spoof",
-    "webmacro",
-    "web macro",
-    "selfdestruct",
-    "self destruct",
-    "hitboxes"
+    "AimAssist",
+    "AnchorTweaks",
+    "AutoAnchor",
+    "AutoCrystal",
+    "AutoDoubleHand",
+    "AutoHitCrystal",
+    "AutoPot",
+    "AutoTotem",
+    "AutoArmor",
+    "InventoryTotem",
+    "Hitboxes",
+    "JumpReset",
+    "LegitTotem",
+    "PingSpoof",
+    "SelfDestruct",
+    "ShieldBreaker",
+    "TriggerBot",
+    "Velocity",
+    "AxeSpam",
+    "WebMacro",
+    "FastPlace",
+    "KillAura",
+    "Reach",
+    "NoSlow",
+    "Bhop",
+    "Phase",
+    "Freecam",
+    "Xray"
 )
 
 function Check-Strings {
@@ -177,26 +319,27 @@ function Check-Strings {
     
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
     
-    $fileContent = Get-Content -Raw $filePath
-    
-    foreach ($line in $fileContent) {
+    try {
+        $fileContent = Get-Content -Raw $filePath
         foreach ($string in $cheatStrings) {
-            if ($line -match $string) {
+            if ($fileContent -match $string) {
                 $stringsFound.Add($string) | Out-Null
-                continue
             }
         }
-    }
+    } catch {}
     
     return $stringsFound
 }
 
-
+# Collections for results
 $verifiedMods = @()
 $unknownMods = @()
 $cheatMods = @()
-$modifiedMods = @()
-$sizeModifiedMods = @()
+$sizeMismatchMods = @()
+$tamperedMods = @()
+
+# Store all mod info for later cheat string checking
+$allModsInfo = @()
 
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 
@@ -209,194 +352,367 @@ foreach ($file in $jarFiles) {
     $spin = $spinner[$counter % $spinner.Length]
     Write-Host "`r[$spin] Scanning mods: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
     
-    # Check if file was modified after javaw started
-    if ($process -and $startTime -and $file.LastWriteTime -gt $startTime) {
-        $modifiedMods += [PSCustomObject]@{ FileName = $file.Name; ModifiedTime = $file.LastWriteTime }
-    }
-    
+    # Get file info
     $hash = Get-SHA1 -filePath $file.FullName
+    $actualSize = $file.Length
+    $actualSizeKB = [math]::Round($actualSize/1KB, 2)
+    $zoneInfo = Get-ZoneIdentifier $file.FullName
     
-    $modDataModrinth = Fetch-Modrinth -hash $hash
-    if ($modDataModrinth.Slug) {
-        # Check if file size matches expected size from Modrinth
-        $actualSize = $file.Length
-        $expectedSize = $modDataModrinth.ExpectedSize
+    # Try Modrinth by hash first (most accurate)
+    $modData = Fetch-Modrinth-By-Hash -hash $hash
+    
+    if ($modData.Name -and $modData.FoundByHash) {
+        # Calculate size difference
+        $sizeDiff = $actualSize - $modData.ExpectedSize
+        $sizeDiffText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
+        $expectedSizeKB = [math]::Round($modData.ExpectedSize/1KB, 2)
         
-        if ($expectedSize -gt 0 -and $actualSize -ne $expectedSize) {
-            $sizeDiff = $actualSize - $expectedSize
-            $sizeModifiedMods += [PSCustomObject]@{
-                ModName = $modDataModrinth.Name
-                FileName = $file.Name
-                Version = $modDataModrinth.VersionName
-                ExpectedSize = $expectedSize
-                ActualSize = $actualSize
-                SizeDiff = $sizeDiff
+        $modEntry = [PSCustomObject]@{ 
+            ModName = $modData.Name
+            FileName = $file.Name
+            Version = $modData.VersionNumber
+            ExpectedSize = $modData.ExpectedSize
+            ExpectedSizeKB = $expectedSizeKB
+            ActualSize = $actualSize
+            ActualSizeKB = $actualSizeKB
+            SizeDiff = $sizeDiff
+            SizeDiffText = $sizeDiffText
+            SizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
+            DownloadSource = $zoneInfo.Source
+            SourceURL = $zoneInfo.URL
+            IsModrinthDownload = $zoneInfo.IsModrinth
+            ModrinthUrl = $modData.ModrinthUrl
+            VerifiedBy = "Hash"
+            IsVerified = $true
+            FilePath = $file.FullName
+        }
+        
+        $verifiedMods += $modEntry
+        $allModsInfo += $modEntry
+        
+        # Check for size mismatch
+        if ($modData.ExpectedSize -gt 0 -and $actualSize -ne $modData.ExpectedSize) {
+            $sizeMismatchMods += $modEntry
+            if ([math]::Abs($sizeDiff) -gt 1024) {
+                $tamperedMods += $modEntry
             }
         }
         
-        $verifiedMods += [PSCustomObject]@{ 
-            ModName = $modDataModrinth.Name
-            FileName = $file.Name
-            Version = $modDataModrinth.VersionName
-            ExpectedSize = $expectedSize
-        }
-        continue;
+        continue
     }
     
-    $modDataMegabase = Fetch-Megabase -hash $hash
-    if ($modDataMegabase.name) {
-        $verifiedMods += [PSCustomObject]@{ 
-            ModName = $modDataMegabase.Name
+    # Try to get Modrinth info by filename
+    $modrinthInfo = Fetch-Modrinth-By-Filename -filename $file.Name
+    
+    # Check if we found mod info by filename
+    if ($modrinthInfo.Name) {
+        # Calculate size difference
+        $sizeDiff = $actualSize - $modrinthInfo.ExpectedSize
+        $sizeDiffText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
+        $expectedSizeKB = if ($modrinthInfo.ExpectedSize -gt 0) { [math]::Round($modrinthInfo.ExpectedSize/1KB, 2) } else { 0 }
+        
+        $modEntry = [PSCustomObject]@{ 
+            ModName = $modrinthInfo.Name
+            FileName = $file.Name
+            Version = $modrinthInfo.VersionNumber
+            ExpectedSize = $modrinthInfo.ExpectedSize
+            ExpectedSizeKB = $expectedSizeKB
+            ActualSize = $actualSize
+            ActualSizeKB = $actualSizeKB
+            SizeDiff = $sizeDiff
+            SizeDiffText = $sizeDiffText
+            SizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
+            DownloadSource = $zoneInfo.Source
+            SourceURL = $zoneInfo.URL
+            IsModrinthDownload = $zoneInfo.IsModrinth
+            ModrinthUrl = $modrinthInfo.ModrinthUrl
+            VerifiedBy = "Filename"
+            IsVerified = $true
+            ExactMatch = $modrinthInfo.ExactMatch
+            IsLatestVersion = $modrinthInfo.IsLatestVersion
+            FilePath = $file.FullName
+        }
+        
+        $verifiedMods += $modEntry
+        $allModsInfo += $modEntry
+        
+        # Check for size mismatch
+        if ($modrinthInfo.ExpectedSize -gt 0 -and $actualSize -ne $modrinthInfo.ExpectedSize) {
+            $sizeMismatchMods += $modEntry
+            if ([math]::Abs($sizeDiff) -gt 1024) {
+                $tamperedMods += $modEntry
+            }
+        }
+        
+        continue
+    }
+    
+    # Try Megabase as fallback
+    $megabaseData = Fetch-Megabase -hash $hash
+    if ($megabaseData -and $megabaseData.name) {
+        $modEntry = [PSCustomObject]@{ 
+            ModName = $megabaseData.name
             FileName = $file.Name
             Version = "Unknown"
             ExpectedSize = 0
-        }
-        continue;
-    }
-    
-    $zoneId = Get-ZoneIdentifier $file.FullName
-    
-    # Try to check expected size by filename
-    $filenameCheck = Fetch-Modrinth-By-Filename -filename $file.Name
-    $expectedSize = 0
-    if ($filenameCheck.Found -and $filenameCheck.ExpectedSize -gt 0) {
-        $expectedSize = $filenameCheck.ExpectedSize
-    }
-    
-    $unknownMods += [PSCustomObject]@{ FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneId; FileSize = $file.Length; ExpectedSize = $expectedSize }
-}
-
-if ($unknownMods.Count -gt 0) {
-    $tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
-    
-    $counter = 0
-    
-    try {
-        if (Test-Path $tempDir) {
-            Remove-Item -Recurse -Force $tempDir
+            ExpectedSizeKB = 0
+            ActualSize = $actualSize
+            ActualSizeKB = $actualSizeKB
+            SizeDiff = 0
+            SizeDiffText = "N/A"
+            SizeDiffKB = 0
+            DownloadSource = $zoneInfo.Source
+            SourceURL = $zoneInfo.URL
+            IsModrinthDownload = $zoneInfo.IsModrinth
+            VerifiedBy = "Megabase"
+            IsVerified = $true
+            FilePath = $file.FullName
         }
         
-        New-Item -ItemType Directory -Path $tempDir | Out-Null
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $verifiedMods += $modEntry
+        $allModsInfo += $modEntry
+        continue
+    }
     
-        foreach ($mod in $unknownMods) {
-            $counter++
-            $spin = $spinner[$counter % $spinner.Length]
-            Write-Host "`r[$spin] Scanning unknown mods for cheat strings..." -ForegroundColor Magenta -NoNewline
-            
-            $modStrings = Check-Strings $mod.FilePath
-            if ($modStrings.Count -gt 0) {
-                $unknownMods = @($unknownMods | Where-Object -FilterScript {$_ -ne $mod})
-                $cheatMods += [PSCustomObject]@{ FileName = $mod.FileName; StringsFound = $modStrings; FileSize = $mod.FileSize }
-                continue
-            }
-            
-            $fileNameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($mod.FileName)
-            $extractPath = Join-Path $tempDir $fileNameWithoutExt
-            New-Item -ItemType Directory -Path $extractPath | Out-Null
-            
-            [System.IO.Compression.ZipFile]::ExtractToDirectory($mod.FilePath, $extractPath)
-            
-            $depJarsPath = Join-Path $extractPath "META-INF/jars"
-            if (-not $(Test-Path $depJarsPath)) {
-                continue
-            }
-            
-            $depJars = Get-ChildItem -Path $depJarsPath
-            foreach ($jar in $depJars) {
-                $depStrings = Check-Strings $jar.FullName
-                if (-not $depStrings) {
-                    continue
-                }
-                $unknownMods = @($unknownMods | Where-Object -FilterScript {$_ -ne $mod})
-                $cheatMods += [PSCustomObject]@{ FileName = $mod.FileName; DepFileName = $jar.Name; StringsFound = $depStrings; FileSize = $mod.FileSize }
-            }
-            
-        }
-    } catch {
-        Write-Host "Error occured while scanning jar files! $($_.Exception.Message)" -ForegroundColor Red
-    } finally {
+    # If we get here, it's an unknown mod
+    $unknownModEntry = [PSCustomObject]@{ 
+        FileName = $file.Name
+        FilePath = $file.FullName
+        ZoneId = $zoneInfo.URL
+        DownloadSource = $zoneInfo.Source
+        IsModrinthDownload = $zoneInfo.IsModrinth
+        FileSize = $actualSize
+        FileSizeKB = $actualSizeKB
+        Hash = $hash
+        ExpectedSize = 0
+        ExpectedSizeKB = 0
+        SizeDiff = 0
+        SizeDiffText = "N/A"
+        SizeDiffKB = 0
+        ModrinthUrl = ""
+        HasSizeInfo = $false
+        IsLatestVersion = $false
+        ModName = ""
+    }
+    
+    $unknownMods += $unknownModEntry
+    $allModsInfo += $unknownModEntry
+}
+
+# Scan ALL mods for cheat strings (including verified ones)
+$tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
+$counter = 0
+
+try {
+    if (Test-Path $tempDir) {
         Remove-Item -Recurse -Force $tempDir
+    }
+    
+    New-Item -ItemType Directory -Path $tempDir | Out-Null
+    
+    foreach ($mod in $allModsInfo) {
+        $counter++
+        $spin = $spinner[$counter % $spinner.Length]
+        Write-Host "`r[$spin] Scanning mods for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
+        
+        $modStrings = Check-Strings $mod.FilePath
+        if ($modStrings.Count -gt 0) {
+            # Try to get Modrinth info for this cheat mod if we don't already have it
+            $expectedSizeKB = $mod.ExpectedSizeKB
+            $sizeDiffKB = $mod.SizeDiffKB
+            
+            # If this is an unknown mod or doesn't have size info, try to get it
+            if ($expectedSizeKB -eq 0 -or $mod.HasSizeInfo -eq $false) {
+                # Try to get Modrinth info by filename
+                $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName
+                if ($modrinthInfo.Name -and $modrinthInfo.ExpectedSize -gt 0) {
+                    $expectedSizeKB = [math]::Round($modrinthInfo.ExpectedSize/1KB, 2)
+                    $sizeDiff = $mod.FileSize - $modrinthInfo.ExpectedSize
+                    $sizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
+                    
+                    # Update the mod entry with this new info
+                    $mod.ExpectedSizeKB = $expectedSizeKB
+                    $mod.SizeDiffKB = $sizeDiffKB
+                    $mod.ModName = $modrinthInfo.Name
+                    $mod.ModrinthUrl = $modrinthInfo.ModrinthUrl
+                }
+            }
+            
+            $cheatMods += [PSCustomObject]@{ 
+                FileName = $mod.FileName
+                StringsFound = $modStrings
+                FileSizeKB = $mod.FileSizeKB
+                DownloadSource = $mod.DownloadSource
+                SourceURL = $mod.ZoneId
+                ExpectedSizeKB = $expectedSizeKB
+                SizeDiffKB = $sizeDiffKB
+                IsVerifiedMod = ($mod.IsVerified -eq $true)
+                ModName = $mod.ModName
+                ModrinthUrl = $mod.ModrinthUrl
+                FilePath = $mod.FilePath
+                HasSizeMismatch = ($sizeDiffKB -ne 0 -and [math]::Abs($sizeDiffKB) -gt 1)
+            }
+        }
+    }
+} catch {
+    Write-Host "`nError occurred while scanning: $($_.Exception.Message)" -ForegroundColor Red
+} finally {
+    if (Test-Path $tempDir) {
+        Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
     }
 }
 
 Write-Host "`r$(' ' * 80)`r" -NoNewline
 
+# Display results
+Write-Host "`n{ Results Summary }" -ForegroundColor Cyan
+Write-Host
+
 if ($verifiedMods.Count -gt 0) {
     Write-Host "{ Verified Mods }" -ForegroundColor Cyan
+    Write-Host "Total: $($verifiedMods.Count)"
+    Write-Host
+    
     foreach ($mod in $verifiedMods) {
-        Write-Host ("> {0, -30}" -f $mod.ModName) -ForegroundColor Green -NoNewline
-        Write-Host "$($mod.FileName)" -ForegroundColor Gray -NoNewline
+        # Check if this mod is also in cheat mods
+        $isCheatMod = $cheatMods.FileName -contains $mod.FileName
+        
+        if ($tamperedMods.FileName -contains $mod.FileName) {
+            Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline
+            Write-Host " - $($mod.FileName)" -ForegroundColor Magenta -NoNewline
+        } elseif ($isCheatMod) {
+            Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline
+            Write-Host " - $($mod.FileName)" -ForegroundColor Red -NoNewline
+        } else {
+            Write-Host "> $($mod.ModName)" -ForegroundColor Green -NoNewline
+            Write-Host " - $($mod.FileName)" -ForegroundColor Gray -NoNewline
+        }
+        
         if ($mod.Version -and $mod.Version -ne "Unknown") {
             Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray -NoNewline
         }
-        if ($mod.ExpectedSize -and $mod.ExpectedSize -gt 0) {
-            Write-Host " ($([math]::Round($mod.ExpectedSize/1KB, 2)) KB)" -ForegroundColor DarkGray
+        
+        if ($mod.DownloadSource -ne "Unknown") {
+            $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "Yellow" }
+            Write-Host " ($($mod.DownloadSource))" -ForegroundColor $sourceColor
         } else {
             Write-Host ""
         }
+        
+        if ($mod.ExpectedSize -gt 0) {
+            if ($mod.ActualSize -eq $mod.ExpectedSize) {
+                Write-Host "  Size: $($mod.ActualSizeKB) KB ✓" -ForegroundColor Green
+            } else {
+                $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
+                # CHANGED: Make tampered mod size display in magenta
+                if ($tamperedMods.FileName -contains $mod.FileName) {
+                    Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Magenta
+                } else {
+                    Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
+                }
+            }
+        }
     }
+    Write-Host ""
+}
+
+if ($tamperedMods.Count -gt 0) {
+    Write-Host "{ Potentially Tampered Mods }" -ForegroundColor Red
+    Write-Host "Total: $($tamperedMods.Count) ⚠ WARNING"
     Write-Host
+    
+    foreach ($mod in $tamperedMods) {
+        $sizeDiffSign = if ($mod.SizeDiff -gt 0) { "+" } else { "" }
+        Write-Host "> $($mod.FileName)" -ForegroundColor Red
+        Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
+        Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Actual: $($mod.ActualSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
+        Write-Host "  ⚠ File size differs significantly from Modrinth version!" -ForegroundColor Red
+        
+        if ($mod.ModrinthUrl) {
+            Write-Host "  Verify: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
+        }
+        Write-Host ""
+    }
 }
 
 if ($unknownMods.Count -gt 0) {
-    Write-Host "{ Unknown Mods }" -ForegroundColor Cyan
+    Write-Host "{ Unknown Mods }" -ForegroundColor Yellow
+    Write-Host "Total: $($unknownMods.Count)"
+    Write-Host
+    
     foreach ($mod in $unknownMods) {
-        $sizeMismatch = $false
-        
-        if ($mod.ExpectedSize -gt 0 -and $mod.FileSize -ne $mod.ExpectedSize) {
-            $sizeMismatch = $true
-        }
+        Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
+        Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
         
         if ($mod.ZoneId) {
-            Write-Host ("> {0, -30}" -f $mod.FileName) -ForegroundColor Yellow -NoNewline
-            Write-Host "$($mod.ZoneId) " -ForegroundColor DarkGray -NoNewline
-        } else {
-            Write-Host "> $($mod.FileName) " -ForegroundColor Yellow -NoNewline
+            $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "Yellow" }
+            Write-Host "  Downloaded from: $($mod.DownloadSource)" -ForegroundColor $sourceColor
+            if ($mod.DownloadSource -eq "Other" -or $mod.DownloadSource -eq "Unknown") {
+                $displayUrl = $mod.ZoneId
+                if ($displayUrl.Length -gt 80) {
+                    $displayUrl = $displayUrl.Substring(0, 77) + "..."
+                }
+                Write-Host "  URL: $displayUrl" -ForegroundColor DarkGray
+            }
         }
         
-        if ($sizeMismatch) {
-            $sizeDiff = $mod.FileSize - $mod.ExpectedSize
-            $sizeChangeText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
-            Write-Host "Expected: $([math]::Round($mod.ExpectedSize/1KB, 2)) KB | Actual: $([math]::Round($mod.FileSize/1KB, 2)) KB | Difference: $sizeChangeText" -ForegroundColor Red
-        } else {
-            Write-Host "($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
-        }
+        Write-Host "  Hash: $($mod.Hash)" -ForegroundColor DarkGray
+        Write-Host ""
     }
-    Write-Host
 }
 
 if ($cheatMods.Count -gt 0) {
-    Write-Host "{ Cheat Mods }" -ForegroundColor Cyan
+    Write-Host "{ Cheat Mods Detected }" -ForegroundColor Red
+    Write-Host "Total: $($cheatMods.Count) ⚠ WARNING"
+    Write-Host
+    
     foreach ($mod in $cheatMods) {
-        Write-Host "> $($mod.FileName)" -ForegroundColor Red -NoNewline
-        if ($mod.DepFileName) {
-            Write-Host " ->" -ForegroundColor Gray -NoNewline
-            Write-Host " $($mod.DepFileName)" -ForegroundColor Red -NoNewline
+        Write-Host "> $($mod.FileName)" -ForegroundColor Red
+        
+        if ($mod.ModName) {
+            Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Gray
         }
-        Write-Host " [$($mod.StringsFound)]" -ForegroundColor Magenta -NoNewline
-        Write-Host " ($([math]::Round($mod.FileSize/1KB, 2)) KB)" -ForegroundColor DarkGray
+        
+        Write-Host "  Cheat Strings: $($mod.StringsFound)" -ForegroundColor Magenta
+        Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
+        
+        # NEW: Show size comparison for cheat mods
+        if ($mod.ExpectedSizeKB -gt 0) {
+            $sizeDiffSign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
+            if ($mod.SizeDiffKB -eq 0) {
+                Write-Host "  Expected: $($mod.ExpectedSizeKB) KB ✓ Matches Modrinth" -ForegroundColor Green
+            } else {
+                Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Yellow
+                
+                # Warning for size mismatch in cheat mods
+                if ([math]::Abs($mod.SizeDiffKB) -gt 1) {
+                    Write-Host "  ⚠ Size mismatch detected! Could be tampered with cheat code." -ForegroundColor Red
+                }
+            }
+        } else {
+            Write-Host "  Note: No Modrinth size data available for comparison" -ForegroundColor DarkGray
+        }
+        
+        if ($mod.DownloadSource -ne "Unknown") {
+            Write-Host "  Source: $($mod.DownloadSource)" -ForegroundColor Yellow
+            if ($mod.SourceURL) {
+                Write-Host "  URL: $($mod.SourceURL)" -ForegroundColor DarkGray
+            }
+        }
+        
+        if ($mod.IsVerifiedMod) {
+            Write-Host "  ⚠ Legitimate mod contains cheat code!" -ForegroundColor Red
+            Write-Host "  ⚠ This appears to be a tampered version of a legitimate mod" -ForegroundColor Red
+        }
+        
+        # Show Modrinth URL if available
+        if ($mod.ModrinthUrl) {
+            Write-Host "  Modrinth: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
+        }
+        
+        Write-Host ""
     }
-    Write-Host
 }
 
-if ($modifiedMods.Count -gt 0) {
-    Write-Host "{ Modified After Javaw Started }" -ForegroundColor Cyan
-    foreach ($mod in $modifiedMods) {
-        Write-Host "> $($mod.FileName)" -ForegroundColor Red -NoNewline
-        Write-Host " (Modified: $($mod.ModifiedTime))" -ForegroundColor DarkGray
-    }
-    Write-Host
-}
-
-if ($sizeModifiedMods.Count -gt 0) {
-    Write-Host "{ File Size Mismatch (Modified Files) }" -ForegroundColor Cyan
-    foreach ($mod in $sizeModifiedMods) {
-        $sizeChangeText = if ($mod.SizeDiff -gt 0) { "+$($mod.SizeDiff) bytes" } else { "$($mod.SizeDiff) bytes" }
-        Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline
-        Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray
-        Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
-        Write-Host "  Expected: $([math]::Round($mod.ExpectedSize/1KB, 2)) KB | Actual: $([math]::Round($mod.ActualSize/1KB, 2)) KB | Difference: $sizeChangeText" -ForegroundColor Magenta
-    }
-    Write-Host
-}
+Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
