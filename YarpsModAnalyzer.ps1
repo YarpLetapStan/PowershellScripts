@@ -1,8 +1,16 @@
 Clear-Host
-Write-Host "YarpLetapStan's Mod Analyzer" -ForegroundColor Magenta
-Write-Host "Made by " -ForegroundColor DarkGray -NoNewline
-Write-Host "YarpLetapStan"
-Write-Host "Credit to Habibi Mod Analyzer" -ForegroundColor Cyan
+# Create a box for the title
+$boxWidth = 38
+Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
+Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
+Write-Host "|" + ("YarpLetapStan's Mod Analyzer V2.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|" -ForegroundColor Blue
+Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
+Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
+Write-Host ""
+
+Write-Host "Made by " -ForegroundColor Blue -NoNewline
+Write-Host "YarpLetapStan" -ForegroundColor Blue
+Write-Host "Credit to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host
 
 Write-Host "Enter path to the mods folder: " -NoNewline
