@@ -265,11 +265,112 @@ function Fetch-Modrinth-By-Hash {
                 FileName = $fileInfo.filename
                 ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($response.id)"
                 FoundByHash = $true
+                ExactMatch = true
+                IsLatestVersion = $false
+                MatchType = "Exact Hash"
             }
         }
     } catch {}
     
-    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false }
+    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $false }
+}
+
+function Find-Closest-Version {
+    param (
+        [string]$localVersion,
+        [array]$availableVersions
+    )
+    
+    # If no local version or no available versions, return null
+    if (-not $localVersion -or -not $availableVersions -or $availableVersions.Count -eq 0) {
+        return $null
+    }
+    
+    # Try to parse semantic version
+    try {
+        # Clean version string
+        $localVersion = $localVersion.Trim()
+        
+        # Try exact match first
+        foreach ($version in $availableVersions) {
+            if ($version.version_number -eq $localVersion) {
+                return $version
+            }
+        }
+        
+        # Try to match major.minor.patch pattern
+        if ($localVersion -match '(\d+)\.(\d+)\.(\d+)') {
+            $major = [int]$matches[1]
+            $minor = [int]$matches[2]
+            $patch = [int]$matches[3]
+            
+            $closest = $null
+            $closestDistance = [double]::MaxValue
+            
+            foreach ($version in $availableVersions) {
+                if ($version.version_number -match '(\d+)\.(\d+)\.(\d+)') {
+                    $vMajor = [int]$matches[1]
+                    $vMinor = [int]$matches[2]
+                    $vPatch = [int]$matches[3]
+                    
+                    # Calculate "distance" between versions
+                    $distance = [math]::Sqrt(
+                        [math]::Pow($major - $vMajor, 2) * 100 + 
+                        [math]::Pow($minor - $vMinor, 2) * 10 + 
+                        [math]::Pow($patch - $vPatch, 2)
+                    )
+                    
+                    if ($distance -lt $closestDistance) {
+                        $closestDistance = $distance
+                        $closest = $version
+                    }
+                }
+            }
+            
+            if ($closest -and $closestDistance -lt 10) {  # Only consider it close enough if distance < 10
+                return $closest
+            }
+        }
+        
+        # Try to match major.minor pattern
+        if ($localVersion -match '(\d+)\.(\d+)') {
+            $major = [int]$matches[1]
+            $minor = [int]$matches[2]
+            
+            $closest = $null
+            $closestDistance = [double]::MaxValue
+            
+            foreach ($version in $availableVersions) {
+                if ($version.version_number -match '(\d+)\.(\d+)') {
+                    $vMajor = [int]$matches[1]
+                    $vMinor = [int]$matches[2]
+                    
+                    $distance = [math]::Sqrt([math]::Pow($major - $vMajor, 2) * 10 + [math]::Pow($minor - $vMinor, 2))
+                    
+                    if ($distance -lt $closestDistance) {
+                        $closestDistance = $distance
+                        $closest = $version
+                    }
+                }
+            }
+            
+            if ($closest -and $closestDistance -lt 5) {  # Only consider it close enough if distance < 5
+                return $closest
+            }
+        }
+        
+        # Try to find version containing the local version string
+        foreach ($version in $availableVersions) {
+            if ($version.version_number -contains $localVersion -or $version.version_number -match [regex]::Escape($localVersion)) {
+                return $version
+            }
+        }
+        
+    } catch {
+        # Version parsing failed, fall back to latest
+    }
+    
+    return $null
 }
 
 function Fetch-Modrinth-By-ModId {
@@ -278,80 +379,128 @@ function Fetch-Modrinth-By-ModId {
         [string]$version
     )
     try {
-        # First, search for the mod by its ID
+        # First, try direct project lookup by slug
+        try {
+            $projectUrl = "https://api.modrinth.com/v2/project/$modId"
+            $projectData = Invoke-RestMethod -Uri $projectUrl -Method Get -UseBasicParsing -ErrorAction Stop
+            
+            if ($projectData.id) {
+                # Get all versions for this project
+                $versionsUrl = "https://api.modrinth.com/v2/project/$modId/version"
+                $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
+                
+                if ($versionsData.Count -gt 0) {
+                    # Try to find exact version match or closest version
+                    $matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData
+                    
+                    if ($matchedVersion) {
+                        $file = $matchedVersion.files[0]
+                        $isExact = ($matchedVersion.version_number -eq $version)
+                        
+                        return @{
+                            Name = $projectData.title
+                            Slug = $projectData.slug
+                            ExpectedSize = $file.size
+                            VersionNumber = $matchedVersion.version_number
+                            FileName = $file.filename
+                            ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($matchedVersion.id)"
+                            FoundByHash = $false
+                            ExactMatch = $isExact
+                            IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
+                            MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }
+                        }
+                    }
+                    
+                    # If no close version match, return latest version
+                    $latestVersion = $versionsData[0]
+                    $latestFile = $latestVersion.files[0]
+                    
+                    return @{
+                        Name = $projectData.title
+                        Slug = $projectData.slug
+                        ExpectedSize = $latestFile.size
+                        VersionNumber = $latestVersion.version_number
+                        FileName = $latestFile.filename
+                        ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($latestVersion.id)"
+                        FoundByHash = $false
+                        ExactMatch = false
+                        IsLatestVersion = true
+                        MatchType = "Latest Version"
+                    }
+                }
+            }
+        } catch {
+            # Direct lookup failed, try search
+        }
+        
+        # Search for the mod by its ID
         $searchUrl = "https://api.modrinth.com/v2/search?query=`"$modId`"&facets=`"[[`"project_type:mod`"]]`"&limit=5"
         $searchData = Invoke-RestMethod -Uri $searchUrl -Method Get -UseBasicParsing -ErrorAction Stop
         
         if ($searchData.hits -and $searchData.hits.Count -gt 0) {
-            # Try to find exact match by mod ID/slug
+            # Try to find best match by mod ID/slug
+            $bestMatch = $null
+            $bestScore = 0
+            
             foreach ($hit in $searchData.hits) {
-                if ($hit.slug -eq $modId -or $hit.project_id -eq $modId -or $hit.title -match $modId) {
-                    $projectId = $hit.project_id
-                    
-                    # Get all versions for this project
-                    $versionsUrl = "https://api.modrinth.com/v2/project/$projectId/version"
-                    $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
-                    
-                    # If we have a version, try to find exact match
-                    if ($version) {
-                        foreach ($ver in $versionsData) {
-                            if ($ver.version_number -eq $version -or $ver.version_number -match $version) {
-                                $file = $ver.files[0]
-                                return @{
-                                    Name = $hit.title
-                                    Slug = $hit.slug
-                                    ExpectedSize = $file.size
-                                    VersionNumber = $ver.version_number
-                                    FileName = $file.filename
-                                    ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($ver.id)"
-                                    FoundByHash = $false
-                                    ExactMatch = true
-                                }
-                            }
-                        }
-                    }
-                    
-                    # Return latest version if no version match or no version specified
-                    if ($versionsData.Count -gt 0) {
-                        $latestVersion = $versionsData[0]
-                        $latestFile = $latestVersion.files[0]
-                        
-                        return @{
-                            Name = $hit.title
-                            Slug = $hit.slug
-                            ExpectedSize = $latestFile.size
-                            VersionNumber = $latestVersion.version_number
-                            FileName = $latestFile.filename
-                            ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($latestVersion.id)"
-                            FoundByHash = $false
-                            ExactMatch = false
-                            IsLatestVersion = true
-                        }
-                    }
+                $score = 0
+                if ($hit.slug -eq $modId) { $score += 100 }
+                if ($hit.project_id -eq $modId) { $score += 100 }
+                if ($hit.title -eq $modId) { $score += 80 }
+                if ($hit.title -match $modId) { $score += 50 }
+                if ($hit.slug -match $modId) { $score += 40 }
+                
+                if ($score -gt $bestScore) {
+                    $bestScore = $score
+                    $bestMatch = $hit
                 }
             }
             
-            # If no exact match, use first result
-            $hit = $searchData.hits[0]
-            $projectId = $hit.project_id
-            
-            $versionsUrl = "https://api.modrinth.com/v2/project/$projectId/version"
-            $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
-            
-            if ($versionsData.Count -gt 0) {
-                $latestVersion = $versionsData[0]
-                $latestFile = $latestVersion.files[0]
+            if ($bestMatch) {
+                $projectId = $bestMatch.project_id
                 
-                return @{
-                    Name = $hit.title
-                    Slug = $hit.slug
-                    ExpectedSize = $latestFile.size
-                    VersionNumber = $latestVersion.version_number
-                    FileName = $latestFile.filename
-                    ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($latestVersion.id)"
-                    FoundByHash = $false
-                    ExactMatch = false
-                    IsLatestVersion = true
+                # Get all versions for this project
+                $versionsUrl = "https://api.modrinth.com/v2/project/$projectId/version"
+                $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
+                
+                if ($versionsData.Count -gt 0) {
+                    # Try to find exact version match or closest version
+                    $matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData
+                    
+                    if ($matchedVersion) {
+                        $file = $matchedVersion.files[0]
+                        $isExact = ($matchedVersion.version_number -eq $version)
+                        
+                        return @{
+                            Name = $bestMatch.title
+                            Slug = $bestMatch.slug
+                            ExpectedSize = $file.size
+                            VersionNumber = $matchedVersion.version_number
+                            FileName = $file.filename
+                            ModrinthUrl = "https://modrinth.com/mod/$($bestMatch.slug)/version/$($matchedVersion.id)"
+                            FoundByHash = $false
+                            ExactMatch = $isExact
+                            IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
+                            MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }
+                        }
+                    }
+                    
+                    # Return latest version
+                    $latestVersion = $versionsData[0]
+                    $latestFile = $latestVersion.files[0]
+                    
+                    return @{
+                        Name = $bestMatch.title
+                        Slug = $bestMatch.slug
+                        ExpectedSize = $latestFile.size
+                        VersionNumber = $latestVersion.version_number
+                        FileName = $latestFile.filename
+                        ModrinthUrl = "https://modrinth.com/mod/$($bestMatch.slug)/version/$($latestVersion.id)"
+                        FoundByHash = $false
+                        ExactMatch = false
+                        IsLatestVersion = true
+                        MatchType = "Latest Version"
+                    }
                 }
             }
         }
@@ -368,7 +517,8 @@ function Fetch-Modrinth-By-ModId {
         FileName = ""; 
         FoundByHash = $false;
         ExactMatch = $false;
-        IsLatestVersion = $false
+        IsLatestVersion = $false;
+        MatchType = "No Match"
     }
 }
 
@@ -381,13 +531,17 @@ function Fetch-Modrinth-By-Filename {
         $cleanFilename = $filename -replace '\.temp\.jar$', '.jar' -replace '\.tmp\.jar$', '.jar' -replace '_1\.jar$', '.jar'
         $modNameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($cleanFilename)
         
-        # SIMPLE APPROACH: Just extract the first part before any hyphen or underscore
+        # Extract potential mod ID from filename
         $baseName = $modNameWithoutExt
-        if ($baseName -match '^([a-zA-Z0-9]+)') {
-            $baseName = $matches[1]
+        
+        # Try to extract version from filename
+        $localVersion = ""
+        if ($modNameWithoutExt -match '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$') {
+            $localVersion = $matches[1]
+            $baseName = $modNameWithoutExt -replace '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$', ''
         }
         
-        # Try direct slug lookup first (most common mod slugs)
+        # Try direct slug lookup first
         $possibleSlugs = @(
             $baseName.ToLower(),
             $modNameWithoutExt.ToLower()
@@ -406,7 +560,7 @@ function Fetch-Modrinth-By-Filename {
                     # Try to find exact filename match
                     foreach ($version in $versionsData) {
                         foreach ($file in $version.files) {
-                            if ($file.filename -eq $cleanFilename) {
+                            if ($file.filename -eq $cleanFilename -or $file.filename -eq $filename) {
                                 return @{
                                     Name = $projectData.title
                                     Slug = $projectData.slug
@@ -415,28 +569,33 @@ function Fetch-Modrinth-By-Filename {
                                     FileName = $file.filename
                                     ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($version.id)"
                                     FoundByHash = $false
-                                    ExactMatch = $true
+                                    ExactMatch = true
+                                    IsLatestVersion = ($versionsData[0].id -eq $version.id)
+                                    MatchType = "Exact Filename"
                                 }
                             }
                         }
                     }
                     
-                    # If no exact match, try to find by version number
-                    if ($modNameWithoutExt -match '(\d+\.\d+(?:\.\d+)?)') {
-                        $fileVersion = $matches[1]
-                        foreach ($version in $versionsData) {
-                            if ($version.version_number -contains $fileVersion -or $version.version_number -match $fileVersion) {
-                                $file = $version.files[0]
-                                return @{
-                                    Name = $projectData.title
-                                    Slug = $projectData.slug
-                                    ExpectedSize = $file.size
-                                    VersionNumber = $version.version_number
-                                    FileName = $file.filename
-                                    ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($version.id)"
-                                    FoundByHash = $false
-                                    ExactMatch = false
-                                }
+                    # Try to find closest version match
+                    if ($localVersion -and $versionsData.Count -gt 0) {
+                        $matchedVersion = Find-Closest-Version -localVersion $localVersion -availableVersions $versionsData
+                        
+                        if ($matchedVersion) {
+                            $file = $matchedVersion.files[0]
+                            $isExact = ($matchedVersion.version_number -eq $localVersion)
+                            
+                            return @{
+                                Name = $projectData.title
+                                Slug = $projectData.slug
+                                ExpectedSize = $file.size
+                                VersionNumber = $matchedVersion.version_number
+                                FileName = $file.filename
+                                ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($matchedVersion.id)"
+                                FoundByHash = $false
+                                ExactMatch = $isExact
+                                IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
+                                MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }
                             }
                         }
                     }
@@ -456,6 +615,7 @@ function Fetch-Modrinth-By-Filename {
                             FoundByHash = $false
                             ExactMatch = false
                             IsLatestVersion = true
+                            MatchType = "Latest Version"
                         }
                     }
                 }
@@ -479,7 +639,7 @@ function Fetch-Modrinth-By-Filename {
             # Try exact filename match
             foreach ($version in $versionsData) {
                 foreach ($file in $version.files) {
-                    if ($file.filename -eq $cleanFilename) {
+                    if ($file.filename -eq $cleanFilename -or $file.filename -eq $filename) {
                         return @{
                             Name = $hit.title
                             Slug = $hit.slug
@@ -489,6 +649,8 @@ function Fetch-Modrinth-By-Filename {
                             ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($version.id)"
                             FoundByHash = $false
                             ExactMatch = true
+                            IsLatestVersion = ($versionsData[0].id -eq $version.id)
+                            MatchType = "Exact Filename"
                         }
                     }
                 }
@@ -509,6 +671,7 @@ function Fetch-Modrinth-By-Filename {
                     FoundByHash = $false
                     ExactMatch = false
                     IsLatestVersion = true
+                    MatchType = "Latest Version"
                 }
             }
         }
@@ -525,7 +688,8 @@ function Fetch-Modrinth-By-Filename {
         FileName = ""; 
         FoundByHash = $false;
         ExactMatch = $false;
-        IsLatestVersion = $false
+        IsLatestVersion = $false;
+        MatchType = "No Match"
     }
 }
 
@@ -647,6 +811,9 @@ foreach ($file in $jarFiles) {
             IsModrinthDownload = $zoneInfo.IsModrinth
             ModrinthUrl = $modData.ModrinthUrl
             IsVerified = $true
+            MatchType = $modData.MatchType
+            ExactMatch = $modData.ExactMatch
+            IsLatestVersion = $modData.IsLatestVersion
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
@@ -693,6 +860,7 @@ foreach ($file in $jarFiles) {
             IsModrinthDownload = $zoneInfo.IsModrinth
             ModrinthUrl = $modrinthInfoFromJar.ModrinthUrl
             IsVerified = $true
+            MatchType = $modrinthInfoFromJar.MatchType
             ExactMatch = $modrinthInfoFromJar.ExactMatch
             IsLatestVersion = $modrinthInfoFromJar.IsLatestVersion
             FilePath = $file.FullName
@@ -739,6 +907,7 @@ foreach ($file in $jarFiles) {
             IsModrinthDownload = $zoneInfo.IsModrinth
             ModrinthUrl = $modrinthInfo.ModrinthUrl
             IsVerified = $true
+            MatchType = $modrinthInfo.MatchType
             ExactMatch = $modrinthInfo.ExactMatch
             IsLatestVersion = $modrinthInfo.IsLatestVersion
             FilePath = $file.FullName
@@ -778,6 +947,9 @@ foreach ($file in $jarFiles) {
             SourceURL = $zoneInfo.URL
             IsModrinthDownload = $zoneInfo.IsModrinth
             IsVerified = $true
+            MatchType = "Megabase"
+            ExactMatch = false
+            IsLatestVersion = false
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
@@ -805,6 +977,9 @@ foreach ($file in $jarFiles) {
         SizeDiffKB = 0
         ModrinthUrl = ""
         ModName = ""
+        MatchType = ""
+        ExactMatch = false
+        IsLatestVersion = false
         JarModId = $jarModInfo.ModId
         JarName = $jarModInfo.Name
         JarVersion = $jarModInfo.Version
@@ -838,6 +1013,9 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
         $mod.SizeDiffKB = [math]::Round(($mod.FileSize - $modrinthInfo.ExpectedSize)/1KB, 2)
         $mod.ModrinthUrl = $modrinthInfo.ModrinthUrl
         $mod.ModName = $modrinthInfo.Name
+        $mod.MatchType = $modrinthInfo.MatchType
+        $mod.ExactMatch = $modrinthInfo.ExactMatch
+        $mod.IsLatestVersion = $modrinthInfo.IsLatestVersion
         
         # Also update in allModsInfo array
         for ($j = 0; $j -lt $allModsInfo.Count; $j++) {
@@ -849,6 +1027,9 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
                 $allModsInfo[$j].SizeDiffKB = $mod.SizeDiffKB
                 $allModsInfo[$j].ModrinthUrl = $modrinthInfo.ModrinthUrl
                 $allModsInfo[$j].ModName = $modrinthInfo.Name
+                $allModsInfo[$j].MatchType = $modrinthInfo.MatchType
+                $allModsInfo[$j].ExactMatch = $modrinthInfo.ExactMatch
+                $allModsInfo[$j].IsLatestVersion = $modrinthInfo.IsLatestVersion
                 break
             }
         }
@@ -889,6 +1070,9 @@ try {
                 JarModId = $mod.JarModId
                 JarName = $mod.JarName
                 JarVersion = $mod.JarVersion
+                MatchType = $mod.MatchType
+                ExactMatch = $mod.ExactMatch
+                IsLatestVersion = $mod.IsLatestVersion
             }
         }
     }
@@ -930,6 +1114,24 @@ if ($verifiedMods.Count -gt 0) {
             Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray -NoNewline
         }
         
+        # Show match type indicator
+        $matchIndicator = ""
+        $matchColor = "DarkGray"
+        if ($mod.MatchType -eq "Exact Hash" -or $mod.MatchType -eq "Exact Version" -or $mod.MatchType -eq "Exact Filename") {
+            $matchIndicator = "✓"
+            $matchColor = "Green"
+        } elseif ($mod.MatchType -eq "Closest Version") {
+            $matchIndicator = "≈"
+            $matchColor = "Yellow"
+        } elseif ($mod.MatchType -eq "Latest Version") {
+            $matchIndicator = "↑"
+            $matchColor = "Cyan"
+        }
+        
+        if ($matchIndicator) {
+            Write-Host " $matchIndicator" -ForegroundColor $matchColor -NoNewline
+        }
+        
         if ($mod.DownloadSource -ne "Unknown") {
             $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "Yellow" }
             Write-Host " ($($mod.DownloadSource))" -ForegroundColor $sourceColor
@@ -942,11 +1144,8 @@ if ($verifiedMods.Count -gt 0) {
                 Write-Host "  Size: $($mod.ActualSizeKB) KB ✓" -ForegroundColor Green
             } else {
                 $sizeDiffSign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-                if ($tamperedMods.FileName -contains $mod.FileName) {
-                    Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Magenta
-                } else {
-                    Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
-                }
+                $sizeColor = if ($tamperedMods.FileName -contains $mod.FileName) { "Magenta" } else { "Yellow" }
+                Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sizeDiffSign$($mod.SizeDiffKB) KB)" -ForegroundColor $sizeColor
             }
         }
     }
@@ -965,6 +1164,13 @@ if ($unknownMods.Count -gt 0) {
         # Show Modrinth info if we found it
         if ($mod.ModName) {
             Write-Host "  Identified as: $($mod.ModName)" -ForegroundColor Cyan
+            
+            # Show match type
+            if ($mod.MatchType -eq "Closest Version") {
+                Write-Host "  Using closest version: $($mod.MatchType)" -ForegroundColor Yellow
+            } elseif ($mod.MatchType -eq "Latest Version") {
+                Write-Host "  Using latest version: $($mod.MatchType)" -ForegroundColor Cyan
+            }
             
             if ($mod.ExpectedSize -gt 0) {
                 if ($mod.FileSize -eq $mod.ExpectedSize) {
@@ -994,6 +1200,14 @@ if ($tamperedMods.Count -gt 0) {
         $sizeDiffSign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
         Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
+        
+        # Show match type for context
+        if ($mod.MatchType -eq "Closest Version") {
+            Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
+        } elseif ($mod.MatchType -eq "Latest Version") {
+            Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
+        }
+        
         Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Actual: $($mod.ActualSizeKB) KB | Difference: $sizeDiffSign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
         Write-Host "  ⚠ File size differs significantly from Modrinth version!" -ForegroundColor Red
         
@@ -1015,6 +1229,13 @@ if ($cheatMods.Count -gt 0) {
         
         if ($mod.ModName) {
             Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Gray
+            
+            # Show match type for context
+            if ($mod.MatchType -eq "Closest Version") {
+                Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
+            } elseif ($mod.MatchType -eq "Latest Version") {
+                Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
+            }
         }
         
         Write-Host "  Cheat Strings: $($mod.StringsFound)" -ForegroundColor Magenta
