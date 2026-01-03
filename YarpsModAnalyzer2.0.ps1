@@ -103,6 +103,7 @@ function Get-Mod-Info-From-Jar {
         Suggests = @{}
         Breaks = @{}
         Conflicts = @{}
+        ModLoader = ""
     }
     
     try {
@@ -151,6 +152,7 @@ function Get-Mod-Info-From-Jar {
                 if ($fabricData.breaks) { $modInfo.Breaks = $fabricData.breaks }
                 if ($fabricData.conflicts) { $modInfo.Conflicts = $fabricData.conflicts }
                 
+                $modInfo.ModLoader = "Fabric"
                 $zip.Dispose()
                 return $modInfo
             } catch {
@@ -184,6 +186,7 @@ function Get-Mod-Info-From-Jar {
                 $modInfo.Authors = @($matches[1])
             }
             
+            $modInfo.ModLoader = "Forge/NeoForge"
             $zip.Dispose()
             return $modInfo
         }
@@ -268,17 +271,19 @@ function Fetch-Modrinth-By-Hash {
                 ExactMatch = $true
                 IsLatestVersion = $false
                 MatchType = "Exact Hash"
+                LoaderType = if ($response.loaders -contains "fabric") { "Fabric" } elseif ($response.loaders -contains "forge") { "Forge" } else { "Unknown" }
             }
         }
     } catch {}
     
-    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $false }
+    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown" }
 }
 
 function Find-Closest-Version {
     param (
         [string]$localVersion,
-        [array]$availableVersions
+        [array]$availableVersions,
+        [string]$preferredLoader = "Fabric"
     )
     
     # If no local version or no available versions, return null
@@ -286,19 +291,32 @@ function Find-Closest-Version {
         return $null
     }
     
+    # Filter for preferred loader first
+    $filteredVersions = @()
+    foreach ($version in $availableVersions) {
+        if ($version.loaders -contains $preferredLoader) {
+            $filteredVersions += $version
+        }
+    }
+    
+    # If no versions with preferred loader, use all versions
+    if ($filteredVersions.Count -eq 0) {
+        $filteredVersions = $availableVersions
+    }
+    
+    # Try exact match first
+    foreach ($version in $filteredVersions) {
+        if ($version.version_number -eq $localVersion) {
+            return $version
+        }
+    }
+    
     # Try to parse semantic version
     try {
         # Clean version string
         $localVersion = $localVersion.Trim()
         
-        # Try exact match first
-        foreach ($version in $availableVersions) {
-            if ($version.version_number -eq $localVersion) {
-                return $version
-            }
-        }
-        
-        # Try to match major.minor.patch pattern
+        # Try to match major.minor.pattern
         if ($localVersion -match '(\d+)\.(\d+)\.(\d+)') {
             $major = [int]$matches[1]
             $minor = [int]$matches[2]
@@ -307,7 +325,7 @@ function Find-Closest-Version {
             $closest = $null
             $closestDistance = [double]::MaxValue
             
-            foreach ($version in $availableVersions) {
+            foreach ($version in $filteredVersions) {
                 if ($version.version_number -match '(\d+)\.(\d+)\.(\d+)') {
                     $vMajor = [int]$matches[1]
                     $vMinor = [int]$matches[2]
@@ -340,7 +358,7 @@ function Find-Closest-Version {
             $closest = $null
             $closestDistance = [double]::MaxValue
             
-            foreach ($version in $availableVersions) {
+            foreach ($version in $filteredVersions) {
                 if ($version.version_number -match '(\d+)\.(\d+)') {
                     $vMajor = [int]$matches[1]
                     $vMinor = [int]$matches[2]
@@ -360,7 +378,7 @@ function Find-Closest-Version {
         }
         
         # Try to find version containing the local version string
-        foreach ($version in $availableVersions) {
+        foreach ($version in $filteredVersions) {
             if ($version.version_number -contains $localVersion -or $version.version_number -match [regex]::Escape($localVersion)) {
                 return $version
             }
@@ -376,7 +394,8 @@ function Find-Closest-Version {
 function Fetch-Modrinth-By-ModId {
     param (
         [string]$modId,
-        [string]$version
+        [string]$version,
+        [string]$preferredLoader = "Fabric"
     )
     try {
         # First, try direct project lookup by slug
@@ -391,11 +410,12 @@ function Fetch-Modrinth-By-ModId {
                 
                 if ($versionsData.Count -gt 0) {
                     # Try to find exact version match or closest version
-                    $matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData
+                    $matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData -preferredLoader $preferredLoader
                     
                     if ($matchedVersion) {
                         $file = $matchedVersion.files[0]
                         $isExact = ($matchedVersion.version_number -eq $version)
+                        $loader = if ($matchedVersion.loaders -contains "fabric") { "Fabric" } elseif ($matchedVersion.loaders -contains "forge") { "Forge" } else { $matchedVersion.loaders[0] }
                         
                         return @{
                             Name = $projectData.title
@@ -408,12 +428,36 @@ function Fetch-Modrinth-By-ModId {
                             ExactMatch = $isExact
                             IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
                             MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }
+                            LoaderType = $loader
                         }
                     }
                     
-                    # If no close version match, return latest version
+                    # If no close version match, return latest version with preferred loader
+                    foreach ($ver in $versionsData) {
+                        if ($ver.loaders -contains $preferredLoader) {
+                            $latestFile = $ver.files[0]
+                            $loader = if ($ver.loaders -contains "fabric") { "Fabric" } elseif ($ver.loaders -contains "forge") { "Forge" } else { $ver.loaders[0] }
+                            
+                            return @{
+                                Name = $projectData.title
+                                Slug = $projectData.slug
+                                ExpectedSize = $latestFile.size
+                                VersionNumber = $ver.version_number
+                                FileName = $latestFile.filename
+                                ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($ver.id)"
+                                FoundByHash = $false
+                                ExactMatch = $false
+                                IsLatestVersion = ($versionsData[0].id -eq $ver.id)
+                                MatchType = "Latest Version ($loader)"
+                                LoaderType = $loader
+                            }
+                        }
+                    }
+                    
+                    # If no version with preferred loader, return latest version
                     $latestVersion = $versionsData[0]
                     $latestFile = $latestVersion.files[0]
+                    $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
                     
                     return @{
                         Name = $projectData.title
@@ -425,7 +469,8 @@ function Fetch-Modrinth-By-ModId {
                         FoundByHash = $false
                         ExactMatch = $false
                         IsLatestVersion = $true
-                        MatchType = "Latest Version"
+                        MatchType = "Latest Version ($loader)"
+                        LoaderType = $loader
                     }
                 }
             }
@@ -465,11 +510,12 @@ function Fetch-Modrinth-By-ModId {
                 
                 if ($versionsData.Count -gt 0) {
                     # Try to find exact version match or closest version
-                    $matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData
+                    $matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData -preferredLoader $preferredLoader
                     
                     if ($matchedVersion) {
                         $file = $matchedVersion.files[0]
                         $isExact = ($matchedVersion.version_number -eq $version)
+                        $loader = if ($matchedVersion.loaders -contains "fabric") { "Fabric" } elseif ($matchedVersion.loaders -contains "forge") { "Forge" } else { $matchedVersion.loaders[0] }
                         
                         return @{
                             Name = $bestMatch.title
@@ -482,12 +528,36 @@ function Fetch-Modrinth-By-ModId {
                             ExactMatch = $isExact
                             IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
                             MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }
+                            LoaderType = $loader
+                        }
+                    }
+                    
+                    # Return latest version with preferred loader
+                    foreach ($ver in $versionsData) {
+                        if ($ver.loaders -contains $preferredLoader) {
+                            $latestFile = $ver.files[0]
+                            $loader = if ($ver.loaders -contains "fabric") { "Fabric" } elseif ($ver.loaders -contains "forge") { "Forge" } else { $ver.loaders[0] }
+                            
+                            return @{
+                                Name = $bestMatch.title
+                                Slug = $bestMatch.slug
+                                ExpectedSize = $latestFile.size
+                                VersionNumber = $ver.version_number
+                                FileName = $latestFile.filename
+                                ModrinthUrl = "https://modrinth.com/mod/$($bestMatch.slug)/version/$($ver.id)"
+                                FoundByHash = $false
+                                ExactMatch = $false
+                                IsLatestVersion = ($versionsData[0].id -eq $ver.id)
+                                MatchType = "Latest Version ($loader)"
+                                LoaderType = $loader
+                            }
                         }
                     }
                     
                     # Return latest version
                     $latestVersion = $versionsData[0]
                     $latestFile = $latestVersion.files[0]
+                    $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
                     
                     return @{
                         Name = $bestMatch.title
@@ -499,7 +569,8 @@ function Fetch-Modrinth-By-ModId {
                         FoundByHash = $false
                         ExactMatch = $false
                         IsLatestVersion = $true
-                        MatchType = "Latest Version"
+                        MatchType = "Latest Version ($loader)"
+                        LoaderType = $loader
                     }
                 }
             }
@@ -518,13 +589,15 @@ function Fetch-Modrinth-By-ModId {
         FoundByHash = $false;
         ExactMatch = $false;
         IsLatestVersion = $false;
-        MatchType = "No Match"
+        MatchType = "No Match";
+        LoaderType = "Unknown"
     }
 }
 
 function Fetch-Modrinth-By-Filename {
     param (
-        [string]$filename
+        [string]$filename,
+        [string]$preferredLoader = "Fabric"
     )
     try {
         # Clean the filename
@@ -534,12 +607,25 @@ function Fetch-Modrinth-By-Filename {
         # Extract potential mod ID from filename
         $baseName = $modNameWithoutExt
         
+        # Check for loader in filename
+        $hasLoaderInName = $false
+        if ($filename -match '(?i)fabric') {
+            $preferredLoader = "Fabric"
+            $hasLoaderInName = $true
+        } elseif ($filename -match '(?i)forge') {
+            $preferredLoader = "Forge"
+            $hasLoaderInName = $true
+        }
+        
         # Try to extract version from filename
         $localVersion = ""
         if ($modNameWithoutExt -match '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$') {
             $localVersion = $matches[1]
             $baseName = $modNameWithoutExt -replace '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$', ''
         }
+        
+        # Remove loader suffixes from base name
+        $baseName = $baseName -replace '(?i)-fabric$', '' -replace '(?i)-forge$', ''
         
         # Try direct slug lookup first
         $possibleSlugs = @(
@@ -561,6 +647,8 @@ function Fetch-Modrinth-By-Filename {
                     foreach ($version in $versionsData) {
                         foreach ($file in $version.files) {
                             if ($file.filename -eq $cleanFilename -or $file.filename -eq $filename) {
+                                $loader = if ($version.loaders -contains "fabric") { "Fabric" } elseif ($version.loaders -contains "forge") { "Forge" } else { $version.loaders[0] }
+                                
                                 return @{
                                     Name = $projectData.title
                                     Slug = $projectData.slug
@@ -572,18 +660,20 @@ function Fetch-Modrinth-By-Filename {
                                     ExactMatch = $true
                                     IsLatestVersion = ($versionsData[0].id -eq $version.id)
                                     MatchType = "Exact Filename"
+                                    LoaderType = $loader
                                 }
                             }
                         }
                     }
                     
-                    # Try to find closest version match
+                    # Try to find closest version match with preferred loader
                     if ($localVersion -and $versionsData.Count -gt 0) {
-                        $matchedVersion = Find-Closest-Version -localVersion $localVersion -availableVersions $versionsData
+                        $matchedVersion = Find-Closest-Version -localVersion $localVersion -availableVersions $versionsData -preferredLoader $preferredLoader
                         
                         if ($matchedVersion) {
                             $file = $matchedVersion.files[0]
                             $isExact = ($matchedVersion.version_number -eq $localVersion)
+                            $loader = if ($matchedVersion.loaders -contains "fabric") { "Fabric" } elseif ($matchedVersion.loaders -contains "forge") { "Forge" } else { $matchedVersion.loaders[0] }
                             
                             return @{
                                 Name = $projectData.title
@@ -596,6 +686,29 @@ function Fetch-Modrinth-By-Filename {
                                 ExactMatch = $isExact
                                 IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
                                 MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }
+                                LoaderType = $loader
+                            }
+                        }
+                    }
+                    
+                    # Return latest version with preferred loader
+                    foreach ($version in $versionsData) {
+                        if ($version.loaders -contains $preferredLoader) {
+                            $file = $version.files[0]
+                            $loader = if ($version.loaders -contains "fabric") { "Fabric" } elseif ($version.loaders -contains "forge") { "Forge" } else { $version.loaders[0] }
+                            
+                            return @{
+                                Name = $projectData.title
+                                Slug = $projectData.slug
+                                ExpectedSize = $file.size
+                                VersionNumber = $version.version_number
+                                FileName = $file.filename
+                                ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($version.id)"
+                                FoundByHash = $false
+                                ExactMatch = $false
+                                IsLatestVersion = ($versionsData[0].id -eq $version.id)
+                                MatchType = "Latest Version ($loader)"
+                                LoaderType = $loader
                             }
                         }
                     }
@@ -604,6 +717,7 @@ function Fetch-Modrinth-By-Filename {
                     if ($versionsData.Count -gt 0) {
                         $latestVersion = $versionsData[0]
                         $latestFile = $latestVersion.files[0]
+                        $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
                         
                         return @{
                             Name = $projectData.title
@@ -615,7 +729,8 @@ function Fetch-Modrinth-By-Filename {
                             FoundByHash = $false
                             ExactMatch = $false
                             IsLatestVersion = $true
-                            MatchType = "Latest Version"
+                            MatchType = "Latest Version ($loader)"
+                            LoaderType = $loader
                         }
                     }
                 }
@@ -640,6 +755,8 @@ function Fetch-Modrinth-By-Filename {
             foreach ($version in $versionsData) {
                 foreach ($file in $version.files) {
                     if ($file.filename -eq $cleanFilename -or $file.filename -eq $filename) {
+                        $loader = if ($version.loaders -contains "fabric") { "Fabric" } elseif ($version.loaders -contains "forge") { "Forge" } else { $version.loaders[0] }
+                        
                         return @{
                             Name = $hit.title
                             Slug = $hit.slug
@@ -651,7 +768,30 @@ function Fetch-Modrinth-By-Filename {
                             ExactMatch = $true
                             IsLatestVersion = ($versionsData[0].id -eq $version.id)
                             MatchType = "Exact Filename"
+                            LoaderType = $loader
                         }
+                    }
+                }
+            }
+            
+            # Return latest version with preferred loader
+            foreach ($version in $versionsData) {
+                if ($version.loaders -contains $preferredLoader) {
+                    $file = $version.files[0]
+                    $loader = if ($version.loaders -contains "fabric") { "Fabric" } elseif ($version.loaders -contains "forge") { "Forge" } else { $version.loaders[0] }
+                    
+                    return @{
+                        Name = $hit.title
+                        Slug = $hit.slug
+                        ExpectedSize = $file.size
+                        VersionNumber = $version.version_number
+                        FileName = $file.filename
+                        ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($version.id)"
+                        FoundByHash = $false
+                        ExactMatch = $false
+                        IsLatestVersion = ($versionsData[0].id -eq $version.id)
+                        MatchType = "Latest Version ($loader)"
+                        LoaderType = $loader
                     }
                 }
             }
@@ -660,6 +800,7 @@ function Fetch-Modrinth-By-Filename {
             if ($versionsData.Count -gt 0) {
                 $latestVersion = $versionsData[0]
                 $latestFile = $latestVersion.files[0]
+                $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
                 
                 return @{
                     Name = $hit.title
@@ -671,7 +812,8 @@ function Fetch-Modrinth-By-Filename {
                     FoundByHash = $false
                     ExactMatch = $false
                     IsLatestVersion = $true
-                    MatchType = "Latest Version"
+                    MatchType = "Latest Version ($loader)"
+                    LoaderType = $loader
                 }
             }
         }
@@ -689,7 +831,8 @@ function Fetch-Modrinth-By-Filename {
         FoundByHash = $false;
         ExactMatch = $false;
         IsLatestVersion = $false;
-        MatchType = "No Match"
+        MatchType = "No Match";
+        LoaderType = "Unknown"
     }
 }
 
@@ -707,36 +850,23 @@ function Fetch-Megabase {
     return $null
 }
 
-# Cheat strings - KEEP Velocity for detecting cheat clients
+# Cheat strings - Your updated list
 $cheatStrings = @(
-    "AimAssist",
-    "AnchorTweaks",
-    "AutoAnchor",
-    "AutoCrystal",
-    "AutoDoubleHand",
-    "AutoHitCrystal",
-    "AutoPot",
-    "AutoTotem",
-    "AutoArmor",
-    "InventoryTotem",
-    "Hitboxes",
-    "JumpReset",
-    "LegitTotem",
-    "PingSpoof",
-    "SelfDestruct",
-    "ShieldBreaker",
-    "TriggerBot",
-    "Velocity",
-    "AxeSpam",
-    "WebMacro",
-    "FastPlace",
-    "KillAura",
-    "Reach",
-    "NoSlow",
-    "Bhop",
-    "Phase",
-    "Freecam",
-    "Xray"
+    "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
+    "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
+    "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
+    "autopot", "auto pot", "velocity",
+    "autodoublehand", "auto double hand",
+    "autoarmor", "auto armor",
+    "automace",
+    "aimassist", "aim assist",
+    "triggerbot", "trigger bot",
+    "shieldbreaker", "shield breaker",
+    "axespam", "axe spam",
+    "pingspoof", "ping spoof",
+    "webmacro", "web macro",
+    "selfdestruct", "self destruct",
+    "hitboxes"
 )
 
 function Check-Strings {
@@ -749,7 +879,8 @@ function Check-Strings {
     try {
         $fileContent = Get-Content -Raw $filePath
         foreach ($string in $cheatStrings) {
-            if ($fileContent -match $string) {
+            # Use case-insensitive matching
+            if ($fileContent -match $string -or $fileContent -match [regex]::Escape($string)) {
                 $stringsFound.Add($string) | Out-Null
             }
         }
@@ -788,6 +919,18 @@ foreach ($file in $jarFiles) {
     # Extract mod info from JAR file
     $jarModInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
     
+    # Determine preferred loader based on filename
+    $preferredLoader = "Fabric"  # Default to Fabric
+    if ($file.Name -match '(?i)fabric') {
+        $preferredLoader = "Fabric"
+    } elseif ($file.Name -match '(?i)forge') {
+        $preferredLoader = "Forge"
+    } elseif ($jarModInfo.ModLoader -eq "Fabric") {
+        $preferredLoader = "Fabric"
+    } elseif ($jarModInfo.ModLoader -eq "Forge/NeoForge") {
+        $preferredLoader = "Forge"
+    }
+    
     # Try Modrinth by hash first (most accurate)
     $modData = Fetch-Modrinth-By-Hash -hash $hash
     
@@ -814,10 +957,13 @@ foreach ($file in $jarFiles) {
             MatchType = $modData.MatchType
             ExactMatch = $modData.ExactMatch
             IsLatestVersion = $modData.IsLatestVersion
+            LoaderType = $modData.LoaderType
+            PreferredLoader = $preferredLoader
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
+            JarModLoader = $jarModInfo.ModLoader
         }
         
         $verifiedMods += $modEntry
@@ -837,7 +983,7 @@ foreach ($file in $jarFiles) {
     # Try to find mod on Modrinth using mod ID from JAR file
     $modrinthInfoFromJar = $null
     if ($jarModInfo.ModId) {
-        $modrinthInfoFromJar = Fetch-Modrinth-By-ModId -modId $jarModInfo.ModId -version $jarModInfo.Version
+        $modrinthInfoFromJar = Fetch-Modrinth-By-ModId -modId $jarModInfo.ModId -version $jarModInfo.Version -preferredLoader $preferredLoader
     }
     
     if ($modrinthInfoFromJar -and $modrinthInfoFromJar.Name) {
@@ -863,10 +1009,13 @@ foreach ($file in $jarFiles) {
             MatchType = $modrinthInfoFromJar.MatchType
             ExactMatch = $modrinthInfoFromJar.ExactMatch
             IsLatestVersion = $modrinthInfoFromJar.IsLatestVersion
+            LoaderType = $modrinthInfoFromJar.LoaderType
+            PreferredLoader = $preferredLoader
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
+            JarModLoader = $jarModInfo.ModLoader
         }
         
         $verifiedMods += $modEntry
@@ -884,7 +1033,7 @@ foreach ($file in $jarFiles) {
     }
     
     # Try to get Modrinth info by filename (fallback)
-    $modrinthInfo = Fetch-Modrinth-By-Filename -filename $file.Name
+    $modrinthInfo = Fetch-Modrinth-By-Filename -filename $file.Name -preferredLoader $preferredLoader
     
     # Check if we found mod info by filename
     if ($modrinthInfo.Name) {
@@ -910,10 +1059,13 @@ foreach ($file in $jarFiles) {
             MatchType = $modrinthInfo.MatchType
             ExactMatch = $modrinthInfo.ExactMatch
             IsLatestVersion = $modrinthInfo.IsLatestVersion
+            LoaderType = $modrinthInfo.LoaderType
+            PreferredLoader = $preferredLoader
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
+            JarModLoader = $jarModInfo.ModLoader
         }
         
         $verifiedMods += $modEntry
@@ -950,10 +1102,13 @@ foreach ($file in $jarFiles) {
             MatchType = "Megabase"
             ExactMatch = $false
             IsLatestVersion = $false
+            LoaderType = "Unknown"
+            PreferredLoader = $preferredLoader
             FilePath = $file.FullName
             JarModId = $jarModInfo.ModId
             JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version
+            JarModLoader = $jarModInfo.ModLoader
         }
         
         $verifiedMods += $modEntry
@@ -980,9 +1135,12 @@ foreach ($file in $jarFiles) {
         MatchType = ""
         ExactMatch = $false
         IsLatestVersion = $false
+        LoaderType = "Unknown"
+        PreferredLoader = $preferredLoader
         JarModId = $jarModInfo.ModId
         JarName = $jarModInfo.Name
         JarVersion = $jarModInfo.Version
+        JarModLoader = $jarModInfo.ModLoader
     }
     
     $unknownMods += $unknownModEntry
@@ -996,12 +1154,12 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
     # Try by JAR mod ID first
     $modrinthInfo = $null
     if ($mod.JarModId) {
-        $modrinthInfo = Fetch-Modrinth-By-ModId -modId $mod.JarModId -version $mod.JarVersion
+        $modrinthInfo = Fetch-Modrinth-By-ModId -modId $mod.JarModId -version $mod.JarVersion -preferredLoader $mod.PreferredLoader
     }
     
     # If not found, try by filename
     if (-not $modrinthInfo -or -not $modrinthInfo.Name) {
-        $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName
+        $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName -preferredLoader $mod.PreferredLoader
     }
     
     if ($modrinthInfo -and $modrinthInfo.Name) {
@@ -1016,6 +1174,7 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
         $mod.MatchType = $modrinthInfo.MatchType
         $mod.ExactMatch = $modrinthInfo.ExactMatch
         $mod.IsLatestVersion = $modrinthInfo.IsLatestVersion
+        $mod.LoaderType = $modrinthInfo.LoaderType
         
         # Also update in allModsInfo array
         for ($j = 0; $j -lt $allModsInfo.Count; $j++) {
@@ -1030,6 +1189,7 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
                 $allModsInfo[$j].MatchType = $modrinthInfo.MatchType
                 $allModsInfo[$j].ExactMatch = $modrinthInfo.ExactMatch
                 $allModsInfo[$j].IsLatestVersion = $modrinthInfo.IsLatestVersion
+                $allModsInfo[$j].LoaderType = $modrinthInfo.LoaderType
                 break
             }
         }
@@ -1073,6 +1233,7 @@ try {
                 MatchType = $mod.MatchType
                 ExactMatch = $mod.ExactMatch
                 IsLatestVersion = $mod.IsLatestVersion
+                LoaderType = $mod.LoaderType
             }
         }
     }
@@ -1123,7 +1284,7 @@ if ($verifiedMods.Count -gt 0) {
         } elseif ($mod.MatchType -eq "Closest Version") {
             $matchIndicator = "≈"
             $matchColor = "Yellow"
-        } elseif ($mod.MatchType -eq "Latest Version") {
+        } elseif ($mod.MatchType -match "Latest Version") {
             $matchIndicator = "↑"
             $matchColor = "Cyan"
         }
@@ -1132,9 +1293,15 @@ if ($verifiedMods.Count -gt 0) {
             Write-Host " $matchIndicator" -ForegroundColor $matchColor -NoNewline
         }
         
+        # Show loader type
+        if ($mod.LoaderType -ne "Unknown") {
+            $loaderColor = if ($mod.LoaderType -eq "Fabric") { "Magenta" } else { "Yellow" }
+            Write-Host " ($($mod.LoaderType))" -ForegroundColor $loaderColor -NoNewline
+        }
+        
         if ($mod.DownloadSource -ne "Unknown") {
-            $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "Yellow" }
-            Write-Host " ($($mod.DownloadSource))" -ForegroundColor $sourceColor
+            $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "DarkYellow" }
+            Write-Host " [$($mod.DownloadSource)]" -ForegroundColor $sourceColor
         } else {
             Write-Host ""
         }
@@ -1165,10 +1332,16 @@ if ($unknownMods.Count -gt 0) {
         if ($mod.ModName) {
             Write-Host "  Identified as: $($mod.ModName)" -ForegroundColor Cyan
             
+            # Show loader type
+            if ($mod.LoaderType -ne "Unknown") {
+                $loaderColor = if ($mod.LoaderType -eq "Fabric") { "Magenta" } else { "Yellow" }
+                Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
+            }
+            
             # Show match type
             if ($mod.MatchType -eq "Closest Version") {
                 Write-Host "  Using closest version: $($mod.MatchType)" -ForegroundColor Yellow
-            } elseif ($mod.MatchType -eq "Latest Version") {
+            } elseif ($mod.MatchType -match "Latest Version") {
                 Write-Host "  Using latest version: $($mod.MatchType)" -ForegroundColor Cyan
             }
             
@@ -1183,7 +1356,7 @@ if ($unknownMods.Count -gt 0) {
         }
         
         if ($mod.ZoneId) {
-            $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "Yellow" }
+            $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "DarkYellow" }
             Write-Host "  Downloaded from: $($mod.DownloadSource)" -ForegroundColor $sourceColor
         }
         
@@ -1201,10 +1374,16 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
         Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
         
+        # Show loader type
+        if ($mod.LoaderType -ne "Unknown") {
+            $loaderColor = if ($mod.LoaderType -eq "Fabric") { "Magenta" } else { "Yellow" }
+            Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
+        }
+        
         # Show match type for context
         if ($mod.MatchType -eq "Closest Version") {
             Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
-        } elseif ($mod.MatchType -eq "Latest Version") {
+        } elseif ($mod.MatchType -match "Latest Version") {
             Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
         }
         
@@ -1230,10 +1409,16 @@ if ($cheatMods.Count -gt 0) {
         if ($mod.ModName) {
             Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Gray
             
+            # Show loader type
+            if ($mod.LoaderType -ne "Unknown") {
+                $loaderColor = if ($mod.LoaderType -eq "Fabric") { "Magenta" } else { "Yellow" }
+                Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
+            }
+            
             # Show match type for context
             if ($mod.MatchType -eq "Closest Version") {
                 Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
-            } elseif ($mod.MatchType -eq "Latest Version") {
+            } elseif ($mod.MatchType -match "Latest Version") {
                 Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
             }
         }
@@ -1259,7 +1444,8 @@ if ($cheatMods.Count -gt 0) {
         }
         
         if ($mod.DownloadSource -ne "Unknown") {
-            Write-Host "  Source: $($mod.DownloadSource)" -ForegroundColor Yellow
+            $sourceColor = if ($mod.DownloadSource -eq "Modrinth") { "Green" } else { "DarkYellow" }
+            Write-Host "  Source: $($mod.DownloadSource)" -ForegroundColor $sourceColor
         }
         
         if ($mod.IsVerifiedMod) {
