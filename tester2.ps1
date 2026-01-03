@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "YarpLetapStan Mod Analyzer" -ForegroundColor Magenta
+Write-Host "YarpLetapStan's Mod Analyzer" -ForegroundColor Magenta
 Write-Host "Made by " -ForegroundColor DarkGray -NoNewline
 Write-Host "YarpLetapStan"
 Write-Host
@@ -109,19 +109,23 @@ function Fetch-Modrinth-By-Filename {
         $cleanFilename = $filename -replace '\.temp\.jar$', '.jar' -replace '\.tmp\.jar$', '.jar'
         $modName = [System.IO.Path]::GetFileNameWithoutExtension($cleanFilename)
         
-        # Extract mod name and version from common patterns
+        # IMPROVED: Better pattern matching for various mod filename formats
         $modPatterns = @(
-            # Pattern 1: modname-version+mcversion.jar (e.g., immediatelyfast-fabric-1.3.5+1.21.1.jar)
-            '^([a-zA-Z0-9\-_]+?)(?:-(fabric|forge|neoforge))?-(?:\d+\.\d+(?:\.\d+)?(?:\+[\d\.]+)?)(?:-mc[\d\.]+)?$',
+            # Pattern for modname-version.jar (like krypton-0.2.8.jar)
+            '^([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*?)-(\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)?)$',
             
-            # Pattern 2: modname-mcversion-version.jar (e.g., sodium-mc1.20.1-0.6.13.jar)
-            '^([a-zA-Z0-9\-_]+?)(?:-mc[\d\.]+)?-(?:\d+\.\d+(?:\.\d+)?)$',
+            # Pattern for modname-mcversion-version.jar
+            '^([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*?)-mc(\d+\.\d+(?:\.\d+)?)-(\d+\.\d+(?:\.\d+)?)$',
             
-            # Pattern 3: Just get the base name before any hyphens and numbers
-            '^([a-zA-Z0-9]+)(?:-|_).*$'
+            # Pattern for fabric/forge mods
+            '^([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*?)-(\d+\.\d+(?:\.\d+)?)\+mc(\d+\.\d+(?:\.\d+)?)$',
+            
+            # Simple pattern - just get everything before the first version number
+            '^([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*?)-\d'
         )
         
         $baseModName = ""
+        
         foreach ($pattern in $modPatterns) {
             if ($modName -match $pattern) {
                 $baseModName = $matches[1]
@@ -129,15 +133,31 @@ function Fetch-Modrinth-By-Filename {
             }
         }
         
+        # If no pattern matched, use simple cleanup
         if (-not $baseModName) {
+            # Remove version numbers and common suffixes
             $baseModName = $modName -replace '-\d+.*$', '' -replace '_[^_]*$', ''
         }
         
-        # Clean up common prefixes/suffixes
-        $baseModName = $baseModName -replace '^fabric-', '' -replace '^forge-', '' -replace '-fabric$', '' -replace '-forge$', ''
+        # Clean up common loader prefixes/suffixes
+        $baseModName = $baseModName -replace '^fabric-', '' -replace '^forge-', '' -replace '-fabric$', '' -replace '-forge$', '' -replace '-neoforge$', ''
+        
+        # If name is too short or suspicious, return empty
+        if ($baseModName.Length -lt 3) {
+            return @{ 
+                Name = ""; 
+                Slug = ""; 
+                ExpectedSize = 0; 
+                VersionNumber = ""; 
+                FileName = ""; 
+                FoundByHash = $false;
+                ExactMatch = $false;
+                IsLatestVersion = $false
+            }
+        }
         
         # Search Modrinth with the cleaned name
-        $searchUrl = "https://api.modrinth.com/v2/search?query=`"$baseModName`"&facets=`"[[`"project_type:mod`"]]`"&limit=10"
+        $searchUrl = "https://api.modrinth.com/v2/search?query=`"$baseModName`"&facets=`"[[`"project_type:mod`"]]`"&limit=20"
         $searchResponse = Invoke-RestMethod -Uri $searchUrl -Method Get -UseBasicParsing -ErrorAction Stop
         
         if ($searchResponse.hits -and $searchResponse.hits.Count -gt 0) {
@@ -145,6 +165,18 @@ function Fetch-Modrinth-By-Filename {
             foreach ($hit in $searchResponse.hits) {
                 $projectId = $hit.project_id
                 $hitTitle = $hit.title
+                $hitSlug = $hit.slug
+                
+                # Check if the slug or title closely matches our base mod name
+                $normalizedHitSlug = $hitSlug -replace '-', ''
+                $normalizedBaseName = $baseModName -replace '-', ''
+                
+                # Skip if the names don't match reasonably well
+                if ($normalizedBaseName.Length -gt 3 -and 
+                    $normalizedHitSlug -notmatch $normalizedBaseName -and 
+                    $hitTitle -notmatch $baseModName) {
+                    continue
+                }
                 
                 # Get all versions for this project
                 $versionsUrl = "https://api.modrinth.com/v2/project/$projectId/version"
@@ -156,11 +188,11 @@ function Fetch-Modrinth-By-Filename {
                         if ($file.filename -eq $cleanFilename -or $file.filename -eq $filename) {
                             return @{
                                 Name = $hitTitle
-                                Slug = $hit.slug
+                                Slug = $hitSlug
                                 ExpectedSize = $file.size
                                 VersionNumber = $version.version_number
                                 FileName = $file.filename
-                                ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($version.id)"
+                                ModrinthUrl = "https://modrinth.com/mod/$hitSlug/version/$($version.id)"
                                 FoundByHash = $false
                                 ExactMatch = $true
                             }
@@ -168,54 +200,52 @@ function Fetch-Modrinth-By-Filename {
                     }
                 }
                 
-                # If no exact match, look for similar version pattern
-                # Extract version from our filename
+                # Try to find version by version number from filename
+                # Extract version from filename
                 $fileVersion = ""
-                if ($modName -match '(\d+\.\d+(?:\.\d+)?(?:\+[\d\.]+)?)') {
+                if ($modName -match '(\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)?)') {
                     $fileVersion = $matches[1]
                 }
                 
-                foreach ($version in $versionsResponse) {
-                    # Check if version numbers match
-                    if ($fileVersion -and $version.version_number -match $fileVersion) {
-                        # Use the first file from this version
-                        $file = $version.files[0]
-                        return @{
-                            Name = $hitTitle
-                            Slug = $hit.slug
-                            ExpectedSize = $file.size
-                            VersionNumber = $version.version_number
-                            FileName = $file.filename
-                            ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($version.id)"
-                            FoundByHash = $false
-                            ExactMatch = $false
+                if ($fileVersion) {
+                    foreach ($version in $versionsResponse) {
+                        # Check if version numbers match (allowing for some variation)
+                        $cleanVersion = $version.version_number -replace '[^0-9.]', ''
+                        $cleanFileVersion = $fileVersion -replace '[^0-9.]', ''
+                        
+                        if ($cleanFileVersion -eq $cleanVersion) {
+                            # Use the first file from this version
+                            $file = $version.files[0]
+                            return @{
+                                Name = $hitTitle
+                                Slug = $hitSlug
+                                ExpectedSize = $file.size
+                                VersionNumber = $version.version_number
+                                FileName = $file.filename
+                                ModrinthUrl = "https://modrinth.com/mod/$hitSlug/version/$($version.id)"
+                                FoundByHash = $false
+                                ExactMatch = $false
+                            }
                         }
                     }
                 }
-            }
-            
-            # If we get here, no exact version match found, return the first hit with latest version
-            $hit = $searchResponse.hits[0]
-            $projectId = $hit.project_id
-            
-            # Get the latest version
-            $versionsUrl = "https://api.modrinth.com/v2/project/$projectId/version"
-            $versionsResponse = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
-            
-            if ($versionsResponse.Count -gt 0) {
-                $latestVersion = $versionsResponse[0]
-                $latestFile = $latestVersion.files[0]
                 
-                return @{
-                    Name = $hit.title
-                    Slug = $hit.slug
-                    ExpectedSize = $latestFile.size
-                    VersionNumber = $latestVersion.version_number
-                    FileName = $latestFile.filename
-                    ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($latestVersion.id)"
-                    FoundByHash = $false
-                    ExactMatch = $false
-                    IsLatestVersion = $true
+                # Return the latest version as a best guess
+                if ($versionsResponse.Count -gt 0) {
+                    $latestVersion = $versionsResponse[0]
+                    $latestFile = $latestVersion.files[0]
+                    
+                    return @{
+                        Name = $hitTitle
+                        Slug = $hitSlug
+                        ExpectedSize = $latestFile.size
+                        VersionNumber = $latestVersion.version_number
+                        FileName = $latestFile.filename
+                        ModrinthUrl = "https://modrinth.com/mod/$hitSlug/version/$($latestVersion.id)"
+                        FoundByHash = $false
+                        ExactMatch = $false
+                        IsLatestVersion = $true
+                    }
                 }
             }
         }
@@ -657,14 +687,8 @@ if ($cheatMods.Count -gt 0) {
     }
 }
 
-# Final summary
+# SIMPLIFIED Final summary - removed everything as requested
 Write-Host "{ Final Summary }" -ForegroundColor Cyan
-Write-Host "=" * 80
-Write-Host "Total mods scanned: $totalMods" -ForegroundColor White
-Write-Host "Verified mods: $($verifiedMods.Count)" -ForegroundColor Green
-Write-Host "Unknown mods: $($unknownMods.Count)" -ForegroundColor $(if ($unknownMods.Count -gt 0) { "Yellow" } else { "Gray" })
-Write-Host "Size comparisons shown: $(($verifiedMods.Count + $unknownMods.Where({$_.ModrinthName}).Count))" -ForegroundColor Cyan
-Write-Host "Cheat mods: $($cheatMods.Count)" -ForegroundColor $(if ($cheatMods.Count -gt 0) { "Red" } else { "Gray" })
 Write-Host "=" * 80
 
 # Save report to file
@@ -673,7 +697,7 @@ $reportFile = "mod_analyzer_report_$timestamp.txt"
 $reportPath = Join-Path (Get-Location) $reportFile
 
 $reportContent = @"
-YarpLetapStan Mod Analyzer Report
+YarpLetapStan's Mod Analyzer Report
 Generated: $(Get-Date)
 Mods Folder: $mods
 
