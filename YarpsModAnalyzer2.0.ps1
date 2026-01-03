@@ -81,6 +81,172 @@ function Get-ZoneIdentifier {
     return @{ Source = "Unknown"; URL = ""; IsModrinth = $false }
 }
 
+function Get-Mod-Info-From-Jar {
+    param (
+        [string]$jarPath
+    )
+    
+    $modInfo = @{
+        ModId = ""
+        Name = ""
+        Version = ""
+        Description = ""
+        Authors = @()
+        License = ""
+        Contact = @{}
+        Icon = ""
+        Environment = ""
+        Entrypoints = @{}
+        Mixins = @()
+        AccessWidener = ""
+        Depends = @{}
+        Suggests = @{}
+        Breaks = @{}
+        Conflicts = @{}
+    }
+    
+    try {
+        # Try to read the JAR as a ZIP file
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
+        
+        # Look for fabric.mod.json (Fabric mods)
+        $fabricModJson = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1
+        if ($fabricModJson) {
+            $stream = $fabricModJson.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $jsonContent = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            try {
+                $fabricData = $jsonContent | ConvertFrom-Json
+                
+                if ($fabricData.id) { $modInfo.ModId = $fabricData.id }
+                if ($fabricData.name) { $modInfo.Name = $fabricData.name }
+                if ($fabricData.version) { $modInfo.Version = $fabricData.version }
+                if ($fabricData.description) { $modInfo.Description = $fabricData.description }
+                if ($fabricData.authors) { 
+                    if ($fabricData.authors -is [array]) {
+                        $modInfo.Authors = $fabricData.authors
+                    } else {
+                        $modInfo.Authors = @($fabricData.authors)
+                    }
+                }
+                if ($fabricData.license) { $modInfo.License = $fabricData.license }
+                if ($fabricData.contact) { $modInfo.Contact = $fabricData.contact }
+                if ($fabricData.icon) { $modInfo.Icon = $fabricData.icon }
+                if ($fabricData.environment) { $modInfo.Environment = $fabricData.environment }
+                if ($fabricData.entrypoints) { $modInfo.Entrypoints = $fabricData.entrypoints }
+                if ($fabricData.mixins) { 
+                    if ($fabricData.mixins -is [array]) {
+                        $modInfo.Mixins = $fabricData.mixins
+                    } else {
+                        $modInfo.Mixins = @($fabricData.mixins)
+                    }
+                }
+                if ($fabricData.accessWidener) { $modInfo.AccessWidener = $fabricData.accessWidener }
+                if ($fabricData.depends) { $modInfo.Depends = $fabricData.depends }
+                if ($fabricData.suggests) { $modInfo.Suggests = $fabricData.suggests }
+                if ($fabricData.breaks) { $modInfo.Breaks = $fabricData.breaks }
+                if ($fabricData.conflicts) { $modInfo.Conflicts = $fabricData.conflicts }
+                
+                $modInfo.Source = "fabric.mod.json"
+                $zip.Dispose()
+                return $modInfo
+            } catch {
+                # JSON parsing failed
+            }
+        }
+        
+        # Look for META-INF/mods.toml (Forge/NeoForge mods)
+        $modsToml = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1
+        if ($modsToml) {
+            $stream = $modsToml.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $tomlContent = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            # Simple TOML parsing for basic info
+            if ($tomlContent -match 'modId\s*=\s*"([^"]+)"') {
+                $modInfo.ModId = $matches[1]
+            }
+            if ($tomlContent -match 'displayName\s*=\s*"([^"]+)"') {
+                $modInfo.Name = $matches[1]
+            }
+            if ($tomlContent -match 'version\s*=\s*"([^"]+)"') {
+                $modInfo.Version = $matches[1]
+            }
+            if ($tomlContent -match 'description\s*=\s*"([^"]+)"') {
+                $modInfo.Description = $matches[1]
+            }
+            if ($tomlContent -match 'authors\s*=\s*"([^"]+)"') {
+                $modInfo.Authors = @($matches[1])
+            }
+            
+            $modInfo.Source = "META-INF/mods.toml"
+            $zip.Dispose()
+            return $modInfo
+        }
+        
+        # Look for modid.mixins.json (Mixin config)
+        $mixinJson = $zip.Entries | Where-Object { $_.Name -match '\.mixins\.json$' } | Select-Object -First 1
+        if ($mixinJson) {
+            $stream = $mixinJson.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $jsonContent = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            try {
+                $mixinData = $jsonContent | ConvertFrom-Json
+                # Mixin config might have package info that hints at mod ID
+                if ($mixinData.package) {
+                    $packageParts = $mixinData.package -split '\.'
+                    if ($packageParts.Count -ge 2) {
+                        $modInfo.ModId = $packageParts[-2]  # Often the mod ID is second-to-last part
+                    }
+                }
+                $modInfo.Source = "mixins.json"
+            } catch {
+                # JSON parsing failed
+            }
+        }
+        
+        # Look for MANIFEST.MF for additional info
+        $manifest = $zip.Entries | Where-Object { $_.Name -eq 'MANIFEST.MF' } | Select-Object -First 1
+        if ($manifest) {
+            $stream = $manifest.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $manifestContent = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            # Parse manifest for useful info
+            $lines = $manifestContent -split "`n"
+            foreach ($line in $lines) {
+                if ($line -match 'Implementation-Title:\s*(.+)') {
+                    if (-not $modInfo.Name) { $modInfo.Name = $matches[1].Trim() }
+                }
+                if ($line -match 'Implementation-Version:\s*(.+)') {
+                    if (-not $modInfo.Version) { $modInfo.Version = $matches[1].Trim() }
+                }
+                if ($line -match 'Specification-Title:\s*(.+)') {
+                    if (-not $modInfo.Name) { $modInfo.Name = $matches[1].Trim() }
+                }
+            }
+        }
+        
+        $zip.Dispose()
+        
+    } catch {
+        # Error reading JAR file
+    }
+    
+    return $modInfo
+}
+
 function Fetch-Modrinth-By-Hash {
     param (
         [string]$hash
@@ -107,6 +273,106 @@ function Fetch-Modrinth-By-Hash {
     } catch {}
     
     return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false }
+}
+
+function Fetch-Modrinth-By-ModId {
+    param (
+        [string]$modId,
+        [string]$version
+    )
+    try {
+        # First, search for the mod by its ID
+        $searchUrl = "https://api.modrinth.com/v2/search?query=`"$modId`"&facets=`"[[`"project_type:mod`"]]`"&limit=5"
+        $searchData = Invoke-RestMethod -Uri $searchUrl -Method Get -UseBasicParsing -ErrorAction Stop
+        
+        if ($searchData.hits -and $searchData.hits.Count -gt 0) {
+            # Try to find exact match by mod ID/slug
+            foreach ($hit in $searchData.hits) {
+                if ($hit.slug -eq $modId -or $hit.project_id -eq $modId -or $hit.title -match $modId) {
+                    $projectId = $hit.project_id
+                    
+                    # Get all versions for this project
+                    $versionsUrl = "https://api.modrinth.com/v2/project/$projectId/version"
+                    $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
+                    
+                    # If we have a version, try to find exact match
+                    if ($version) {
+                        foreach ($ver in $versionsData) {
+                            if ($ver.version_number -eq $version -or $ver.version_number -match $version) {
+                                $file = $ver.files[0]
+                                return @{
+                                    Name = $hit.title
+                                    Slug = $hit.slug
+                                    ExpectedSize = $file.size
+                                    VersionNumber = $ver.version_number
+                                    FileName = $file.filename
+                                    ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($ver.id)"
+                                    FoundByHash = $false
+                                    ExactMatch = true
+                                }
+                            }
+                        }
+                    }
+                    
+                    # Return latest version if no version match or no version specified
+                    if ($versionsData.Count -gt 0) {
+                        $latestVersion = $versionsData[0]
+                        $latestFile = $latestVersion.files[0]
+                        
+                        return @{
+                            Name = $hit.title
+                            Slug = $hit.slug
+                            ExpectedSize = $latestFile.size
+                            VersionNumber = $latestVersion.version_number
+                            FileName = $latestFile.filename
+                            ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($latestVersion.id)"
+                            FoundByHash = $false
+                            ExactMatch = false
+                            IsLatestVersion = true
+                        }
+                    }
+                }
+            }
+            
+            # If no exact match, use first result
+            $hit = $searchData.hits[0]
+            $projectId = $hit.project_id
+            
+            $versionsUrl = "https://api.modrinth.com/v2/project/$projectId/version"
+            $versionsData = Invoke-RestMethod -Uri $versionsUrl -Method Get -UseBasicParsing -ErrorAction Stop
+            
+            if ($versionsData.Count -gt 0) {
+                $latestVersion = $versionsData[0]
+                $latestFile = $latestVersion.files[0]
+                
+                return @{
+                    Name = $hit.title
+                    Slug = $hit.slug
+                    ExpectedSize = $latestFile.size
+                    VersionNumber = $latestVersion.version_number
+                    FileName = $latestFile.filename
+                    ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($latestVersion.id)"
+                    FoundByHash = $false
+                    ExactMatch = false
+                    IsLatestVersion = true
+                }
+            }
+        }
+        
+    } catch {
+        # Silently handle errors
+    }
+    
+    return @{ 
+        Name = ""; 
+        Slug = ""; 
+        ExpectedSize = 0; 
+        VersionNumber = ""; 
+        FileName = ""; 
+        FoundByHash = $false;
+        ExactMatch = $false;
+        IsLatestVersion = $false
+    }
 }
 
 function Fetch-Modrinth-By-Filename {
@@ -358,6 +624,9 @@ foreach ($file in $jarFiles) {
     $actualSizeKB = [math]::Round($actualSize/1KB, 2)
     $zoneInfo = Get-ZoneIdentifier $file.FullName
     
+    # NEW: Extract mod info from JAR file
+    $jarModInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
+    
     # Try Modrinth by hash first (most accurate)
     $modData = Fetch-Modrinth-By-Hash -hash $hash
     
@@ -385,6 +654,10 @@ foreach ($file in $jarFiles) {
             VerifiedBy = "Hash"
             IsVerified = $true
             FilePath = $file.FullName
+            JarModId = $jarModInfo.ModId
+            JarName = $jarModInfo.Name
+            JarVersion = $jarModInfo.Version
+            JarSource = $jarModInfo.Source
         }
         
         $verifiedMods += $modEntry
@@ -401,7 +674,59 @@ foreach ($file in $jarFiles) {
         continue
     }
     
-    # Try to get Modrinth info by filename
+    # NEW: Try to find mod on Modrinth using mod ID from JAR file
+    $modrinthInfoFromJar = $null
+    if ($jarModInfo.ModId) {
+        $modrinthInfoFromJar = Fetch-Modrinth-By-ModId -modId $jarModInfo.ModId -version $jarModInfo.Version
+    }
+    
+    if ($modrinthInfoFromJar -and $modrinthInfoFromJar.Name) {
+        # Calculate size difference
+        $sizeDiff = $actualSize - $modrinthInfoFromJar.ExpectedSize
+        $sizeDiffText = if ($sizeDiff -gt 0) { "+$sizeDiff bytes" } else { "$sizeDiff bytes" }
+        $expectedSizeKB = if ($modrinthInfoFromJar.ExpectedSize -gt 0) { [math]::Round($modrinthInfoFromJar.ExpectedSize/1KB, 2) } else { 0 }
+        
+        $modEntry = [PSCustomObject]@{ 
+            ModName = $modrinthInfoFromJar.Name
+            FileName = $file.Name
+            Version = $modrinthInfoFromJar.VersionNumber
+            ExpectedSize = $modrinthInfoFromJar.ExpectedSize
+            ExpectedSizeKB = $expectedSizeKB
+            ActualSize = $actualSize
+            ActualSizeKB = $actualSizeKB
+            SizeDiff = $sizeDiff
+            SizeDiffText = $sizeDiffText
+            SizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
+            DownloadSource = $zoneInfo.Source
+            SourceURL = $zoneInfo.URL
+            IsModrinthDownload = $zoneInfo.IsModrinth
+            ModrinthUrl = $modrinthInfoFromJar.ModrinthUrl
+            VerifiedBy = "JAR Metadata"
+            IsVerified = $true
+            ExactMatch = $modrinthInfoFromJar.ExactMatch
+            IsLatestVersion = $modrinthInfoFromJar.IsLatestVersion
+            FilePath = $file.FullName
+            JarModId = $jarModInfo.ModId
+            JarName = $jarModInfo.Name
+            JarVersion = $jarModInfo.Version
+            JarSource = $jarModInfo.Source
+        }
+        
+        $verifiedMods += $modEntry
+        $allModsInfo += $modEntry
+        
+        # Check for size mismatch
+        if ($modrinthInfoFromJar.ExpectedSize -gt 0 -and $actualSize -ne $modrinthInfoFromJar.ExpectedSize) {
+            $sizeMismatchMods += $modEntry
+            if ([math]::Abs($sizeDiff) -gt 1024) {
+                $tamperedMods += $modEntry
+            }
+        }
+        
+        continue
+    }
+    
+    # Try to get Modrinth info by filename (fallback)
     $modrinthInfo = Fetch-Modrinth-By-Filename -filename $file.Name
     
     # Check if we found mod info by filename
@@ -431,6 +756,10 @@ foreach ($file in $jarFiles) {
             ExactMatch = $modrinthInfo.ExactMatch
             IsLatestVersion = $modrinthInfo.IsLatestVersion
             FilePath = $file.FullName
+            JarModId = $jarModInfo.ModId
+            JarName = $jarModInfo.Name
+            JarVersion = $jarModInfo.Version
+            JarSource = $jarModInfo.Source
         }
         
         $verifiedMods += $modEntry
@@ -467,6 +796,10 @@ foreach ($file in $jarFiles) {
             VerifiedBy = "Megabase"
             IsVerified = $true
             FilePath = $file.FullName
+            JarModId = $jarModInfo.ModId
+            JarName = $jarModInfo.Name
+            JarVersion = $jarModInfo.Version
+            JarSource = $jarModInfo.Source
         }
         
         $verifiedMods += $modEntry
@@ -493,6 +826,10 @@ foreach ($file in $jarFiles) {
         HasSizeInfo = $false
         IsLatestVersion = $false
         ModName = ""
+        JarModId = $jarModInfo.ModId
+        JarName = $jarModInfo.Name
+        JarVersion = $jarModInfo.Version
+        JarSource = $jarModInfo.Source
     }
     
     $unknownMods += $unknownModEntry
@@ -523,18 +860,36 @@ try {
             
             # If this is an unknown mod or doesn't have size info, try to get it
             if ($expectedSizeKB -eq 0 -or $mod.HasSizeInfo -eq $false) {
-                # Try to get Modrinth info by filename
-                $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName
-                if ($modrinthInfo.Name -and $modrinthInfo.ExpectedSize -gt 0) {
-                    $expectedSizeKB = [math]::Round($modrinthInfo.ExpectedSize/1KB, 2)
-                    $sizeDiff = $mod.FileSize - $modrinthInfo.ExpectedSize
-                    $sizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
-                    
-                    # Update the mod entry with this new info
-                    $mod.ExpectedSizeKB = $expectedSizeKB
-                    $mod.SizeDiffKB = $sizeDiffKB
-                    $mod.ModName = $modrinthInfo.Name
-                    $mod.ModrinthUrl = $modrinthInfo.ModrinthUrl
+                # Try to get Modrinth info by mod ID from JAR first
+                if ($mod.JarModId) {
+                    $modrinthInfoFromJar = Fetch-Modrinth-By-ModId -modId $mod.JarModId -version $mod.JarVersion
+                    if ($modrinthInfoFromJar.Name -and $modrinthInfoFromJar.ExpectedSize -gt 0) {
+                        $expectedSizeKB = [math]::Round($modrinthInfoFromJar.ExpectedSize/1KB, 2)
+                        $sizeDiff = $mod.FileSize - $modrinthInfoFromJar.ExpectedSize
+                        $sizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
+                        
+                        # Update the mod entry with this new info
+                        $mod.ExpectedSizeKB = $expectedSizeKB
+                        $mod.SizeDiffKB = $sizeDiffKB
+                        $mod.ModName = $modrinthInfoFromJar.Name
+                        $mod.ModrinthUrl = $modrinthInfoFromJar.ModrinthUrl
+                    }
+                }
+                
+                # If still no info, try by filename
+                if ($expectedSizeKB -eq 0) {
+                    $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName
+                    if ($modrinthInfo.Name -and $modrinthInfo.ExpectedSize -gt 0) {
+                        $expectedSizeKB = [math]::Round($modrinthInfo.ExpectedSize/1KB, 2)
+                        $sizeDiff = $mod.FileSize - $modrinthInfo.ExpectedSize
+                        $sizeDiffKB = [math]::Round($sizeDiff/1KB, 2)
+                        
+                        # Update the mod entry with this new info
+                        $mod.ExpectedSizeKB = $expectedSizeKB
+                        $mod.SizeDiffKB = $sizeDiffKB
+                        $mod.ModName = $modrinthInfo.Name
+                        $mod.ModrinthUrl = $modrinthInfo.ModrinthUrl
+                    }
                 }
             }
             
@@ -551,6 +906,9 @@ try {
                 ModrinthUrl = $mod.ModrinthUrl
                 FilePath = $mod.FilePath
                 HasSizeMismatch = ($sizeDiffKB -ne 0 -and [math]::Abs($sizeDiffKB) -gt 1)
+                JarModId = $mod.JarModId
+                JarName = $mod.JarName
+                JarVersion = $mod.JarVersion
             }
         }
     }
@@ -612,6 +970,14 @@ if ($verifiedMods.Count -gt 0) {
                 }
             }
         }
+        
+        # Show JAR metadata info if available
+        if ($mod.JarSource) {
+            Write-Host "  Source: $($mod.JarSource)" -ForegroundColor DarkGray
+            if ($mod.JarModId) {
+                Write-Host "  Mod ID: $($mod.JarModId)" -ForegroundColor DarkGray
+            }
+        }
     }
     Write-Host ""
 }
@@ -625,6 +991,20 @@ if ($unknownMods.Count -gt 0) {
     foreach ($mod in $unknownMods) {
         Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
         Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
+        
+        # Show JAR metadata if we found any
+        if ($mod.JarSource) {
+            Write-Host "  Found in JAR: $($mod.JarSource)" -ForegroundColor DarkGray
+            if ($mod.JarModId) {
+                Write-Host "  Mod ID: $($mod.JarModId)" -ForegroundColor DarkGray
+            }
+            if ($mod.JarName) {
+                Write-Host "  Name: $($mod.JarName)" -ForegroundColor DarkGray
+            }
+            if ($mod.JarVersion) {
+                Write-Host "  Version: $($mod.JarVersion)" -ForegroundColor DarkGray
+            }
+        }
         
         if ($mod.ZoneId) {
             $sourceColor = if ($mod.IsModrinthDownload) { "Green" } else { "Yellow" }
@@ -659,6 +1039,15 @@ if ($tamperedMods.Count -gt 0) {
         if ($mod.ModrinthUrl) {
             Write-Host "  Verify: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
         }
+        
+        # Show JAR metadata
+        if ($mod.JarSource) {
+            Write-Host "  Source: $($mod.JarSource)" -ForegroundColor DarkGray
+            if ($mod.JarModId) {
+                Write-Host "  Mod ID: $($mod.JarModId)" -ForegroundColor DarkGray
+            }
+        }
+        
         Write-Host ""
     }
 }
@@ -677,6 +1066,17 @@ if ($cheatMods.Count -gt 0) {
         
         Write-Host "  Cheat Strings: $($mod.StringsFound)" -ForegroundColor Magenta
         Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
+        
+        # Show JAR metadata if available
+        if ($mod.JarModId) {
+            Write-Host "  Mod ID from JAR: $($mod.JarModId)" -ForegroundColor DarkGray
+            if ($mod.JarName) {
+                Write-Host "  Name from JAR: $($mod.JarName)" -ForegroundColor DarkGray
+            }
+            if ($mod.JarVersion) {
+                Write-Host "  Version from JAR: $($mod.JarVersion)" -ForegroundColor DarkGray
+            }
+        }
         
         # NEW: Show size comparison for cheat mods
         if ($mod.ExpectedSizeKB -gt 0) {
