@@ -1,8 +1,8 @@
 Clear-Host
 Write-Host "Made by " -ForegroundColor Cyan -NoNewline
 Write-Host "YarpLetapStan" -ForegroundColor Cyan
-Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
-Write-Host "DM YarpLetapStan for errors" -ForegroundColor Cyan
+Write-Host "DM YarpLetapStan for Questions or Bugs" -ForegroundColor Cyan
+Write-Host "`nCredits to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host
 
 # Create a box for the title
