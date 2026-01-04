@@ -8,7 +8,7 @@ Write-Host
 $boxWidth = 38
 Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
 Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
-Write-Host "|" + ("YarpLetapStan's Mod Analyzer V3.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|" -ForegroundColor Blue
+Write-Host "|" + ("YarpLetapStan's Mod Analyzer V4.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|" -ForegroundColor Blue
 Write-Host "|" + (" " * $boxWidth) + "|" -ForegroundColor Blue
 Write-Host "+" + ("-" * $boxWidth) + "+" -ForegroundColor Blue
 Write-Host ""
