@@ -2,6 +2,7 @@ Clear-Host
 Write-Host "Made by " -ForegroundColor Cyan -NoNewline
 Write-Host "YarpLetapStan" -ForegroundColor Cyan
 Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
+Write-Host "DM YarpLetapStan for errors" -ForegroundColor Cyan
 Write-Host
 
 # Create a box for the title
@@ -1688,7 +1689,6 @@ if ($cheatMods.Count -gt 0) {
     }
 }
 
-Write-Host "DM YarpLetapStan for errors" -ForegroundColor Cyan
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 
