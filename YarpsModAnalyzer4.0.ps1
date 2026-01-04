@@ -1690,3 +1690,4 @@ if ($cheatMods.Count -gt 0) {
 
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-Host "DM YarpLetapStan for errors" -ForegroundColor Cyan
