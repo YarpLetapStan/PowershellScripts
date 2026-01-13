@@ -1040,7 +1040,10 @@ $cheatStrings = @(
     "webmacro", "web macro",
     "selfdestruct", "self destruct",
     "hitboxes"
-    "lvstrng" 
+    "lvstrng"
+    "swapBackToOriginalSlot"
+    "attackRegisteredThisClick"
+    "findKnockbackSword" 
 )
 
 function Check-Strings {
