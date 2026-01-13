@@ -41,7 +41,7 @@ if ($process) {
     } catch {}
 }
 
-# IMPROVED Obfuscation Detection Function (LESS FALSE POSITIVES)
+# IMPROVED Obfuscation Detection Function - ADJUSTED THRESHOLDS
 function Test-ObfuscatedFile {
     param ($filePath, $fileType = "jar")
     
@@ -56,7 +56,7 @@ function Test-ObfuscatedFile {
             return @{ IsObfuscated = $false; Score = 0; Level = "Clean"; Reasons = @() }
         }
         
-        # 1. Check for high entropy (but be more conservative)
+        # 1. Check for high entropy (adjusted thresholds for 40/100 flagging)
         $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
         
         # Calculate byte frequency and entropy
@@ -73,19 +73,18 @@ function Test-ObfuscatedFile {
         $entropy = -$entropy
         $normalizedEntropy = $entropy / 8
         
-        # Higher threshold for entropy (reduces false positives)
-        # Normal JARs often have entropy around 60-80%, so we set threshold at 90%
-        if ($normalizedEntropy -gt 0.92) { # Increased from 0.85
-            $obfuscationScore += 15  # Reduced from 20
-            $reasons += "Very high entropy ($([math]::Round($normalizedEntropy*100, 1))%)"
-        } elseif ($normalizedEntropy -gt 0.88) {
-            $obfuscationScore += 8  # Lower score for moderately high entropy
+        # Adjusted thresholds for 40/100 flagging
+        if ($normalizedEntropy -gt 0.85) { # Lowered from 0.92 for more sensitive detection
+            $obfuscationScore += 25  # Increased from 15/20 for higher sensitivity
+            $reasons += "High entropy ($([math]::Round($normalizedEntropy*100, 1))%)"
+        } elseif ($normalizedEntropy -gt 0.80) {
+            $obfuscationScore += 15  # Increased from 8
             $reasons += "Moderately high entropy ($([math]::Round($normalizedEntropy*100, 1))%)"
         } else {
             $falsePositiveMitigations++ # Low entropy = less likely obfuscated
         }
         
-        # 2. Check JAR structure with better heuristics
+        # 2. Check JAR structure with adjusted thresholds for 40/100 flagging
         if ($fileType -eq "jar") {
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             try {
@@ -93,17 +92,20 @@ function Test-ObfuscatedFile {
                 $entries = $zip.Entries
                 $totalEntries = $entries.Count
                 
-                # Check for reasonable number of class files
+                # Check for reasonable number of class files (lower threshold)
                 $classFiles = $entries | Where-Object { $_.FullName.EndsWith('.class') }
                 $classFileCount = $classFiles.Count
                 
-                # Don't flag based on class count alone unless extremely high
-                if ($classFileCount -gt 2000) { # Increased threshold
-                    $obfuscationScore += 10  # Reduced from 15
-                    $reasons += "Very high class count ($classFileCount)"
+                # Lower threshold for more sensitive detection
+                if ($classFileCount -gt 1000) { # Lowered from 2000
+                    $obfuscationScore += 18  # Increased from 10
+                    $reasons += "High class count ($classFileCount)"
+                } elseif ($classFileCount -gt 500) {
+                    $obfuscationScore += 10  # Added middle tier
+                    $reasons += "Moderate class count ($classFileCount)"
                 }
                 
-                # Check for short/random class names with better logic
+                # Check for short/random class names with lower threshold
                 $randomNames = 0
                 $validClassNames = 0
                 
@@ -122,7 +124,7 @@ function Test-ObfuscatedFile {
                         $name -match '^[A-Z][a-zA-Z0-9_]*Manager$' -or
                         $name -match '^[A-Z][a-zA-Z0-9_]*Container$' -or
                         $name -match '^[A-Z][a-zA-Z0-9_]*Renderer$' -or
-                        $name.Length -gt 8) {  # Longer names are less likely to be obfuscated
+                        $name.Length -gt 6) {  # Lowered from 8 for more sensitivity
                         $validClassNames++
                         $isLikelyLegitimate = $true
                     }
@@ -134,21 +136,25 @@ function Test-ObfuscatedFile {
                             $name -match '^[a-z]\d+$' -or  # Letter followed by numbers only
                             $name -match '^\d+[a-z]$' -or  # Numbers followed by single letter
                             $name -match '^[a-z][a-z]$' -or  # Two lowercase letters
-                            ($name -match '^[a-zA-Z0-9]{1,2}$' -and $name -notmatch '^[A-Z]')) {  # 1-2 chars not starting with uppercase
+                            $name -match '^[a-z][a-z][a-z]$' -or  # Three lowercase letters
+                            ($name -match '^[a-zA-Z0-9]{1,3}$' -and $name -notmatch '^[A-Z]')) {  # 1-3 chars not starting with uppercase
                             $randomNames++
                         }
                     }
                 }
                 
-                # Only flag if a significant portion AND we have enough samples
-                if ($classFileCount -gt 50 -and $randomNames -gt ($classFileCount * 0.4)) { # Increased threshold from 30%
-                    $obfuscationScore += 18  # Reduced from 20
+                # Lower threshold for more sensitive detection
+                if ($classFileCount -gt 20 -and $randomNames -gt ($classFileCount * 0.3)) { # Lowered from 50 and 40%
+                    $obfuscationScore += 25  # Increased from 18 for higher sensitivity
                     $reasons += "Many random class names ($randomNames/$classFileCount)"
-                } elseif ($validClassNames -gt ($classFileCount * 0.6)) {
+                } elseif ($classFileCount -gt 10 -and $randomNames -gt ($classFileCount * 0.2)) {
+                    $obfuscationScore += 15  # Added middle tier
+                    $reasons += "Some random class names ($randomNames/$classFileCount)"
+                } elseif ($validClassNames -gt ($classFileCount * 0.5)) {
                     $falsePositiveMitigations++ # Many valid names = less likely obfuscated
                 }
                 
-                # 3. Check for known obfuscators in manifest (strong indicator)
+                # 3. Check for known obfuscators in manifest (strong indicator) - increased points
                 $manifest = $entries | Where-Object { $_.FullName -eq 'META-INF/MANIFEST.MF' } | Select-Object -First 1
                 if ($manifest) {
                     $reader = New-Object System.IO.StreamReader($manifest.Open())
@@ -170,7 +176,7 @@ function Test-ObfuscatedFile {
                     
                     foreach ($obf in $strongObfuscators) {
                         if ($content -match $obf) {
-                            $obfuscationScore += 30  # Strong indicator
+                            $obfuscationScore += 40  # Increased from 30 for 40/100 flagging
                             $reasons += "Strong obfuscator detected: $obf"
                             break
                         }
@@ -178,14 +184,14 @@ function Test-ObfuscatedFile {
                     
                     foreach ($obf in $weakObfuscators) {
                         if ($content -match $obf) {
-                            $obfuscationScore += 10  # Weaker indicator
+                            $obfuscationScore += 20  # Increased from 10 for 40/100 flagging
                             $reasons += "Common tool detected: $obf"
                             break
                         }
                     }
                 }
                 
-                # 4. Check for packed/protected JAR indicators (stronger check)
+                # 4. Check for packed/protected JAR indicators (increased points)
                 $suspiciousFiles = $entries | Where-Object { 
                     $_.FullName -match '\.(data|pack|enc|crypt|secure)$' -or
                     $_.FullName -match 'native/' -and $_.FullName -match '\.(dll|so|dylib)$' -or
@@ -194,7 +200,7 @@ function Test-ObfuscatedFile {
                 }
                 
                 if ($suspiciousFiles.Count -gt 0) {
-                    $obfuscationScore += 20  # Reduced from 25
+                    $obfuscationScore += 30  # Increased from 20 for 40/100 flagging
                     $reasons += "Packed/protected files detected"
                 }
                 
@@ -219,7 +225,7 @@ function Test-ObfuscatedFile {
                     $_.FullName -match '\.(png|json|lang|txt|properties|cfg)$'
                 }
                 
-                if ($resourceFiles.Count -gt 5) {
+                if ($resourceFiles.Count -gt 3) { # Lowered from 5
                     $legitimateIndicators++
                     $falsePositiveMitigations++ # Resources indicate legitimate mod
                 }
@@ -228,9 +234,9 @@ function Test-ObfuscatedFile {
                 
             } catch {
                 # Can't read as ZIP - might be packed/encrypted or corrupted
-                # Only flag if file is reasonably large
-                if ($fileSize -gt 51200) { # 50KB minimum
-                    $obfuscationScore += 25  # Reduced from 30
+                # Lower threshold for more sensitive detection
+                if ($fileSize -gt 20480) { # Lowered from 51200 (20KB instead of 50KB)
+                    $obfuscationScore += 35  # Increased from 25 for 40/100 flagging
                     $reasons += "Cannot read as ZIP (possibly encrypted/packed)"
                 } else {
                     # Small files might just be corrupted or not JARs
@@ -239,7 +245,7 @@ function Test-ObfuscatedFile {
             }
         }
         
-        # 6. Check string density with better thresholds
+        # 6. Check string density with adjusted thresholds for 40/100 flagging
         $stringsExe = $null
         $possiblePaths = @(
             "C:\Program Files\Git\usr\bin\strings.exe",
@@ -261,12 +267,12 @@ function Test-ObfuscatedFile {
                 
                 $stringDensity = $stringCount / ($fileSize / 1024) # strings per KB
                 
-                # Adjusted thresholds for string density
-                if ($stringDensity -lt 0.2) { # Reduced from 0.5
-                    $obfuscationScore += 12  # Reduced from 15
+                # Adjusted thresholds for more sensitive detection
+                if ($stringDensity -lt 0.3) { # Increased from 0.2
+                    $obfuscationScore += 20  # Increased from 12 for higher sensitivity
                     $reasons += "Very low string density ($([math]::Round($stringDensity, 2)) strings/KB)"
-                } elseif ($stringDensity -lt 0.5) {
-                    $obfuscationScore += 5  # Low score for moderately low density
+                } elseif ($stringDensity -lt 0.6) { # Increased from 0.5
+                    $obfuscationScore += 10  # Increased from 5
                     $reasons += "Low string density ($([math]::Round($stringDensity, 2)) strings/KB)"
                 } else {
                     $falsePositiveMitigations++ # Good string density = less likely obfuscated
@@ -274,10 +280,10 @@ function Test-ObfuscatedFile {
             }
         }
         
-        # 7. Apply false positive mitigation
+        # 7. Apply false positive mitigation (but less reduction for 40/100 flagging)
         if ($falsePositiveMitigations -ge 3) {
-            $obfuscationScore = [math]::Max(0, $obfuscationScore - 15)
-            if ($obfuscationScore -lt 30 -and $reasons.Count -gt 0) {
+            $obfuscationScore = [math]::Max(0, $obfuscationScore - 10)  # Reduced from 15
+            if ($obfuscationScore -lt 40 -and $reasons.Count -gt 0) {  # Changed from 30 to 40
                 $reasons += "(Score reduced due to legitimate indicators)"
             }
         }
@@ -287,26 +293,26 @@ function Test-ObfuscatedFile {
         return @{ IsObfuscated = $false; Score = 0; Level = "Clean"; Reasons = @() }
     }
     
-    # DETERMINE OBFUSCATION LEVEL WITH HIGHER THRESHOLDS
+    # DETERMINE OBFUSCATION LEVEL WITH 40/100 AS "Highly Obfuscated"
     $level = "Clean"
     $levelColor = "Green"
     
-    if ($obfuscationScore -ge 65) { # Increased from 60
+    if ($obfuscationScore -ge 40) { # CHANGED: 40+ is now "Highly Obfuscated" (was 65+)
         $level = "Highly Obfuscated"
         $levelColor = "Red"
-    } elseif ($obfuscationScore -ge 45) { # Increased from 40
+    } elseif ($obfuscationScore -ge 25) { # CHANGED: 25-39 is "Moderately Obfuscated" (was 45-64)
         $level = "Moderately Obfuscated"
         $levelColor = "Yellow"
-    } elseif ($obfuscationScore -ge 25) { # Increased from 20
+    } elseif ($obfuscationScore -ge 15) { # CHANGED: 15-24 is "Slightly Obfuscated" (was 25-44)
         $level = "Slightly Obfuscated"
         $levelColor = "Cyan"
-    } elseif ($obfuscationScore -ge 15) {
+    } elseif ($obfuscationScore -ge 8) { # CHANGED: 8-14 is "Possibly Obfuscated"
         $level = "Possibly Obfuscated"
         $levelColor = "DarkCyan"
     }
     
-    # Only flag as truly obfuscated at higher threshold
-    $isObfuscated = $obfuscationScore -ge 35  # Increased from 30
+    # Only flag as truly obfuscated at 25+ (for summary purposes)
+    $isObfuscated = $obfuscationScore -ge 25  # CHANGED: 25+ is obfuscated (was 35)
     
     return @{
         IsObfuscated = $isObfuscated
@@ -316,6 +322,8 @@ function Test-ObfuscatedFile {
         Reasons = $reasons
     }
 }
+
+# [REST OF THE SCRIPT REMAINS THE SAME AS BEFORE - ONLY THE Test-ObfuscatedFile FUNCTION WAS MODIFIED]
 
 function Get-Minecraft-Version-From-Mods($modsFolder) {
     $minecraftVersions = @{}
@@ -1056,7 +1064,7 @@ if ($verifiedMods.Count -gt 0) {
         $isCheatMod = $cheatMods.FileName -contains $mod.FileName
         $isTampered = $tamperedMods.FileName -contains $mod.FileName
         
-        # Only show yellow for "Moderately" or "Highly" obfuscated
+        # Show yellow for "Moderately" or "Highly" obfuscated (with new thresholds)
         $showObfuscatedWarning = $mod.IsObfuscated -and $mod.ObfuscationLevel -match "Moderately|Highly"
         
         if ($isTampered) { Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline }
@@ -1079,7 +1087,7 @@ if ($verifiedMods.Count -gt 0) {
         
         if ($matchIndicator) { Write-Host " $($matchIndicator.Symbol)" -ForegroundColor $matchIndicator.Color -NoNewline }
         if ($mod.LoaderType -ne "Unknown") { Write-Host " ($($mod.LoaderType))" -ForegroundColor $(if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }) -NoNewline }
-        # Only show [Obfuscated] for significant levels
+        # Show [Obfuscated] for "Moderately" or "Highly" levels
         if ($showObfuscatedWarning) { Write-Host " [Obfuscated]" -ForegroundColor Yellow -NoNewline }
         if ($mod.DownloadSource -ne "Unknown") { Write-Host " [$($mod.DownloadSource)]" -ForegroundColor $(if ($mod.IsModrinthDownload) { 'Green' } else { 'DarkYellow' }) }
         else { Write-Host "" }
@@ -1103,7 +1111,7 @@ if ($unknownMods.Count -gt 0) {
     Write-Host "Total: $($unknownMods.Count)`n"
     
     foreach ($mod in $unknownMods) {
-        # Only show red for "Highly Obfuscated"
+        # Show red for "Highly Obfuscated" (40+), yellow for "Moderately Obfuscated" (25-39)
         $isHighlyObfuscated = $mod.IsObfuscated -and $mod.ObfuscationLevel -eq "Highly Obfuscated"
         $isModeratelyObfuscated = $mod.IsObfuscated -and $mod.ObfuscationLevel -eq "Moderately Obfuscated"
         
@@ -1119,7 +1127,7 @@ if ($unknownMods.Count -gt 0) {
         
         Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
         
-        # Show obfuscation info only for significant levels
+        # Show obfuscation info for "Slightly" or higher levels
         if ($mod.IsObfuscated -and $mod.ObfuscationLevel -ne "Clean") {
             Write-Host "  Obfuscation Level: " -NoNewline
             Write-Host "$($mod.ObfuscationLevel)" -ForegroundColor $mod.LevelColor
@@ -1169,7 +1177,7 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
         Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
         
-        # Only show obfuscation warning for significant levels
+        # Show obfuscation warning for "Moderately" or "Highly" levels
         if ($mod.IsObfuscated -and $mod.ObfuscationLevel -match "Moderately|Highly") {
             Write-Host "  ⚠ Also Obfuscated: $($mod.ObfuscationLevel)" -ForegroundColor Yellow
         }
@@ -1204,7 +1212,7 @@ if ($cheatMods.Count -gt 0) {
     foreach ($mod in $cheatMods) {
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
         
-        # Check if also significantly obfuscated
+        # Check if also significantly obfuscated (Moderately or Highly)
         $isSignificantlyObfuscated = $mod.IsObfuscated -and $mod.ObfuscationLevel -match "Moderately|Highly"
         
         if ($mod.ModName) {
@@ -1215,7 +1223,7 @@ if ($cheatMods.Count -gt 0) {
                 Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
             }
             
-            # Show obfuscation status only for significant levels
+            # Show obfuscation status for "Moderately" or "Highly" levels
             if ($isSignificantlyObfuscated) {
                 Write-Host "  ⚠ Also Obfuscated: $($mod.ObfuscationLevel) (Score: $($mod.ObfuscationScore))" -ForegroundColor Yellow
             }
@@ -1253,7 +1261,7 @@ if ($cheatMods.Count -gt 0) {
         if ($mod.IsVerifiedMod) {
             Write-Host "  ⚠ Legitimate mod contains cheat code!" -ForegroundColor Red
             Write-Host "  ⚠ This appears to be a tampered version of a legitimate mod" -ForegroundColor Red
-            # Extra warning only for significantly obfuscated cheat mods
+            # Extra warning for significantly obfuscated cheat mods
             if ($isSignificantlyObfuscated) {
                 Write-Host "  ⚠ EXTREMELY SUSPICIOUS: Tampered + Cheat + Obfuscated!" -ForegroundColor Red -BackgroundColor DarkRed
             }
