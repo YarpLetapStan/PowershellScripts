@@ -266,7 +266,7 @@ function Test-ObfuscatedFile {
                     $obfuscationScore += 12  # Reduced from 15
                     $reasons += "Very low string density ($([math]::Round($stringDensity, 2)) strings/KB)"
                 } elseif ($stringDensity -lt 0.5) {
-                    $obfuscationScore += 5  # Lower score for moderately low density
+                    $obfuscationScore += 5  # Low score for moderately low density
                     $reasons += "Low string density ($([math]::Round($stringDensity, 2)) strings/KB)"
                 } else {
                     $falsePositiveMitigations++ # Good string density = less likely obfuscated
@@ -291,13 +291,13 @@ function Test-ObfuscatedFile {
     $level = "Clean"
     $levelColor = "Green"
     
-    if ($obfuscationScore -ge 40) { # CHANGED FROM 65 TO 40 (ONLY THIS LINE CHANGED)
+    if ($obfuscationScore -ge 65) { # Increased from 60
         $level = "Highly Obfuscated"
         $levelColor = "Red"
-    } elseif ($obfuscationScore -ge 45) { # Increased from 40 - KEPT ORIGINAL
+    } elseif ($obfuscationScore -ge 45) { # Increased from 40
         $level = "Moderately Obfuscated"
         $levelColor = "Yellow"
-    } elseif ($obfuscationScore -ge 25) { # Increased from 20 - KEPT ORIGINAL
+    } elseif ($obfuscationScore -ge 25) { # Increased from 20
         $level = "Slightly Obfuscated"
         $levelColor = "Cyan"
     } elseif ($obfuscationScore -ge 15) {
@@ -306,7 +306,7 @@ function Test-ObfuscatedFile {
     }
     
     # Only flag as truly obfuscated at higher threshold
-    $isObfuscated = $obfuscationScore -ge 35  # Increased from 30 - KEPT ORIGINAL
+    $isObfuscated = $obfuscationScore -ge 35  # Increased from 30
     
     return @{
         IsObfuscated = $isObfuscated
