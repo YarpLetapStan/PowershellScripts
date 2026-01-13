@@ -27,7 +27,7 @@ $lineWidth = 80
 $topBorder = "=" * $lineWidth
 $bottomBorder = "=" * $lineWidth
 
-Write-Host $topBorder -ForegroundColor Blue
+Write-Host $topBorder -ForegroundColor cyan
 Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
 Write-Host $bottomBorder -ForegroundColor cyan
 Write-Host ""
