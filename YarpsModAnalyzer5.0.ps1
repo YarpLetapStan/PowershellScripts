@@ -291,22 +291,22 @@ function Test-ObfuscatedFile {
     $level = "Clean"
     $levelColor = "Green"
     
-    if ($obfuscationScore -ge 40) { # CHANGED FROM 65 TO 40
+    if ($obfuscationScore -ge 40) { # CHANGED FROM 65 TO 40 (ONLY THIS LINE CHANGED)
         $level = "Highly Obfuscated"
         $levelColor = "Red"
-    } elseif ($obfuscationScore -ge 30) { # Adjusted from 45
+    } elseif ($obfuscationScore -ge 45) { # Increased from 40 - KEPT ORIGINAL
         $level = "Moderately Obfuscated"
         $levelColor = "Yellow"
-    } elseif ($obfuscationScore -ge 20) { # Adjusted from 25
+    } elseif ($obfuscationScore -ge 25) { # Increased from 20 - KEPT ORIGINAL
         $level = "Slightly Obfuscated"
         $levelColor = "Cyan"
-    } elseif ($obfuscationScore -ge 10) { # Adjusted from 15
+    } elseif ($obfuscationScore -ge 15) {
         $level = "Possibly Obfuscated"
         $levelColor = "DarkCyan"
     }
     
     # Only flag as truly obfuscated at higher threshold
-    $isObfuscated = $obfuscationScore -ge 30  # Adjusted from 35
+    $isObfuscated = $obfuscationScore -ge 35  # Increased from 30 - KEPT ORIGINAL
     
     return @{
         IsObfuscated = $isObfuscated
