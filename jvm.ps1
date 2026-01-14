@@ -1,219 +1,181 @@
-# Minecraft JVM Argument Monitor
-# Save as: minecraft_jvm.ps1
-# Run: powershell -ExecutionPolicy Bypass -File minecraft_jvm.ps1
+# Minecraft JVM Custom Argument Detector
+# Shows ONLY what was typed in the JVM Arguments box
 
 param(
     [switch]$Monitor = $false,
     [int]$CheckEvery = 3
 )
 
-# Clear screen and show header
 Clear-Host
-Write-Host "=== Minecraft JVM Argument Monitor ===" -ForegroundColor Cyan
-Write-Host "Red flags: Custom JVM arguments from launcher" -ForegroundColor Red
-Write-Host "Yellow flags: Memory allocation changes" -ForegroundColor Yellow
-Write-Host "Green: Standard Minecraft" -ForegroundColor Green
+Write-Host "=== Minecraft JVM Argument Detector ===" -ForegroundColor Cyan
+Write-Host "Shows ONLY what players typed in the JVM Arguments box" -ForegroundColor White
 Write-Host ""
 
-function Find-MinecraftProcesses {
-    $minecraftProcs = @()
+function Get-MinecraftJVMArgs {
+    $foundArgs = @()
     $allProcs = Get-Process -ErrorAction SilentlyContinue
     
     foreach ($proc in $allProcs) {
-        # Check for Java processes
         if ($proc.ProcessName -match "java|javaw") {
             try {
-                # Get command line
                 $wmi = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction SilentlyContinue
                 if ($wmi -and $wmi.CommandLine) {
                     $cmdLine = $wmi.CommandLine
                     
-                    # Check if it's Minecraft (simple check)
-                    $isMinecraft = $false
-                    
-                    # Check for common Minecraft indicators
-                    if ($cmdLine -match "minecraft" -or 
-                        $cmdLine -match "\.minecraft" -or 
-                        $cmdLine -match "mojang" -or
-                        ($cmdLine -match "\.jar" -and $proc.ProcessName -eq "javaw")) {
-                        $isMinecraft = $true
-                    }
-                    
-                    if ($isMinecraft) {
-                        $minecraftProcs += @{
-                            Id = $proc.Id
-                            Name = $proc.ProcessName
-                            CommandLine = $cmdLine
+                    # Only check if it's Minecraft
+                    if ($cmdLine -match "minecraft" -or $cmdLine -match "\.minecraft" -or 
+                        $cmdLine -match "mojang" -or ($cmdLine -match "\.jar" -and $proc.ProcessName -eq "javaw")) {
+                        
+                        # Extract JUST the custom arguments
+                        $customArgs = Extract-CustomArgs -CommandLine $cmdLine
+                        
+                        if ($customArgs -ne "") {
+                            $foundArgs += @{
+                                PID = $proc.Id
+                                Process = $proc.ProcessName
+                                CustomArguments = $customArgs
+                                RawCommand = $cmdLine
+                            }
                         }
                     }
                 }
-            } catch {
-                # Skip processes we can't access
-            }
+            } catch { }
         }
     }
     
-    return $minecraftProcs
+    return $foundArgs
 }
 
-function Show-JVMArgs {
-    param($CommandLine)
+function Extract-CustomArgs {
+    param([string]$CommandLine)
     
-    Write-Host "Full command line:" -ForegroundColor Gray
-    Write-Host "  $CommandLine" -ForegroundColor DarkGray
-    Write-Host ""
+    # List of ALL standard Minecraft arguments (these are NOT from the JVM box)
+    $standardArgs = @(
+        # Standard JVM args from launcher
+        '-Dos\.name=.*',
+        '-Dos\.version=.*',
+        '-Dsun\.arch\.data\.model=.*',
+        '-Djava\.library\.path=.*',
+        '-Dminecraft\.launcher\.brand=.*',
+        '-Dminecraft\.launcher\.version=.*',
+        '-Djava\.io\.tmpdir=.*',
+        '-cp',
+        '.*\.jar',  # Jar files
+        '--width',
+        '--height',
+        '--fullscreen',
+        
+        # Standard memory args (default is Xmx2G)
+        '-Xmx\d+G',
+        '-Xms\d+G',
+        '-Xss\d+M',
+        
+        # Standard GC args
+        '-XX:\+UseG1GC',
+        '-XX:\+UnlockExperimentalVMOptions',
+        '-XX:\+DisableExplicitGC',
+        '-XX:\+UseCompressedOops',
+        
+        # Game window args
+        '--username',
+        '--version',
+        '--gameDir',
+        '--assetsDir',
+        '--assetIndex',
+        '--uuid',
+        '--accessToken',
+        '--userType',
+        '--versionType'
+    )
     
-    # Extract arguments (everything after .exe)
+    # Remove standard arguments to leave ONLY custom ones
+    $customOnly = $CommandLine
+    
+    # First, extract the part after .exe
     if ($CommandLine -match '\.exe\s+(.*)$') {
-        $argsPart = $matches[1]
-        Write-Host "JVM Arguments detected:" -ForegroundColor Gray
+        $allArgs = $matches[1]
+        $customOnly = $allArgs
         
-        # Split into individual arguments
-        $argsArray = @()
-        $current = ""
-        $inQuotes = $false
+        # Remove each standard argument pattern
+        foreach ($pattern in $standardArgs) {
+            $customOnly = $customOnly -replace $pattern, ''
+        }
         
-        for ($i = 0; $i -lt $argsPart.Length; $i++) {
-            $char = $argsPart[$i]
+        # Clean up extra spaces
+        $customOnly = $customOnly -replace '\s+', ' '
+        $customOnly = $customOnly.Trim()
+    }
+    
+    return $customOnly
+}
+
+# Main check
+function Run-Detector {
+    $results = Get-MinecraftJVMArgs
+    
+    if ($results.Count -eq 0) {
+        Write-Host "No Minecraft processes with custom JVM arguments found." -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Note: This only shows what was typed in the 'JVM Arguments' box." -ForegroundColor Gray
+        Write-Host "      Standard Minecraft arguments are filtered out." -ForegroundColor Gray
+    }
+    else {
+        Write-Host "Found $($results.Count) Minecraft process(es) with custom JVM arguments:`n" -ForegroundColor Cyan
+        
+        foreach ($result in $results) {
+            Write-Host "════════════════════════════════════════════" -ForegroundColor DarkGray
+            Write-Host "PID: $($result.PID) | Process: $($result.Process)" -ForegroundColor White
             
-            if ($char -eq '"') {
-                $inQuotes = -not $inQuotes
-                $current += $char
-            }
-            elseif ($char -eq ' ' -and -not $inQuotes) {
-                if ($current -ne "") {
-                    $argsArray += $current
-                    $current = ""
+            # Split the custom args to check each one
+            $customArgs = $result.CustomArguments -split '\s+' | Where-Object { $_ -ne '' }
+            
+            if ($customArgs.Count -gt 0) {
+                Write-Host ""
+                Write-Host "🔴 WHAT THE PLAYER TYPED IN JVM ARGUMENTS BOX:" -ForegroundColor Red
+                
+                foreach ($arg in $customArgs) {
+                    # Check what type of argument it is
+                    if ($arg -match '^-D') {
+                        Write-Host "  -D Argument: " -ForegroundColor Red -NoNewline
+                        Write-Host $arg -ForegroundColor White
+                    }
+                    elseif ($arg -match '^-Xmx') {
+                        Write-Host "  Memory Argument: " -ForegroundColor Yellow -NoNewline
+                        Write-Host $arg -ForegroundColor White
+                    }
+                    else {
+                        Write-Host "  Custom Argument: " -ForegroundColor Red -NoNewline
+                        Write-Host $arg -ForegroundColor White
+                    }
                 }
+                
+                # Show summary
+                Write-Host ""
+                Write-Host "📊 Summary:" -ForegroundColor Cyan
+                Write-Host "  • Custom -D arguments: $($customArgs | Where-Object { $_ -match '^-D' } | Measure-Object | Select-Object -ExpandProperty Count)" -ForegroundColor White
+                Write-Host "  • Memory arguments: $($customArgs | Where-Object { $_ -match '^-Xm' } | Measure-Object | Select-Object -ExpandProperty Count)" -ForegroundColor White
+                Write-Host "  • Other custom args: $($customArgs | Where-Object { $_ -match '^-' -and $_ -notmatch '^-D' -and $_ -notmatch '^-Xm' } | Measure-Object | Select-Object -ExpandProperty Count)" -ForegroundColor White
             }
             else {
-                $current += $char
-            }
-        }
-        
-        if ($current -ne "") {
-            $argsArray += $current
-        }
-        
-        # Show all arguments
-        foreach ($arg in $argsArray) {
-            Write-Host "  • $arg" -ForegroundColor White
-        }
-        
-        return $argsPart
-    }
-    
-    return ""
-}
-
-function Check-Arguments {
-    param($Process)
-    
-    Write-Host "----------------------------------------" -ForegroundColor DarkGray
-    Write-Host "Process: $($Process.Name) (PID: $($Process.Id))" -ForegroundColor White
-    
-    $jvmArgs = Show-JVMArgs -CommandLine $Process.CommandLine
-    
-    # Check for custom JVM arguments (RED FLAG)
-    $hasRedFlag = $false
-    
-    # Check for -D arguments that aren't standard
-    if ($jvmArgs -match '-D([^=\s]+)=([^\s]+)') {
-        $matches = [regex]::Matches($jvmArgs, '-D([^=\s]+)=([^\s]+)')
-        foreach ($match in $matches) {
-            $key = $match.Groups[1].Value
-            
-            # List of standard Minecraft -D arguments
-            $standardDArgs = @(
-                "os.name", "os.version", "java.library.path", 
-                "java.io.tmpdir", "user.language", "user.country",
-                "sun.java.command", "jna.nosys"
-            )
-            
-            # Check if this is a non-standard -D argument
-            $isStandard = $false
-            foreach ($std in $standardDArgs) {
-                if ($key -eq $std -or $key.StartsWith("$std.")) {
-                    $isStandard = $true
-                    break
-                }
+                Write-Host ""
+                Write-Host "✅ No custom JVM arguments detected" -ForegroundColor Green
             }
             
-            if (-not $isStandard) {
-                $hasRedFlag = $true
-                Write-Host "`n[RED FLAG] Custom JVM argument found!" -ForegroundColor Red
-                Write-Host "  -D$key=$(($match.Groups[2].Value).Substring(0, [Math]::Min(50, $match.Groups[2].Value.Length)))" -ForegroundColor Red
-            }
-        }
-    }
-    
-    # Check for unusual memory allocation (YELLOW FLAG)
-    $hasYellowFlag = $false
-    if ($jvmArgs -match '-Xmx(\d+)([MG])') {
-        $amount = [int]$matches[1]
-        $unit = $matches[2]
-        
-        if ($unit -eq "G") {
-            $mb = $amount * 1024
-        } else {
-            $mb = $amount
-        }
-        
-        # Flag if > 8GB or < 2GB
-        if ($mb -gt 8192 -or $mb -lt 2048) {
-            $hasYellowFlag = $true
-            Write-Host "`n[YELLOW FLAG] Unusual memory allocation!" -ForegroundColor Yellow
-            Write-Host "  -Xmx$amount$unit ($mb MB)" -ForegroundColor Yellow
-        }
-    }
-    
-    # Show status
-    if ($hasRedFlag) {
-        Write-Host "`n❌ RED FLAG DETECTED!" -ForegroundColor Red
-        Write-Host "   Custom JVM arguments found in launcher" -ForegroundColor Red
-    }
-    elseif ($hasYellowFlag) {
-        Write-Host "`n⚠️  YELLOW FLAG DETECTED!" -ForegroundColor Yellow
-        Write-Host "   Unusual memory allocation detected" -ForegroundColor Yellow
-    }
-    else {
-        Write-Host "`n✅ STANDARD MINECRAFT" -ForegroundColor Green
-        Write-Host "   No custom JVM arguments found" -ForegroundColor Green
-    }
-    
-    Write-Host ""
-}
-
-# Main function
-function Run-Check {
-    $procs = Find-MinecraftProcesses
-    
-    if ($procs.Count -eq 0) {
-        Write-Host "No Minecraft Java processes found!" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "Make sure:" -ForegroundColor Gray
-        Write-Host "1. Minecraft is running" -ForegroundColor Gray
-        Write-Host "2. Try running as Administrator" -ForegroundColor Gray
-        Write-Host "3. The game needs to be started from the launcher" -ForegroundColor Gray
-    }
-    else {
-        Write-Host "Found $($procs.Count) Minecraft process(es):`n" -ForegroundColor Cyan
-        
-        foreach ($proc in $procs) {
-            Check-Arguments -Process $proc
+            Write-Host ""
         }
     }
 }
 
-# Run the check
+# Run
 if ($Monitor) {
-    Write-Host "Monitoring mode (checking every $CheckEvery seconds)" -ForegroundColor Cyan
+    Write-Host "Monitoring mode: Checking every $CheckEvery seconds" -ForegroundColor Cyan
     Write-Host "Press Ctrl+C to stop`n" -ForegroundColor Gray
     
     while ($true) {
-        Run-Check
+        Run-Detector
         Start-Sleep -Seconds $CheckEvery
+        Write-Host "---" -ForegroundColor DarkGray
     }
 } else {
-    Run-Check
+    Run-Detector
 }
