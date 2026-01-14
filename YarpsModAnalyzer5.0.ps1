@@ -24,12 +24,13 @@ Write-Host ""
 # Create subtitle line style matching the image
 $subtitleText = "YarpLetapStan's Mod Analyzer V5.0"
 $lineWidth = 80
-$topBorder = "─" * $lineWidth
-$bottomBorder = "─" * $lineWidth
+$line = "─" * $lineWidth
 
-Write-Host $topBorder -ForegroundColor Blue
+Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor Blue
 Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
-Write-Host $bottomBorder -ForegroundColor Blue
+Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor Blue
 Write-Host ""
 
 if (-not $mods) {
