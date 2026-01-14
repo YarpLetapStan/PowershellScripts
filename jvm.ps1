@@ -228,7 +228,7 @@ if (-not $foundInjection) {
 Write-Host ""
 # ==================== End of JVM Arguments Scanner ====================
     }
-}
+
 
 
 
