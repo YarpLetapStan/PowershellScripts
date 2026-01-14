@@ -26,11 +26,11 @@ $subtitleText = "YarpLetapStan's Mod Analyzer V5.0"
 $lineWidth = 80
 $line = "─" * $lineWidth
 
-Write-Host $line -ForegroundColor Blue
-Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor cyan
+Write-Host $line -ForegroundColor cyan
 Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
-Write-Host $line -ForegroundColor Blue
-Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor cyan
+Write-Host $line -ForegroundColor cyan
 Write-Host ""
 
 # Get mods folder path
@@ -62,9 +62,9 @@ if ($process) {
 }
 
 # ==================== Fabric AddMods Detector ====================
-Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Blue
-Write-Host "│" + "Fabric AddMods Detector".PadLeft(($lineWidth + "Fabric AddMods Detector".Length) / 2).PadRight(78) + "│" -ForegroundColor Blue
-Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Blue
+Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor yellow
+Write-Host "│" + "Fabric AddMods Detector".PadLeft(($lineWidth + "Fabric AddMods Detector".Length) / 2).PadRight(78) + "│" -ForegroundColor yellow
+Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
 Write-Host ""
 
 # Find all javaw.exe processes
@@ -114,10 +114,7 @@ if ($javaProcesses.Count -eq 0) {
     }
 }
 
-Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Blue
-Write-Host "│" + "Mod Analysis Section".PadLeft(($lineWidth + "Mod Analysis Section".Length) / 2).PadRight(78) + "│" -ForegroundColor Blue
-Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Blue
-Write-Host ""
+
 
 function Get-Minecraft-Version-From-Mods($modsFolder) {
     $minecraftVersions = @{}
