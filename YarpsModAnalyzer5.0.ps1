@@ -5,7 +5,7 @@ Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -Fo
 $boxWidth = 38
 $border = "+" + ("-" * $boxWidth) + "+"
 $empty = "|" + (" " * $boxWidth) + "|"
-$title = "|" + ("YarpLetapStan's Mod Analyzer V5.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|"
+$title = "|" + ("YarpLetapStan's Mod Analyzer V4.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|"
 Write-Host $border -ForegroundColor Blue
 Write-Host $empty -ForegroundColor Blue
 Write-Host $title -ForegroundColor Blue
@@ -39,137 +39,6 @@ if ($process) {
         Write-Host "{ Minecraft Uptime }" -ForegroundColor Cyan
         Write-Host "$($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n"
     } catch {}
-}
-
-# Obfuscation Detection Function (NEW)
-function Test-ObfuscatedFile {
-    param ($filePath, $fileType = "jar")
-    
-    $obfuscationScore = 0
-    $reasons = @()
-    
-    try {
-        # 1. Check for high entropy (encrypted/obfuscated content)
-        $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
-        $fileSize = $fileBytes.Length
-        
-        if ($fileSize -gt 0) {
-            $byteCounts = New-Object int[] 256
-            foreach ($byte in $fileBytes) { $byteCounts[$byte]++ }
-            
-            $entropy = 0
-            for ($i = 0; $i -lt 256; $i++) {
-                if ($byteCounts[$i] -gt 0) {
-                    $p = $byteCounts[$i] / $fileSize
-                    $entropy += $p * [Math]::Log($p, 2)
-                }
-            }
-            $entropy = -$entropy
-            $normalizedEntropy = $entropy / 8
-            
-            if ($normalizedEntropy -gt 0.85) {
-                $obfuscationScore += 20
-                $reasons += "High entropy ($([math]::Round($normalizedEntropy*100, 2))%)"
-            }
-        }
-        
-        # 2. Check JAR structure for obfuscation patterns
-        if ($fileType -eq "jar") {
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            try {
-                $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-                $entries = $zip.Entries
-                
-                # Check for suspiciously many class files
-                $classFiles = $entries | Where-Object { $_.FullName.EndsWith('.class') }
-                if ($classFiles.Count -gt 500) {
-                    $obfuscationScore += 15
-                    $reasons += "Many class files ($($classFiles.Count))"
-                }
-                
-                # Check for short/random class names
-                $randomNames = 0
-                foreach ($classFile in $classFiles) {
-                    $name = [System.IO.Path]::GetFileNameWithoutExtension($classFile.Name)
-                    if ($name -match '^[a-z]$' -or $name -match '^[a-z][a-z]$' -or $name -match '^[a-z]\d+$' -or $name -match '^[a-zA-Z0-9]{1,3}$') {
-                        $randomNames++
-                    }
-                }
-                
-                if ($randomNames -gt ($classFiles.Count * 0.3)) {
-                    $obfuscationScore += 20
-                    $reasons += "Random class names"
-                }
-                
-                # Check for known obfuscators in manifest
-                $manifest = $entries | Where-Object { $_.FullName -eq 'META-INF/MANIFEST.MF' } | Select-Object -First 1
-                if ($manifest) {
-                    $reader = New-Object System.IO.StreamReader($manifest.Open())
-                    $content = $reader.ReadToEnd()
-                    $reader.Close()
-                    
-                    $knownObfuscators = @("Allatori", "ZKM", "DashO", "ProGuard", "yGuard", "KlassMaster", "Smoke", "Zelix", "Stringer")
-                    foreach ($obf in $knownObfuscators) {
-                        if ($content -match $obf) {
-                            $obfuscationScore += 25
-                            $reasons += "$obf detected"
-                            break
-                        }
-                    }
-                }
-                
-                $zip.Dispose()
-            } catch {
-                # Can't read as ZIP - might be packed/encrypted
-                $obfuscationScore += 30
-                $reasons += "Cannot read as ZIP (packed/encrypted)"
-            }
-        }
-        
-        # 3. Check string density
-        $stringsExe = $null
-        $possiblePaths = @(
-            "C:\Program Files\Git\usr\bin\strings.exe",
-            "C:\Program Files\Git\mingw64\bin\strings.exe",
-            "$env:ProgramFiles\Git\usr\bin\strings.exe",
-            "C:\msys64\usr\bin\strings.exe"
-        )
-        
-        foreach ($path in $possiblePaths) {
-            if (Test-Path $path) { $stringsExe = $path; break }
-        }
-        
-        if ($stringsExe) {
-            $tempFile = Join-Path $env:TEMP "temp_strings_$(Get-Random).txt"
-            & $stringsExe $filePath 2>$null | Out-File $tempFile
-            if (Test-Path $tempFile) {
-                $stringCount = (Get-Content $tempFile | Measure-Object -Line).Lines
-                Remove-Item $tempFile -Force
-                
-                $stringDensity = $stringCount / ($fileSize / 1024)
-                if ($stringDensity -lt 0.5) {
-                    $obfuscationScore += 15
-                    $reasons += "Low string density"
-                }
-            }
-        }
-        
-    } catch {
-        return @{ IsObfuscated = $false; Score = 0; Level = "Clean"; Reasons = @() }
-    }
-    
-    # Determine obfuscation level
-    $level = "Clean"
-    if ($obfuscationScore -ge 60) { $level = "Highly Obfuscated" }
-    elseif ($obfuscationScore -ge 40) { $level = "Moderately Obfuscated" }
-    elseif ($obfuscationScore -ge 20) { $level = "Slightly Obfuscated" }
-    
-    return @{
-        IsObfuscated = $obfuscationScore -ge 30
-        Score = $obfuscationScore
-        Level = $level
-        Reasons = $reasons
-    }
 }
 
 function Get-Minecraft-Version-From-Mods($modsFolder) {
@@ -696,50 +565,14 @@ function Check-Strings($filePath) {
 
 # Collections for results
 $verifiedMods = @(); $unknownMods = @(); $cheatMods = @(); $sizeMismatchMods = @(); $tamperedMods = @(); $allModsInfo = @()
-$obfuscatedMods = @()  # NEW: Collection for obfuscated mods
 
 # Process all mods
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 $spinner = @("|", "/", "-", "\"); $totalMods = $jarFiles.Count
 
-# First pass: Check for obfuscation (NEW)
-Write-Host "{ Obfuscation Detection }" -ForegroundColor Cyan
-$obfCounter = 0
-foreach ($file in $jarFiles) {
-    $obfCounter++
-    Write-Host "`r[$($spinner[$obfCounter % $spinner.Length])] Checking for obfuscation: $obfCounter / $totalMods" -ForegroundColor Cyan -NoNewline
-    $obfResult = Test-ObfuscatedFile -filePath $file.FullName -fileType "jar"
-    if ($obfResult.IsObfuscated) {
-        $obfuscatedMods += [PSCustomObject]@{
-            FileName = $file.Name
-            FilePath = $file.FullName
-            ObfuscationScore = $obfResult.Score
-            ObfuscationLevel = $obfResult.Level
-            Reasons = $obfResult.Reasons
-            FileSizeKB = [math]::Round($file.Length/1KB, 2)
-        }
-    }
-}
-Write-Host "`r$(' ' * 80)`r" -NoNewline
-if ($obfuscatedMods.Count -gt 0) {
-    Write-Host "Found $($obfuscatedMods.Count) potentially obfuscated files`n" -ForegroundColor Yellow
-}
-
-# Continue with original scanning
 for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $file = $jarFiles[$i]
     Write-Host "`r[$($spinner[$i % $spinner.Length])] Scanning mods: $($i+1) / $totalMods" -ForegroundColor Magenta -NoNewline
-    
-    # Check if file is obfuscated
-    $isObfuscated = $false
-    $obfuscationInfo = $null
-    foreach ($obfMod in $obfuscatedMods) {
-        if ($obfMod.FileName -eq $file.Name) {
-            $isObfuscated = $true
-            $obfuscationInfo = $obfMod
-            break
-        }
-    }
     
     # Get file info
     $hash = Get-SHA1 -filePath $file.FullName
@@ -775,8 +608,6 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             ExactMatch = $modData.ExactMatch; IsLatestVersion = $modData.IsLatestVersion; LoaderType = $modData.LoaderType
             PreferredLoader = $preferredLoader; FilePath = $file.FullName; JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
-            IsObfuscated = $isObfuscated; ObfuscationScore = if ($isObfuscated) { $obfuscationInfo.ObfuscationScore } else { 0 }
-            ObfuscationLevel = if ($isObfuscated) { $obfuscationInfo.ObfuscationLevel } else { "Clean" }  # NEW: Added obfuscation fields
         }
         
         $verifiedMods += $modEntry; $allModsInfo += $modEntry
@@ -793,8 +624,6 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown"; PreferredLoader = $preferredLoader
             FilePath = $file.FullName; JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version
             JarModLoader = $jarModInfo.ModLoader
-            IsObfuscated = $isObfuscated; ObfuscationScore = if ($isObfuscated) { $obfuscationInfo.ObfuscationScore } else { 0 }
-            ObfuscationLevel = if ($isObfuscated) { $obfuscationInfo.ObfuscationLevel } else { "Clean" }  # NEW: Added obfuscation fields
         }
         
         $verifiedMods += $modEntry; $allModsInfo += $modEntry
@@ -805,8 +634,6 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             ExpectedSize = 0; ExpectedSizeKB = 0; SizeDiff = 0; SizeDiffKB = 0; ModrinthUrl = ""; ModName = ""; MatchType = ""
             ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown"; PreferredLoader = $preferredLoader
             JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
-            IsObfuscated = $isObfuscated; ObfuscationScore = if ($isObfuscated) { $obfuscationInfo.ObfuscationScore } else { 0 }
-            ObfuscationLevel = if ($isObfuscated) { $obfuscationInfo.ObfuscationLevel } else { "Clean" }  # NEW: Added obfuscation fields
         }
         
         $unknownMods += $unknownModEntry; $allModsInfo += $unknownModEntry
@@ -863,7 +690,6 @@ try {
                 JarModId = $mod.JarModId; JarName = $mod.JarName; JarVersion = $mod.JarVersion
                 MatchType = $mod.MatchType; ExactMatch = $mod.ExactMatch; IsLatestVersion = $mod.IsLatestVersion
                 LoaderType = $mod.LoaderType
-                IsObfuscated = $mod.IsObfuscated; ObfuscationScore = $mod.ObfuscationScore; ObfuscationLevel = $mod.ObfuscationLevel  # NEW: Added obfuscation fields
             }
         }
     }
@@ -878,35 +704,6 @@ Write-Host "`r$(' ' * 80)`r" -NoNewline
 # Display results
 Write-Host "`n{ Results Summary }`n" -ForegroundColor Cyan
 
-# NEW: Display Obfuscated Mods Section
-if ($obfuscatedMods.Count -gt 0) {
-    Write-Host "{ Obfuscated Mods Detected }" -ForegroundColor Yellow
-    Write-Host "Total: $($obfuscatedMods.Count) ⚠ WARNING`n"
-    
-    foreach ($mod in $obfuscatedMods) {
-        Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
-        Write-Host "  Obfuscation Level: " -NoNewline
-        $levelColor = switch ($mod.ObfuscationLevel) {
-            "Slightly Obfuscated" { "Cyan" }
-            "Moderately Obfuscated" { "Yellow" }
-            "Highly Obfuscated" { "Red" }
-            default { "Green" }
-        }
-        Write-Host "$($mod.ObfuscationLevel)" -ForegroundColor $levelColor
-        Write-Host "  Obfuscation Score: $($mod.ObfuscationScore)/100" -ForegroundColor Gray
-        Write-Host "  File Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
-        
-        if ($mod.Reasons.Count -gt 0) {
-            Write-Host "  Reasons:" -ForegroundColor DarkGray
-            foreach ($reason in $mod.Reasons) {
-                Write-Host "    - $reason" -ForegroundColor DarkGray
-            }
-        }
-        
-        Write-Host ""
-    }
-}
-
 # Verified Mods
 if ($verifiedMods.Count -gt 0) {
     Write-Host "{ Verified Mods }" -ForegroundColor Cyan
@@ -918,10 +715,9 @@ if ($verifiedMods.Count -gt 0) {
         
         if ($isTampered) { Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline }
         elseif ($isCheatMod) { Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline }
-        elseif ($mod.IsObfuscated) { Write-Host "> $($mod.ModName)" -ForegroundColor Yellow -NoNewline }  # NEW: Obfuscated color
         else { Write-Host "> $($mod.ModName)" -ForegroundColor Green -NoNewline }
         
-        Write-Host " - $($mod.FileName)" -ForegroundColor $(if ($isTampered -or $isCheatMod) { 'Magenta' } elseif ($mod.IsObfuscated) { 'Yellow' } else { 'Gray' }) -NoNewline
+        Write-Host " - $($mod.FileName)" -ForegroundColor $(if ($isTampered -or $isCheatMod) { 'Magenta' } else { 'Gray' }) -NoNewline
         
         if ($mod.Version -and $mod.Version -ne "Unknown") {
             Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray -NoNewline
@@ -936,7 +732,6 @@ if ($verifiedMods.Count -gt 0) {
         
         if ($matchIndicator) { Write-Host " $($matchIndicator.Symbol)" -ForegroundColor $matchIndicator.Color -NoNewline }
         if ($mod.LoaderType -ne "Unknown") { Write-Host " ($($mod.LoaderType))" -ForegroundColor $(if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }) -NoNewline }
-        if ($mod.IsObfuscated) { Write-Host " [Obfuscated]" -ForegroundColor Yellow -NoNewline }  # NEW: Obfuscated indicator
         if ($mod.DownloadSource -ne "Unknown") { Write-Host " [$($mod.DownloadSource)]" -ForegroundColor $(if ($mod.IsModrinthDownload) { 'Green' } else { 'DarkYellow' }) }
         else { Write-Host "" }
         
@@ -959,27 +754,8 @@ if ($unknownMods.Count -gt 0) {
     Write-Host "Total: $($unknownMods.Count)`n"
     
     foreach ($mod in $unknownMods) {
-        if ($mod.IsObfuscated) {  # NEW: Check if obfuscated
-            Write-Host "> $($mod.FileName)" -ForegroundColor Red -NoNewline
-            Write-Host " [Obfuscated]" -ForegroundColor Yellow
-        } else {
-            Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
-        }
-        
+        Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
         Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
-        
-        # NEW: Show obfuscation info
-        if ($mod.IsObfuscated) {
-            $levelColor = switch ($mod.ObfuscationLevel) {
-                "Slightly Obfuscated" { "Cyan" }
-                "Moderately Obfuscated" { "Yellow" }
-                "Highly Obfuscated" { "Red" }
-                default { "Green" }
-            }
-            Write-Host "  Obfuscation Level: " -NoNewline
-            Write-Host "$($mod.ObfuscationLevel)" -ForegroundColor $levelColor
-            Write-Host "  Obfuscation Score: $($mod.ObfuscationScore)/100" -ForegroundColor Gray
-        }
         
         if ($mod.ModName) {
             Write-Host "  Identified as: $($mod.ModName)" -ForegroundColor Cyan
@@ -1024,11 +800,6 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
         Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
         
-        # NEW: Check if also obfuscated
-        if ($mod.IsObfuscated) {
-            Write-Host "  ⚠ Also Obfuscated: $($mod.ObfuscationLevel)" -ForegroundColor Yellow
-        }
-        
         if ($mod.LoaderType -ne "Unknown") {
             $loaderColor = if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }
             Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
@@ -1059,20 +830,12 @@ if ($cheatMods.Count -gt 0) {
     foreach ($mod in $cheatMods) {
         Write-Host "> $($mod.FileName)" -ForegroundColor Red
         
-        # NEW: Check if also obfuscated
-        $isObfuscated = $mod.IsObfuscated
-        
         if ($mod.ModName) {
             Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Gray
             
             if ($mod.LoaderType -ne "Unknown") {
                 $loaderColor = if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }
                 Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
-            }
-            
-            # NEW: Show obfuscation status
-            if ($isObfuscated) {
-                Write-Host "  ⚠ Also Obfuscated: $($mod.ObfuscationLevel) (Score: $($mod.ObfuscationScore))" -ForegroundColor Yellow
             }
             
             if ($mod.MatchType -eq "Closest Version") {
@@ -1108,25 +871,11 @@ if ($cheatMods.Count -gt 0) {
         if ($mod.IsVerifiedMod) {
             Write-Host "  ⚠ Legitimate mod contains cheat code!" -ForegroundColor Red
             Write-Host "  ⚠ This appears to be a tampered version of a legitimate mod" -ForegroundColor Red
-            # NEW: Additional warning if also obfuscated
-            if ($isObfuscated) {
-                Write-Host "  ⚠ EXTREMELY SUSPICIOUS: Tampered + Cheat + Obfuscated!" -ForegroundColor Red -BackgroundColor DarkRed
-            }
         }
         
         Write-Host ""
     }
 }
-
-# Summary Statistics (UPDATED)
-Write-Host "{ Summary Statistics }" -ForegroundColor Cyan
-Write-Host "Total Mods Analyzed: $totalMods"
-Write-Host "Verified Mods: $($verifiedMods.Count)" -ForegroundColor Green
-Write-Host "Unknown Mods: $($unknownMods.Count)" -ForegroundColor Yellow
-Write-Host "Potentially Tampered: $($tamperedMods.Count)" -ForegroundColor Red
-Write-Host "Cheat Mods Detected: $($cheatMods.Count)" -ForegroundColor Red
-Write-Host "Obfuscated Mods: $($obfuscatedMods.Count)" -ForegroundColor Yellow  # NEW: Added obfuscated count
-Write-Host
 
 Write-Host "`nCredits to Habibi Mod Analyzer" -ForegroundColor DarkGray -BackgroundColor Black
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
