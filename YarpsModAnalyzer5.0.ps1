@@ -535,7 +535,11 @@ $cheatStrings = @(
     "pingspoof", "ping spoof",
     "webmacro", "web macro",
     "selfdestruct", "self destruct",
-    "hitboxes", "lvstrng"
+    "hitboxes"
+    "lvstrng"
+    "swapBackToOriginalSlot"
+    "attackRegisteredThisClick"
+    "findKnockbackSword" 
 )
 
 function Check-Strings($filePath) {
@@ -577,6 +581,144 @@ function Check-Strings($filePath) {
     return $stringsFound
 }
 
+# Obfuscation detection patterns
+$obfuscationPatterns = @(
+    # Common obfuscator names in class files
+    "^[a-z]{1,2}\$[a-z]{1,2}\.class$",
+    "^[a-z]\$[a-z]\$[a-z]\$[a-z]\.class$",
+    "^[a-z]{2}\/[a-z]{2}\/[a-z]{2}\.class$",
+    "^[a-zA-Z0-9]{16,}\.class$",
+    "^[a-f0-9]{32,}\.class$",
+    "^C[A-Z][a-z]+\.class$",  # Allatori-like
+    "^[a-z]{1,3}\.class$",    # Too short names
+    "^[a-zA-Z]\d+\.class$",   # Letter + numbers
+    # Obfuscated package patterns
+    "^[a-z]\/[a-z]\/[a-z]\/.*\.class$",
+    "^[a-z]{2}\/[a-z]{2}\/.*\.class$",
+    "^[a-z]+\/[a-z]+\/[a-z]+\/[a-z]+\/.*\.class$",
+    # Common obfuscator markers
+    "allatori",
+    "zkm",
+    "stringer",
+    "zelix",
+    "klassmaster",
+    "proguard",
+    "yguard",
+    "smokescreen",
+    "dexprotector",
+    "enigma",
+    "skid",
+    "obfuscated",
+    # Suspicious metadata
+    "BadPaddingException",
+    "InvalidKeyException",
+    "javax.crypto",
+    "Cipher.getInstance",
+    "decrypt",
+    "encrypt",
+    "XOREncryption",
+    "Base64Decoder"
+)
+
+# Function to check for obfuscated files
+function Check-Obfuscation($filePath) {
+    $obfuscationIndicators = [System.Collections.Generic.List[string]]::new()
+    
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
+        
+        $classFiles = @()
+        $totalFiles = 0
+        $obfuscatedFiles = 0
+        
+        # Count and analyze class files
+        foreach ($entry in $zip.Entries) {
+            if ($entry.FullName.EndsWith('.class')) {
+                $totalFiles++
+                $classFiles += $entry.FullName
+                
+                # Check against obfuscation patterns
+                foreach ($pattern in $obfuscationPatterns) {
+                    if ($entry.FullName -match $pattern) {
+                        $obfuscatedFiles++
+                        if ($obfuscationIndicators.Count -lt 10) { # Limit output
+                            $obfuscationIndicators.Add("Pattern match: '$pattern' in $($entry.FullName)")
+                        }
+                        break
+                    }
+                }
+                
+                # Check for very short class names (common in obfuscation)
+                $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.FullName)
+                if ($className.Length -le 3 -and $className -match '^[a-zA-Z]+$') {
+                    $obfuscatedFiles++
+                    if ($obfuscationIndicators.Count -lt 10) {
+                        $obfuscationIndicators.Add("Short class name: '$className'")
+                    }
+                }
+            }
+        }
+        
+        # Calculate obfuscation percentage
+        if ($totalFiles -gt 0) {
+            $obfuscationPercent = [math]::Round(($obfuscatedFiles / $totalFiles) * 100, 2)
+            
+            # Check for high obfuscation ratio
+            if ($obfuscationPercent -gt 30) {
+                $obfuscationIndicators.Add("High obfuscation ratio: $obfuscationPercent% ($obfuscatedFiles/$totalFiles files)")
+            }
+            
+            # Check for suspicious directory structures
+            $uniqueDirs = $classFiles | ForEach-Object { 
+                $dir = [System.IO.Path]::GetDirectoryName($_)
+                if ($dir -and $dir -ne '') { $dir } 
+            } | Sort-Object -Unique
+            
+            if ($uniqueDirs.Count -gt 20) {
+                $obfuscationIndicators.Add("Excessive directories: $($uniqueDirs.Count) unique paths")
+            }
+        }
+        
+        # Check for obfuscator-specific files
+        $obfuscatorFiles = @(
+            "proguard.txt", "proguard.pro", "proguard-map.txt",
+            "allatori.xml", "stringer.cfg", "yguard.xml",
+            "obfuscate.cfg", "zelix.txt", "config.xml"
+        )
+        
+        foreach ($entry in $zip.Entries) {
+            foreach ($obfFile in $obfuscatorFiles) {
+                if ($entry.Name -eq $obfFile) {
+                    $obfuscationIndicators.Add("Found obfuscator config: $obfFile")
+                    break
+                }
+            }
+        }
+        
+        $zip.Dispose()
+        
+        # Return results
+        return @{
+            IsObfuscated = ($obfuscationIndicators.Count -gt 0)
+            Indicators = $obfuscationIndicators
+            ObfuscationPercent = if ($totalFiles -gt 0) { $obfuscationPercent } else { 0 }
+            TotalClassFiles = $totalFiles
+            ObfuscatedClassFiles = $obfuscatedFiles
+        }
+        
+    } catch {
+        # If we can't analyze the JAR, it might be encrypted/obfuscated
+        return @{
+            IsObfuscated = $true
+            Indicators = @("Unable to analyze JAR structure - possibly encrypted/obfuscated")
+            ObfuscationPercent = 100
+            TotalClassFiles = 0
+            ObfuscatedClassFiles = 0
+        }
+    }
+}
+
 # Collections for results
 $verifiedMods = @(); $unknownMods = @(); $cheatMods = @(); $sizeMismatchMods = @(); $tamperedMods = @(); $allModsInfo = @()
 
@@ -593,6 +735,7 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $actualSize = $file.Length; $actualSizeKB = [math]::Round($actualSize/1KB, 2)
     $zoneInfo = Get-ZoneIdentifier $file.FullName
     $jarModInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
+    $obfuscationInfo = Check-Obfuscation -filePath $file.FullName
     
     # Determine preferred loader
     $preferredLoader = "Fabric"
@@ -622,6 +765,9 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             ExactMatch = $modData.ExactMatch; IsLatestVersion = $modData.IsLatestVersion; LoaderType = $modData.LoaderType
             PreferredLoader = $preferredLoader; FilePath = $file.FullName; JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name
             JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
+            ObfuscationInfo = $obfuscationInfo
+            IsObfuscated = $obfuscationInfo.IsObfuscated
+            ObfuscationPercent = $obfuscationInfo.ObfuscationPercent
         }
         
         $verifiedMods += $modEntry; $allModsInfo += $modEntry
@@ -638,6 +784,9 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown"; PreferredLoader = $preferredLoader
             FilePath = $file.FullName; JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version
             JarModLoader = $jarModInfo.ModLoader
+            ObfuscationInfo = $obfuscationInfo
+            IsObfuscated = $obfuscationInfo.IsObfuscated
+            ObfuscationPercent = $obfuscationInfo.ObfuscationPercent
         }
         
         $verifiedMods += $modEntry; $allModsInfo += $modEntry
@@ -648,6 +797,9 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             ExpectedSize = 0; ExpectedSizeKB = 0; SizeDiff = 0; SizeDiffKB = 0; ModrinthUrl = ""; ModName = ""; MatchType = ""
             ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown"; PreferredLoader = $preferredLoader
             JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
+            ObfuscationInfo = $obfuscationInfo
+            IsObfuscated = $obfuscationInfo.IsObfuscated
+            ObfuscationPercent = $obfuscationInfo.ObfuscationPercent
         }
         
         $unknownMods += $unknownModEntry; $allModsInfo += $unknownModEntry
@@ -704,6 +856,9 @@ try {
                 JarModId = $mod.JarModId; JarName = $mod.JarName; JarVersion = $mod.JarVersion
                 MatchType = $mod.MatchType; ExactMatch = $mod.ExactMatch; IsLatestVersion = $mod.IsLatestVersion
                 LoaderType = $mod.LoaderType
+                ObfuscationInfo = $mod.ObfuscationInfo
+                IsObfuscated = $mod.IsObfuscated
+                ObfuscationPercent = $mod.ObfuscationPercent
             }
         }
     }
@@ -726,12 +881,14 @@ if ($verifiedMods.Count -gt 0) {
     foreach ($mod in $verifiedMods) {
         $isCheatMod = $cheatMods.FileName -contains $mod.FileName
         $isTampered = $tamperedMods.FileName -contains $mod.FileName
+        $isObfuscated = $mod.IsObfuscated
         
         if ($isTampered) { Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline }
         elseif ($isCheatMod) { Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline }
+        elseif ($isObfuscated -and $mod.ObfuscationPercent -gt 70) { Write-Host "> $($mod.ModName)" -ForegroundColor Magenta -NoNewline }
         else { Write-Host "> $($mod.ModName)" -ForegroundColor Green -NoNewline }
         
-        Write-Host " - $($mod.FileName)" -ForegroundColor $(if ($isTampered -or $isCheatMod) { 'Magenta' } else { 'Gray' }) -NoNewline
+        Write-Host " - $($mod.FileName)" -ForegroundColor $(if ($isTampered -or $isCheatMod -or ($isObfuscated -and $mod.ObfuscationPercent -gt 70)) { 'Magenta' } else { 'Gray' }) -NoNewline
         
         if ($mod.Version -and $mod.Version -ne "Unknown") {
             Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray -NoNewline
@@ -757,6 +914,11 @@ if ($verifiedMods.Count -gt 0) {
                 $color = if ($isTampered) { 'Magenta' } else { 'Yellow' }
                 Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sign$($mod.SizeDiffKB) KB)" -ForegroundColor $color
             }
+        }
+        
+        if ($isObfuscated) {
+            $obfColor = if ($mod.ObfuscationPercent -gt 70) { 'Magenta' } elseif ($mod.ObfuscationPercent -gt 30) { 'Yellow' } else { 'DarkGray' }
+            Write-Host "  Obfuscation: $($mod.ObfuscationPercent)%" -ForegroundColor $obfColor
         }
     }
     Write-Host ""
@@ -800,6 +962,11 @@ if ($unknownMods.Count -gt 0) {
             Write-Host "  Downloaded from: $($mod.DownloadSource)" -ForegroundColor $sourceColor
         }
         
+        if ($mod.IsObfuscated) {
+            $obfColor = if ($mod.ObfuscationPercent -gt 70) { 'Magenta' } elseif ($mod.ObfuscationPercent -gt 30) { 'Yellow' } else { 'DarkGray' }
+            Write-Host "  Obfuscation: $($mod.ObfuscationPercent)%" -ForegroundColor $obfColor
+        }
+        
         Write-Host ""
     }
 }
@@ -830,6 +997,14 @@ if ($tamperedMods.Count -gt 0) {
         
         if ($mod.ModrinthUrl) {
             Write-Host "  Verify: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
+        }
+        
+        if ($mod.IsObfuscated) {
+            $obfColor = if ($mod.ObfuscationPercent -gt 70) { 'Magenta' } else { 'Yellow' }
+            Write-Host "  Obfuscation: $($mod.ObfuscationPercent)%" -ForegroundColor $obfColor
+            if ($mod.ObfuscationPercent -gt 70) {
+                Write-Host "  ⚠ Highly obfuscated! This could indicate malicious tampering." -ForegroundColor Magenta
+            }
         }
         
         Write-Host ""
@@ -882,9 +1057,63 @@ if ($cheatMods.Count -gt 0) {
             Write-Host "  Source: $($mod.DownloadSource)" -ForegroundColor $sourceColor
         }
         
+        if ($mod.IsObfuscated) {
+            $obfColor = if ($mod.ObfuscationPercent -gt 70) { 'Magenta' } else { 'Yellow' }
+            Write-Host "  Obfuscation: $($mod.ObfuscationPercent)%" -ForegroundColor $obfColor
+            if ($mod.ObfuscationPercent -gt 70) {
+                Write-Host "  ⚠ Highly obfuscated cheat mod! Extra caution required." -ForegroundColor Magenta
+            }
+        }
+        
         if ($mod.IsVerifiedMod) {
             Write-Host "  ⚠ Legitimate mod contains cheat code!" -ForegroundColor Red
             Write-Host "  ⚠ This appears to be a tampered version of a legitimate mod" -ForegroundColor Red
+        }
+        
+        Write-Host ""
+    }
+}
+
+# Obfuscated Mods
+$obfuscatedMods = $allModsInfo | Where-Object { $_.IsObfuscated -eq $true -and $_.ObfuscationPercent -gt 30 }
+
+if ($obfuscatedMods.Count -gt 0) {
+    Write-Host "{ Obfuscated/Encrypted Mods Detected }" -ForegroundColor Magenta
+    Write-Host "Total: $($obfuscatedMods.Count) ⚠ CAUTION`n"
+    
+    foreach ($mod in $obfuscatedMods) {
+        $color = if ($mod.ObfuscationPercent -gt 70) { 'Magenta' } elseif ($mod.ObfuscationPercent -gt 50) { 'Red' } else { 'Yellow' }
+        
+        Write-Host "> $($mod.FileName)" -ForegroundColor $color
+        
+        if ($mod.ModName) {
+            Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Gray
+        }
+        
+        Write-Host "  Obfuscation Level: $($mod.ObfuscationPercent)%" -ForegroundColor $color
+        
+        if ($mod.ObfuscationInfo.Indicators.Count -gt 0) {
+            Write-Host "  Indicators:" -ForegroundColor DarkGray
+            foreach ($indicator in $mod.ObfuscationInfo.Indicators) {
+                if ($indicator -match "High obfuscation" -or $indicator -match "Unable to analyze") {
+                    Write-Host "    • $indicator" -ForegroundColor Red
+                } else {
+                    Write-Host "    • $indicator" -ForegroundColor Yellow
+                }
+                # Limit to 3 indicators for cleaner output
+                if ($mod.ObfuscationInfo.Indicators.IndexOf($indicator) -ge 2) { break }
+            }
+            
+            if ($mod.ObfuscationInfo.Indicators.Count -gt 3) {
+                Write-Host "    • ... and $($mod.ObfuscationInfo.Indicators.Count - 3) more indicators" -ForegroundColor DarkGray
+            }
+        }
+        
+        # Add warning for highly obfuscated mods
+        if ($mod.ObfuscationPercent -gt 70) {
+            Write-Host "  ⚠ Highly obfuscated! This mod may contain malicious code or DRM protection." -ForegroundColor Red
+        } elseif ($mod.ObfuscationPercent -gt 30) {
+            Write-Host "  ⚠ Moderate obfuscation detected. Use caution with this mod." -ForegroundColor Yellow
         }
         
         Write-Host ""
