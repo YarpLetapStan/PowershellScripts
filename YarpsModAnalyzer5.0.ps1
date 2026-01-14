@@ -1,16 +1,36 @@
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
-# Create title box
-$boxWidth = 38
-$border = "+" + ("-" * $boxWidth) + "+"
-$empty = "|" + (" " * $boxWidth) + "|"
-$title = "|" + ("YarpLetapStan's Mod Analyzer V4.0".PadLeft(($boxWidth + 30)/2).PadRight($boxWidth)) + "|"
-Write-Host $border -ForegroundColor Blue
-Write-Host $empty -ForegroundColor Blue
-Write-Host $title -ForegroundColor Blue
-Write-Host $empty -ForegroundColor Blue
-Write-Host $border -ForegroundColor Blue
+# ASCII Art Title - Using block characters
+$asciiTitle = @"
+██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
+╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║     ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╔╝██╔════╝
+ ╚████╔╝ ███████║██████╔╝██████╔╝██║     █████╗     ██║   ███████║██████╔╝███████╗   ██║   ███████║██╔██╗ ██║  ███████╗
+  ╚██╔╝  ██╔══██║██╔══██╗██╔═══╝ ██║     ██╔══╝     ██║   ██╔══██║██╔═══╝ ╚════██║   ██║   ██╔══██║██║╚██╗██║  ╚════██║
+   ██║   ██║  ██║██║  ██║██║     ███████╗███████╗   ██║   ██║  ██║██║     ███████║   ██║   ██║  ██║██║ ╚████║  ███████║
+   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝
+
+███╗   ███╗ ██████╗ ██████╗      █████╗ ███╗   ██╗ █████╗ ██╗     ██╗   ██╗███████╗███████╗██████╗ 
+████╗ ████║██╔═══██╗██╔══██╗    ██╔══██╗████╗  ██║██╔══██╗██║     ╚██╗ ██╔╝╚══███╔╝██╔════╝██╔══██╗
+██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║      ╚████╔╝   ███╔╝ █████╗  ██████╔╝
+██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║       ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
+██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗   ██║   ███████╗███████╗██║  ██║
+╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
+"@
+
+Write-Host $asciiTitle -ForegroundColor Blue
+Write-Host ""
+
+# Create subtitle line style with double solid lines
+$subtitleText = "YarpLetapStan's Mod Analyzer V5.0"
+$lineWidth = 80
+$line = "─" * $lineWidth
+
+Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor Blue
+Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
+Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor Blue
 Write-Host ""
 
 # Get mods folder path
