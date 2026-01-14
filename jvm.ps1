@@ -61,56 +61,172 @@ if ($process) {
     } catch {}
 }
 
-# ==================== Fabric AddMods Detector ====================
-Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor yellow
-Write-Host "│" + "Fabric AddMods Detector".PadLeft(($lineWidth + "Fabric AddMods Detector".Length) / 2).PadRight(78) + "│" -ForegroundColor yellow
-Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
+# ==================== Enhanced Fabric/JVM Arguments Detector ====================
+Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Yellow
+Write-Host "│" + "JVM Arguments Injection Scanner".PadLeft(($lineWidth + "JVM Arguments Injection Scanner".Length) / 2).PadRight(78) + "│" -ForegroundColor Yellow
+Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Yellow
 Write-Host ""
 
-# Find all javaw.exe processes
-$javaProcesses = Get-Process -Name javaw -ErrorAction SilentlyContinue
+# Fabric/JVM injection patterns
+$injectionPatterns = @{
+    # Fabric-specific injection
+    "fabric.addMods" = "-Dfabric\.addMods"
+    "fabric.loadMods" = "-Dfabric\.loadMods"
+    "fabric.classPathGroups" = "-Dfabric\.classPathGroups"
+    "fabric.gameJarPath" = "-Dfabric\.gameJarPath"
+    "fabric.skipMcProvider" = "-Dfabric\.skipMcProvider"
+    "fabric.development" = "-Dfabric\.development"
+    "fabric.allowUnsupportedVersion" = "-Dfabric\.allowUnsupportedVersion"
+    
+    # Forge-specific injection
+    "forge.addMods" = "-Dforge\.addMods"
+    "forge.mods" = "-Dforge\.mods"
+    "fml.coreMods.load" = "-Dfml\.coreMods\.load"
+    "forge.coreMods.dir" = "-Dforge\.coreMods\.dir"
+    
+    # Game manipulation
+    "gameJarOverride" = "-Dminecraft\.client\.jar"
+    "versionOverride" = "-Dminecraft\.version"
+    "launcherBrand" = "-Dminecraft\.launcher\.brand"
+    
+    # Debug/injection arguments
+    "javaagent" = "-javaagent[=:]"
+    "agentlib" = "-agentlib:"
+    "agentpath" = "-agentpath:"
+    "Xdebug" = "-Xdebug"
+    "Xrunjdwp" = "-Xrunjdwp:"
+    
+    # Security bypass
+    "illegalAccess" = "--illegal-access"
+    "addOpens" = "--add-opens"
+    "addExports" = "--add-exports"
+    "javaSecurityManager" = "-Djava\.security\.manager"
+    
+    # Classpath manipulation
+    "bootClasspath" = "-Xbootclasspath"
+    "systemClassLoader" = "-Djava\.system\.class\.loader"
+    
+    # Cheat client signatures
+    "cheatClientBrand" = "-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos)"
+    
+    # Suspicious patterns
+    "commandInjection" = ";(curl|wget|powershell|cmd|bash|sh)\s"
+    "urlInjection" = "=(http|https|ftp|ldap|rmi)://"
+    "encodedPayload" = "(%[0-9A-F]{2}|\\u[0-9A-F]{4})"
+}
 
-if ($javaProcesses.Count -eq 0) {
-    Write-Host "No javaw.exe processes found." -ForegroundColor Yellow
-    Write-Host "Make sure Minecraft is running." -ForegroundColor Yellow
-    Write-Host ""
-} else {
-    Write-Host "Scanning $($javaProcesses.Count) Java process(es)..." -ForegroundColor White
-    Write-Host ""
+# Extended cheat client patterns (commonly used in JVM args)
+$cheatClientPatterns = @(
+    'Wurst', 'Aristois', 'Impact', 'Kilo', 'Future', 'Lambda', 'Rusher',
+    'Konas', 'Phobos', 'Salhack', 'ForgeHax', 'Mathax', 'Meteor', 'Async',
+    'Seppuku', 'Xatz', 'Wolfram', 'Huzuni', 'Jigsaw', 'Zamorozka', 'Moon',
+    'Rage', 'Exhibition', 'Virtue', 'Novoline', 'Rekt', 'Skid', 'Ares',
+    'Abyss', 'Thunder', 'Tenacity', 'Rise', 'Flux', 'Gamesense', 'Intent',
+    'Remix', 'Sight', 'Vape', 'Shield', 'Ghost', 'Crispy', 'Inertia'
+)
 
-    $foundFabricAddMods = $false
+$foundInjection = $false
+$injectionCount = 0
 
-    foreach ($proc in $javaProcesses) {
-        # Get full command line
-        $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
+foreach ($proc in $javaProcesses) {
+    $processDetails = @{}
+    $processInjectionFound = $false
+    
+    try {
+        $wmiProcess = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop
+        $commandLine = $wmiProcess.CommandLine
         
-        if ($commandLine -match '-Dfabric\.addMods') {
-            $foundFabricAddMods = $true
+        if ($commandLine) {
+            Write-Host "`n[Process: $($proc.Id)] $($proc.ProcessName)" -ForegroundColor Green
+            Write-Host "Path: $($wmiProcess.ExecutablePath)" -ForegroundColor Gray
             
-            Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
-            Write-Host "│" + "*** FABRIC ADDMODS DETECTED ***".PadLeft(($lineWidth + "*** FABRIC ADDMODS DETECTED ***".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
-            Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
-            Write-Host ""
-            Write-Host "Process ID: $($proc.Id)" -ForegroundColor Yellow
-            Write-Host ""
+            # Check all patterns
+            $detectedPatterns = @()
             
-            # Extract the fabric.addMods argument
-            if ($commandLine -match '-Dfabric\.addMods=([^\s]+)') {
-                $fabricAddModsValue = $matches[1]
-                Write-Host "-Dfabric.addMods=$fabricAddModsValue" -ForegroundColor Magenta
+            foreach ($patternName in $injectionPatterns.Keys) {
+                $regexPattern = $injectionPatterns[$patternName]
+                if ($commandLine -match $regexPattern) {
+                    $detectedPatterns += $patternName
+                    $processInjectionFound = $true
+                }
             }
             
-            Write-Host ""
-            Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
-            Write-Host "│" + "WARNING: Additional mods loaded outside mods folder!".PadLeft(($lineWidth + "WARNING: Additional mods loaded outside mods folder!".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
-            Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
-            Write-Host ""
+            # Check for cheat client brands in arguments
+            foreach ($cheatClient in $cheatClientPatterns) {
+                if ($commandLine -match "(?i)\b$cheatClient\b") {
+                    $detectedPatterns += "CheatClient-$cheatClient"
+                    $processInjectionFound = $true
+                }
+            }
+            
+            # Check for encoded/suspicious command execution
+            if ($commandLine -match '(%3B|%26%26|%7C%7C|%7C|%60|%24)') {
+                $detectedPatterns += "EncodedInjection"
+                $processInjectionFound = $true
+            }
+            
+            if ($processInjectionFound) {
+                $foundInjection = $true
+                $injectionCount++
+                
+                Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
+                Write-Host "│" + "*** JVM INJECTION DETECTED ***".PadLeft(($lineWidth + "*** JVM INJECTION DETECTED ***".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
+                Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
+                Write-Host ""
+                
+                Write-Host "Detected patterns:" -ForegroundColor Yellow
+                foreach ($pattern in $detectedPatterns) {
+                    Write-Host "  - $pattern" -ForegroundColor Red
+                }
+                Write-Host ""
+                
+                # Extract and show suspicious arguments
+                Write-Host "Suspicious arguments found:" -ForegroundColor Yellow
+                $argLines = $commandLine -split '\s+'
+                foreach ($arg in $argLines) {
+                    foreach ($pattern in $detectedPatterns) {
+                        if ($injectionPatterns.ContainsKey($pattern) -and $arg -match $injectionPatterns[$pattern]) {
+                            Write-Host "  $arg" -ForegroundColor Magenta
+                            break
+                        } elseif ($pattern -match "^CheatClient-") {
+                            $clientName = $pattern -replace "^CheatClient-", ""
+                            if ($arg -match $clientName) {
+                                Write-Host "  $arg" -ForegroundColor Magenta
+                            }
+                        }
+                    }
+                }
+                Write-Host ""
+                
+                # Show process owner
+                try {
+                    $owner = $wmiProcess.GetOwner()
+                    Write-Host "Process Owner: $($owner.Domain)\$($owner.User)" -ForegroundColor Gray
+                } catch {}
+                
+                Write-Host "Parent PID: $($proc.Parent.Id)" -ForegroundColor Gray
+                Write-Host ""
+                
+                Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
+                Write-Host "│" + "WARNING: Potential cheat client or mod injection!".PadLeft(($lineWidth + "WARNING: Potential cheat client or mod injection!".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
+                Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
+                Write-Host ""
+            } else {
+                Write-Host "✓ No JVM injection patterns detected" -ForegroundColor Green
+            }
         }
+    } catch {
+        Write-Host "Warning: Could not retrieve command line for PID $($proc.Id)" -ForegroundColor DarkYellow
+        Write-Host "Run as Administrator for complete detection." -ForegroundColor DarkYellow
     }
+}
 
-    if (-not $foundFabricAddMods) {
-        Write-Host "[CLEAN] No -Dfabric.addMods detected in any Java process" -ForegroundColor Green
-        Write-Host ""
+if (-not $foundInjection) {
+    Write-Host "[CLEAN] No JVM argument injections detected in any Java process" -ForegroundColor Green
+}
+
+Write-Host ""
+# ==================== End of JVM Arguments Scanner ====================
     }
 }
 
