@@ -100,11 +100,7 @@ if ($javaProcesses.Count -eq 0) {
                 Write-Host "-Dfabric.addMods=$fabricAddModsValue" -ForegroundColor Magenta
             }
             
-            Write-Host ""
-            Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
-            Write-Host "│" + "WARNING: Additional mods loaded outside mods folder!".PadLeft(($lineWidth + "WARNING: Additional mods loaded outside mods folder!".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
-            Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
-            Write-Host ""
+       
         }
     }
 
