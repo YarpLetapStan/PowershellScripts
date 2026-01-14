@@ -1,9 +1,9 @@
 # Fabric AddMods Detector
-# Detects if -Dfabric.addMods was used and displays the full command
+# Detects if -Dfabric.addMods was used and displays what the user added
 
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "Fabric AddMods Detector" -ForegroundColor Cyan
-Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Magenta
+Write-Host "Fabric AddMods Detector" -ForegroundColor Magenta
+Write-Host "================================================" -ForegroundColor Magenta
 Write-Host ""
 
 # Find all javaw.exe processes
@@ -39,13 +39,9 @@ foreach ($process in $javaProcesses) {
         # Extract the fabric.addMods argument
         if ($commandLine -match '-Dfabric\.addMods=([^\s]+)') {
             $fabricAddModsValue = $matches[1]
-            Write-Host "Fabric AddMods Path:" -ForegroundColor Cyan
-            Write-Host $fabricAddModsValue -ForegroundColor Red
-            Write-Host ""
+            Write-Host "-Dfabric.addMods=$fabricAddModsValue" -ForegroundColor Magenta
         }
         
-        Write-Host "Full Command Line:" -ForegroundColor Cyan
-        Write-Host $commandLine -ForegroundColor Gray
         Write-Host ""
         Write-Host "================================================" -ForegroundColor Red
         Write-Host ""
