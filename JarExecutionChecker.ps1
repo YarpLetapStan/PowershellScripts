@@ -3,6 +3,7 @@ Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -Fo
 
 # ASCII Art Title - Simple symbols style
 $asciiTitle = @"
+
  __    __  _____  ______  _____  _       _____  _____  _____  _____  _____  _____  _____  __    _    ___   _____           
  \ \  / / /  _  \ | ___ \| ___ \| |     | ____||_   _|/  _  \| ___ \/  ___||_   _|/  _  \ |  \ | |  /  /  /  ___|       
   \ \/ /  | |_| | | |_/ /| |_/ /| |     | |__    | |  | |_| || |_/ /\ `--.   | |  | |_| | |   \| | /__/   \ `--.          
