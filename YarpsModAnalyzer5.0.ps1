@@ -522,6 +522,9 @@ $cheatStrings = @(
     "webmacro", "web macro",
     "selfdestruct", "self destruct",
     "hitboxes", "lvstrng"
+    "swapBackToOriginalSlot"
+    "attackRegisteredThisClick"
+    "findKnockbackSword" 
 )
 
 function Check-Strings($filePath) {
