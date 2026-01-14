@@ -10,12 +10,12 @@ $asciiTitle = @"
    ██║   ██║  ██║██║  ██║██║     ███████╗███████╗   ██║   ██║  ██║██║     ███████║   ██║   ██║  ██║██║ ╚████║  ███████║
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝
 
-███╗   ███╗ ██████╗ ██████╗      █████╗ ███╗   ██╗ █████╗ ██╗     ██╗   ██╗███████╗███████╗██████╗ 
-████╗ ████║██╔═══██╗██╔══██╗    ██╔══██╗████╗  ██║██╔══██╗██║     ╚██╗ ██╔╝╚══███╔╝██╔════╝██╔══██╗
-██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║      ╚████╔╝   ███╔╝ █████╗  ██████╔╝
-██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║       ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
-██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗   ██║   ███████╗███████╗██║  ██║
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝   ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
+███╗   ███╗ ██████╗ ██████╗      █████╗ ███╗   ██╗ █████╗ ██╗    ██╗   ██╗███████╗███████╗██████╗ 
+████╗ ████║██╔═══██╗██╔══██╗    ██╔══██╗████╗  ██║██╔══██╗██║    ╚██╗ ██╔╝╚══███╔╝██╔════╝██╔══██╗
+██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║     ╚████╔╝   ███╔╝ █████╗  ██████╔╝
+██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
+██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
+╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
 "@
 
 Write-Host $asciiTitle -ForegroundColor Blue
@@ -26,11 +26,11 @@ $subtitleText = "YarpLetapStan's Mod Analyzer V5.0"
 $lineWidth = 80
 $line = "─" * $lineWidth
 
-Write-Host $line -ForegroundColor Blue
-Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor cyan
+Write-Host $line -ForegroundColor cyan
 Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
-Write-Host $line -ForegroundColor Blue
-Write-Host $line -ForegroundColor Blue
+Write-Host $line -ForegroundColor cyan
+Write-Host $line -ForegroundColor cyan
 Write-Host ""
 
 # Get mods folder path
@@ -60,6 +60,61 @@ if ($process) {
         Write-Host "$($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n"
     } catch {}
 }
+
+# ==================== Fabric AddMods Detector ====================
+Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor yellow
+Write-Host "│" + "Fabric AddMods Detector".PadLeft(($lineWidth + "Fabric AddMods Detector".Length) / 2).PadRight(78) + "│" -ForegroundColor yellow
+Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
+Write-Host ""
+
+# Find all javaw.exe processes
+$javaProcesses = Get-Process -Name javaw -ErrorAction SilentlyContinue
+
+if ($javaProcesses.Count -eq 0) {
+    Write-Host "No javaw.exe processes found." -ForegroundColor Yellow
+    Write-Host "Make sure Minecraft is running." -ForegroundColor Yellow
+    Write-Host ""
+} else {
+    Write-Host "Scanning $($javaProcesses.Count) Java process(es)..." -ForegroundColor White
+    Write-Host ""
+
+    $foundFabricAddMods = $false
+
+    foreach ($proc in $javaProcesses) {
+        # Get full command line
+        $commandLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)").CommandLine
+        
+        if ($commandLine -match '-Dfabric\.addMods') {
+            $foundFabricAddMods = $true
+            
+            Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
+            Write-Host "│" + "*** FABRIC ADDMODS DETECTED ***".PadLeft(($lineWidth + "*** FABRIC ADDMODS DETECTED ***".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
+            Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "Process ID: $($proc.Id)" -ForegroundColor Yellow
+            Write-Host ""
+            
+            # Extract the fabric.addMods argument
+            if ($commandLine -match '-Dfabric\.addMods=([^\s]+)') {
+                $fabricAddModsValue = $matches[1]
+                Write-Host "-Dfabric.addMods=$fabricAddModsValue" -ForegroundColor Magenta
+            }
+            
+            Write-Host ""
+            Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
+            Write-Host "│" + "WARNING: Additional mods loaded outside mods folder!".PadLeft(($lineWidth + "WARNING: Additional mods loaded outside mods folder!".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
+            Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
+            Write-Host ""
+        }
+    }
+
+    if (-not $foundFabricAddMods) {
+        Write-Host "[CLEAN] No -Dfabric.addMods detected in any Java process" -ForegroundColor Green
+        Write-Host ""
+    }
+}
+
+
 
 function Get-Minecraft-Version-From-Mods($modsFolder) {
     $minecraftVersions = @{}
