@@ -1,278 +1,164 @@
 param(
-    [switch]$Continuous = $false,
-    [int]$Interval = 5
+    [switch]$Monitor = $false,
+    [int]$CheckEvery = 3
 )
 
-function Write-Color {
-    param([string]$Text, [string]$Color = "White")
-    Write-Host $Text -ForegroundColor $Color
-}
+# Clear screen and show header
+Clear-Host
+Write-Host "=== Minecraft JVM Argument Monitor ===" -ForegroundColor Cyan
+Write-Host "Red flags: Custom JVM arguments from launcher" -ForegroundColor Red
+Write-Host "Yellow flags: Memory allocation changes" -ForegroundColor Yellow
+Write-Host "Green: Standard Minecraft" -ForegroundColor Green
+Write-Host "Press Ctrl+C to stop" -ForegroundColor Gray
+Write-Host ""
 
-function Get-JavaProcesses {
-    $processes = @()
-    $javaProcs = Get-Process java*, javaw* -ErrorAction SilentlyContinue
+function Check-Minecraft {
+    $processes = Get-Process java*, javaw* -ErrorAction SilentlyContinue
     
-    foreach ($proc in $javaProcs) {
+    foreach ($proc in $processes) {
         try {
-            $wmi = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction SilentlyContinue
-            if ($wmi -and $wmi.CommandLine) {
-                $cmd = $wmi.CommandLine
-                $processes += @{
-                    PID = $proc.Id
-                    Name = $proc.ProcessName
-                    CommandLine = $cmd
-                    StartTime = $proc.StartTime
-                }
+            $wmi = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)"
+            if ($wmi.CommandLine -match "minecraft|\.minecraft") {
+                Analyze-Arguments $proc.Id $wmi.CommandLine
             }
         } catch { }
     }
-    return $processes
 }
 
-function Extract-Args {
-    param([string]$CommandLine)
+function Analyze-Arguments {
+    param($PID, $CommandLine)
     
-    $args = @{
-        Memory = @{}
-        Properties = @{}
-        GC = @()
-        Other = @()
-        SuspiciousArgs = @()  # For flagged arguments
-    }
-    
-    # Extract ALL JVM arguments with their values
-    # Pattern: -Something or -Dkey=value
-    $argMatches = [regex]::Matches($CommandLine, '(-\S+)(?:\s+([^\s-][^\s]*))?')
-    
-    foreach ($match in $argMatches) {
-        $argName = $match.Groups[1].Value
-        $argValue = $match.Groups[2].Value
-        
-        # Skip the .jar file (main class)
-        if ($argName -match '\.jar$') { continue }
-        
-        # CATEGORIZE AND FLAG SUSPICIOUS ARGUMENTS
-        
-        # 1. MEMORY ARGUMENTS (-Xmx, -Xms, etc.)
-        if ($argName -match '^-Xmx') {
-            $args.Memory["Xmx"] = $argValue
-        }
-        elseif ($argName -match '^-Xms') {
-            $args.Memory["Xms"] = $argValue
-        }
-        elseif ($argName -match '^-Xmn') {
-            $args.Memory["Xmn"] = $argValue
-        }
-        elseif ($argName -match '^-Xss') {
-            $args.Memory["Xss"] = $argValue
-        }
-        
-        # 2. SYSTEM PROPERTIES (-D arguments) - FLAG SUSPICIOUS ONES
-        elseif ($argName -match '^-D') {
-            # Extract key=value from -D
-            if ($argName -match '^-D([^=]+)=(.*)') {
-                $key = $matches[1]
-                $value = $matches[2]
-                $args.Properties[$key] = $value
-                
-                # FLAG suspicious -D arguments
-                if ($value -match '\.so$' -or $value -match '\.dll$' -or $value -match '\.exe$') {
-                    $args.SuspiciousArgs += @{
-                        Argument = $argName
-                        Value = $value
-                        Reason = "Loads native library: $value"
-                    }
-                }
-                elseif ($key -match 'java\.library\.path' -and $value -match '\.\./') {
-                    $args.SuspiciousArgs += @{
-                        Argument = $argName
-                        Value = $value
-                        Reason = "Uses parent directory (../) in library path"
-                    }
-                }
-                elseif ($value -match 'http://' -or $value -match 'https://') {
-                    $args.SuspiciousArgs += @{
-                        Argument = $argName
-                        Value = $value
-                        Reason = "Contains URL (potential remote loading)"
-                    }
-                }
-            }
-        }
-        
-        # 3. SUSPICIOUS ARGUMENTS TO FLAG
-        elseif ($argName -match '^-Xbootclasspath') {
-            $args.SuspiciousArgs += @{
-                Argument = $argName
-                Value = $argValue
-                Reason = "Modifies boot classpath (can load malicious classes)"
-            }
-        }
-        elseif ($argName -match '^-javaagent') {
-            $args.SuspiciousArgs += @{
-                Argument = $argName
-                Value = $argValue
-                Reason = "Java agent instrumentation (can modify runtime)"
-            }
-        }
-        elseif ($argName -match '^-Xrunjdwp' -or $argName -match '^-agentlib:jdwp') {
-            $args.SuspiciousArgs += @{
-                Argument = $argName
-                Value = $argValue
-                Reason = "Java Debug Wire Protocol (debugger attachment)"
-            }
-        }
-        
-        # 4. GC ARGUMENTS
-        elseif ($argName -match '^-XX:\+Use') {
-            $args.GC += $argName
-        }
-        
-        # 5. OTHER ARGUMENTS
-        elseif ($argName -match '^-') {
-            $args.Other += $argName
-            if ($argValue) {
-                $args.Other += $argValue
-            }
-        }
-    }
-    
-    return $args
-}
-
-function Show-Output {
-    param($Process, $Args)
-    
-    Write-Color "══════════════════════════════════════════════════════════" Cyan
-    Write-Color "JAVA PROCESS DETECTED" Cyan
-    Write-Color "══════════════════════════════════════════════════════════" Cyan
-    Write-Host "PID: $($Process.PID)" -ForegroundColor White
-    Write-Host "Process: $($Process.Name)" -ForegroundColor White
-    if ($Process.StartTime) {
-        Write-Host "Started: $($Process.StartTime.ToString('HH:mm:ss'))" -ForegroundColor Gray
-    }
-    Write-Host ""
-    
-    # SUSPICIOUS JVM ARGUMENTS (RED FLAGS) - MOST IMPORTANT!
-    if ($Args.SuspiciousArgs.Count -gt 0) {
-        Write-Color "🚨 SUSPICIOUS JVM ARGUMENTS DETECTED!" Red
-        Write-Color "══════════════════════════════════════════════════════════" Red
-        
-        foreach ($suspArg in $Args.SuspiciousArgs) {
-            Write-Host "  🔴 ARGUMENT: " -ForegroundColor Red -NoNewline
-            Write-Host "$($suspArg.Argument)" -ForegroundColor White
-            Write-Host "     Value: " -ForegroundColor Yellow -NoNewline
-            Write-Host "$($suspArg.Value)" -ForegroundColor White
-            Write-Host "     Reason: " -ForegroundColor Red -NoNewline
-            Write-Host "$($suspArg.Reason)" -ForegroundColor White
-            Write-Host ""
-        }
-        Write-Host ""
-    }
-    
-    # Memory
-    if ($Args.Memory.Count -gt 0) {
-        Write-Color "💾 MEMORY SETTINGS:" Green
-        foreach ($key in $Args.Memory.Keys) {
-            Write-Host "  $($key): $($Args.Memory[$key])" -ForegroundColor White
-        }
-        Write-Host ""
-    }
-    
-    # System Properties (-D) - Show all
-    if ($Args.Properties.Count -gt 0) {
-        Write-Color "⚙️  SYSTEM PROPERTIES (-D):" Green
-        foreach ($key in $Args.Properties.Keys) {
-            $isSuspicious = $Args.SuspiciousArgs | Where-Object { $_.Argument -match $key }
-            if ($isSuspicious) {
-                Write-Host "  ⚠️  $($key): " -ForegroundColor Yellow -NoNewline
-            } else {
-                Write-Host "  $($key): " -ForegroundColor Yellow -NoNewline
-            }
-            Write-Host "$($Args.Properties[$key])" -ForegroundColor White
-        }
-        Write-Host ""
-    }
-    
-    # GC
-    if ($Args.GC.Count -gt 0) {
-        Write-Color "🗑️  GARBAGE COLLECTOR:" Green
-        foreach ($gc in $Args.GC) {
-            Write-Host "  • $gc" -ForegroundColor White
-        }
-        Write-Host ""
-    }
-    
-    # Other arguments
-    if ($Args.Other.Count -gt 0) {
-        Write-Color "🔧 OTHER ARGUMENTS:" Green
-        foreach ($arg in $Args.Other) {
-            Write-Host "  • $arg" -ForegroundColor White
-        }
-        Write-Host ""
-    }
-    
-    # Security assessment based on suspicious args
-    Write-Color "🔒 SECURITY ASSESSMENT:" Cyan
-    
-    if ($Args.SuspiciousArgs.Count -gt 0) {
-        Write-Color "  ❌ HIGH RISK - Suspicious JVM arguments detected" Red
-        Write-Host "  Suspicious arguments found: $($Args.SuspiciousArgs.Count)" -ForegroundColor Red
-        Write-Host "  Review the red flagged arguments above!" -ForegroundColor Red
+    # Extract just the arguments part (after the .exe)
+    $exeIndex = $CommandLine.IndexOf(".exe")
+    if ($exeIndex -gt 0) {
+        $argsOnly = $CommandLine.Substring($exeIndex + 5).Trim()
     } else {
-        Write-Color "  ✅ LOW RISK - No suspicious JVM arguments" Green
+        $argsOnly = $CommandLine
     }
     
-    # Show full command for reference
-    Write-Color "`n📝 FULL COMMAND:" Gray
-    Write-Host "  $($Process.CommandLine)" -ForegroundColor DarkGray
-    Write-Host ""
-}
-
-# Main
-Clear-Host
-Write-Color "Java JVM Argument Analyzer" Cyan
-Write-Color "====================================" Cyan
-Write-Color "Flags suspicious JVM arguments in RED" Yellow
-Write-Host "Detects: -D, -Xbootclasspath, library paths, etc." -ForegroundColor Gray
-Write-Host ""
-
-if ($Continuous) {
-    Write-Color "🔍 Monitoring (${Interval}s intervals)" Yellow
-    Write-Color "Press Ctrl+C to stop" Gray
-    Write-Host ""
+    # Look for custom JVM args (RED FLAG)
+    $hasCustomArgs = $false
+    $customArgs = @()
     
-    while ($true) {
-        $procs = Get-JavaProcesses
-        if ($procs.Count -gt 0) {
-            foreach ($proc in $procs) {
-                $jvmArgs = Extract-Args -CommandLine $proc.CommandLine
-                Show-Output -Process $proc -Args $jvmArgs
-            }
-        } else {
-            Write-Color "[$(Get-Date -Format 'HH:mm:ss')] No Java processes" Gray
+    # Common normal Minecraft arguments
+    $normalArgs = @(
+        "-Dos\.name=.*",
+        "-Dos\.version=.*", 
+        "-Djava\.library\.path=.*natives.*",
+        "-cp",
+        "-Xmx[0-9]+G",
+        "-Xms[0-9]+G",
+        "-XX:HeapDumpPath=.*",
+        "-Djava\.io\.tmpdir=.*",
+        "-Duser\.language=.*",
+        "-Duser\.country=.*"
+    )
+    
+    # Split arguments
+    $allArgs = @()
+    $currentArg = ""
+    $inQuotes = $false
+    
+    for ($i = 0; $i -lt $argsOnly.Length; $i++) {
+        $char = $argsOnly[$i]
+        
+        if ($char -eq '"') {
+            $inQuotes = -not $inQuotes
         }
-        Start-Sleep -Seconds $Interval
+        elseif ($char -eq ' ' -and -not $inQuotes) {
+            if ($currentArg -ne "") {
+                $allArgs += $currentArg
+                $currentArg = ""
+            }
+        }
+        else {
+            $currentArg += $char
+        }
     }
-}
-else {
-    Write-Color "🔍 Scanning for Java processes..." Yellow
-    $procs = Get-JavaProcesses
     
-    if ($procs.Count -eq 0) {
-        Write-Color "❌ No Java processes found" Red
-        Write-Host ""
-        Write-Color "Note:" Yellow
-        Write-Host "  Make sure Java/Minecraft is running" -ForegroundColor Gray
-        Write-Host "  Try running as Administrator" -ForegroundColor Gray
+    if ($currentArg -ne "") {
+        $allArgs += $currentArg
+    }
+    
+    # Check each argument
+    foreach ($arg in $allArgs) {
+        $isNormal = $false
+        
+        # Check if it's a normal Minecraft argument
+        foreach ($pattern in $normalArgs) {
+            if ($arg -match $pattern) {
+                $isNormal = $true
+                break
+            }
+        }
+        
+        # Check for jar files (normal)
+        if ($arg -match '\.jar$') {
+            $isNormal = $true
+        }
+        
+        # Check for standard GC args
+        if ($arg -match '^-XX:\+Use(G1GC|ParallelGC|ConcMarkSweepGC)$') {
+            $isNormal = $true
+        }
+        
+        # If not normal, it's custom (RED FLAG)
+        if (-not $isNormal -and $arg -match '^-') {
+            $hasCustomArgs = $true
+            $customArgs += $arg
+        }
+    }
+    
+    # Look for memory allocation (YELLOW FLAG)
+    $hasMemoryChange = $false
+    $memoryArgs = @()
+    
+    if ($argsOnly -match '-Xmx([0-9]+[MG])') {
+        $alloc = $matches[1]
+        $num = [int]($alloc -replace '[MG]', '')
+        $unit = $alloc -replace '[0-9]', ''
+        
+        # Flag if > 8GB or < 2GB
+        if (($unit -eq "G" -and $num -gt 8) -or 
+            ($unit -eq "M" -and $num -gt 8192) -or
+            ($unit -eq "G" -and $num -lt 2)) {
+            $hasMemoryChange = $true
+            $memoryArgs += "-Xmx$alloc"
+        }
+    }
+    
+    # Display results
+    Write-Host "PID $PID : " -NoNewline -ForegroundColor White
+    
+    if ($hasCustomArgs) {
+        Write-Host "[RED FLAG] Custom JVM arguments found!" -ForegroundColor Red
+        foreach ($arg in $customArgs) {
+            Write-Host "  → $arg" -ForegroundColor Red
+        }
+    }
+    elseif ($hasMemoryChange) {
+        Write-Host "[YELLOW FLAG] Unusual memory allocation" -ForegroundColor Yellow
+        foreach ($arg in $memoryArgs) {
+            Write-Host "  → $arg" -ForegroundColor Yellow
+        }
     }
     else {
-        Write-Color "✅ Found $($procs.Count) Java process(es)" Green
-        Write-Host ""
-        
-        foreach ($proc in $procs) {
-            $jvmArgs = Extract-Args -CommandLine $proc.CommandLine
-            Show-Output -Process $proc -Args $jvmArgs
-        }
+        Write-Host "[OK] Standard Minecraft" -ForegroundColor Green
     }
+    
+    # Show what was in the JVM args box
+    if ($hasCustomArgs -or $hasMemoryChange) {
+        Write-Host "  Launcher JVM Args: $argsOnly" -ForegroundColor Gray
+        Write-Host ""
+    }
+}
+
+# Main loop
+if ($Monitor) {
+    while ($true) {
+        Check-Minecraft
+        Start-Sleep -Seconds $CheckEvery
+    }
+} else {
+    Check-Minecraft
 }
