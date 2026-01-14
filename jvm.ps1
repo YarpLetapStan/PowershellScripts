@@ -17,23 +17,11 @@ function Get-JavaProcesses {
             $wmi = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction SilentlyContinue
             if ($wmi -and $wmi.CommandLine) {
                 $cmd = $wmi.CommandLine
-                $lowerCmd = $cmd.ToLower()
-                
-                $isMinecraft = $false
-                if ($lowerCmd -match "minecraft" -or 
-                    $lowerCmd -match "\.minecraft" -or 
-                    $lowerCmd -match "net\.minecraft" -or
-                    $lowerCmd -match "\.jar") {
-                    $isMinecraft = $true
-                }
-                
-                if ($isMinecraft) {
-                    $processes += @{
-                        PID = $proc.Id
-                        Name = $proc.ProcessName
-                        CommandLine = $cmd
-                        StartTime = $proc.StartTime
-                    }
+                $processes += @{
+                    PID = $proc.Id
+                    Name = $proc.ProcessName
+                    CommandLine = $cmd
+                    StartTime = $proc.StartTime
                 }
             }
         } catch { }
@@ -49,6 +37,44 @@ function Extract-Args {
         Properties = @{}
         GC = @()
         Other = @()
+        ExecutedCommands = @()
+    }
+    
+    # Extract commands executed via -e, -exec, or similar
+    # Look for command execution patterns
+    if ($CommandLine -match '-e\s+"([^"]+)"' -or $CommandLine -match '-e\s+([^\s]+)') {
+        $args.ExecutedCommands += $matches[1]
+    }
+    
+    if ($CommandLine -match '-exec\s+"([^"]+)"' -or $CommandLine -match '-exec\s+([^\s]+)') {
+        $args.ExecutedCommands += $matches[1]
+    }
+    
+    if ($CommandLine -match '-c\s+"([^"]+)"' -or $CommandLine -match '-c\s+([^\s]+)') {
+        $args.ExecutedCommands += $matches[1]
+    }
+    
+    # Look for suspicious execution patterns
+    $suspiciousPatterns = @(
+        'Runtime\.getRuntime\(\)\.exec',
+        'ProcessBuilder',
+        'powershell',
+        'cmd\.exe',
+        'bash',
+        'sh',
+        'wget',
+        'curl',
+        'certutil',
+        'bitsadmin',
+        'mshta',
+        'rundll32',
+        'regsvr32'
+    )
+    
+    foreach ($pattern in $suspiciousPatterns) {
+        if ($CommandLine -match $pattern -and -not ($CommandLine -match "powershell.*-Command.*Get-Process")) {
+            $args.ExecutedCommands += "Pattern detected: $pattern"
+        }
     }
     
     # Memory
@@ -73,34 +99,49 @@ function Extract-Args {
         }
     }
     
-    # Other args
-    if ($CommandLine -match '(-(?:X|XX)[^\s]+)') {
-        $allMatches = [regex]::Matches($CommandLine, '(-(?:X|XX)[^\s]+)')
-        foreach ($match in $allMatches) {
-            $arg = $match.Value
-            if (-not ($arg -match '^-X[mM]') -and 
-                -not ($arg -match '^-XX:\+Use.*GC') -and
-                -not ($arg -match '^-D')) {
-                $args.Other += $arg
-            }
-        }
-    }
-    
     return $args
 }
 
 function Show-Output {
     param($Process, $Args)
     
-    Write-Color "════════════════════════════════════════" Cyan
-    Write-Color "MINECRAFT JVM DETECTED" Cyan
-    Write-Color "════════════════════════════════════════" Cyan
+    Write-Color "══════════════════════════════════════════════════════════" Cyan
+    Write-Color "JAVA PROCESS DETECTED" Cyan
+    Write-Color "══════════════════════════════════════════════════════════" Cyan
     Write-Host "PID: $($Process.PID)" -ForegroundColor White
     Write-Host "Process: $($Process.Name)" -ForegroundColor White
     if ($Process.StartTime) {
         Write-Host "Started: $($Process.StartTime.ToString('HH:mm:ss'))" -ForegroundColor Gray
     }
     Write-Host ""
+    
+    # Check if this looks like Minecraft
+    $isMinecraft = $Process.CommandLine -match "minecraft" -or 
+                   $Process.CommandLine -match "\.minecraft" -or 
+                   $Process.CommandLine -match "net\.minecraft" -or
+                   ($Process.CommandLine -match "\.jar" -and $Process.Name -match "javaw")
+    
+    if ($isMinecraft) {
+        Write-Color "🎮 This appears to be Minecraft" Green
+    } else {
+        Write-Color "⚠️  This may not be Minecraft" Yellow
+    }
+    Write-Host ""
+    
+    # EXECUTED COMMANDS (RED FLAG) - MOST IMPORTANT SECTION!
+    if ($Args.ExecutedCommands.Count -gt 0) {
+        Write-Color "🚨 EXECUTED COMMANDS DETECTED!" Red
+        Write-Color "════════════════════════════════════════" Red
+        foreach ($cmd in $Args.ExecutedCommands) {
+            Write-Host "  • $cmd" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Color "⚠️  WARNING: This process may be executing system commands!" Red
+        Write-Host ""
+    } else {
+        Write-Color "✅ No suspicious commands detected" Green
+        Write-Host ""
+    }
     
     # Memory
     if ($Args.Memory.Count -gt 0) {
@@ -130,28 +171,29 @@ function Show-Output {
         }
     }
     
-    # Other
-    if ($Args.Other.Count -gt 0) {
-        Write-Color "`n🔧 OTHER ARGS:" Green
-        foreach ($arg in $Args.Other) {
-            Write-Host "  • $arg" -ForegroundColor White
-        }
-    }
+    # Raw command
+    Write-Color "`n📝 FULL COMMAND:" Gray
+    Write-Host "  $($Process.CommandLine)" -ForegroundColor DarkGray
+    Write-Host ""
     
-    # Raw command (short)
-    Write-Color "`n📝 COMMAND:" Gray
-    $shortCmd = $Process.CommandLine
-    if ($shortCmd.Length -gt 150) {
-        $shortCmd = $shortCmd.Substring(0, 150) + "..."
+    # Security assessment
+    Write-Color "🔒 SECURITY ASSESSMENT:" Cyan
+    $isSuspicious = $Args.ExecutedCommands.Count -gt 0
+    
+    if ($isSuspicious) {
+        Write-Color "  ❌ HIGH RISK - Command execution detected" Red
+        Write-Host "  Consider terminating this process!" -ForegroundColor Red
+    } else {
+        Write-Color "  ✅ LOW RISK - No command execution" Green
     }
-    Write-Host "  $shortCmd" -ForegroundColor DarkGray
     Write-Host ""
 }
 
 # Main
 Clear-Host
-Write-Color "Minecraft JVM Detector" Cyan
-Write-Color "========================" Cyan
+Write-Color "Java Process Analyzer with Command Detection" Cyan
+Write-Color "==============================================" Cyan
+Write-Color "Detects executed commands and flags them in RED" Yellow
 Write-Host ""
 
 if ($Continuous) {
@@ -167,25 +209,24 @@ if ($Continuous) {
                 Show-Output -Process $proc -Args $jvmArgs
             }
         } else {
-            Write-Color "[$(Get-Date -Format 'HH:mm:ss')] No processes" Gray
+            Write-Color "[$(Get-Date -Format 'HH:mm:ss')] No Java processes" Gray
         }
         Start-Sleep -Seconds $Interval
     }
 }
 else {
-    Write-Color "🔍 Scanning..." Yellow
+    Write-Color "🔍 Scanning for Java processes..." Yellow
     $procs = Get-JavaProcesses
     
     if ($procs.Count -eq 0) {
-        Write-Color "❌ No Minecraft Java processes found" Red
+        Write-Color "❌ No Java processes found" Red
         Write-Host ""
-        Write-Color "Try:" Yellow
-        Write-Host "  Run Minecraft first" -ForegroundColor Gray
-        Write-Host "  Run as Administrator" -ForegroundColor Gray
-        Write-Host "  Use -Continuous flag to monitor" -ForegroundColor Gray
+        Write-Color "Note:" Yellow
+        Write-Host "  Make sure Java/Minecraft is running" -ForegroundColor Gray
+        Write-Host "  Try running as Administrator" -ForegroundColor Gray
     }
     else {
-        Write-Color "✅ Found $($procs.Count) process(es)" Green
+        Write-Color "✅ Found $($procs.Count) Java process(es)" Green
         Write-Host ""
         
         foreach ($proc in $procs) {
