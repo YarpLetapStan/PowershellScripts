@@ -37,65 +37,103 @@ function Extract-Args {
         Properties = @{}
         GC = @()
         Other = @()
-        ExecutedCommands = @()
+        SuspiciousArgs = @()  # For flagged arguments
     }
     
-    # Extract commands executed via -e, -exec, or similar
-    # Look for command execution patterns
-    if ($CommandLine -match '-e\s+"([^"]+)"' -or $CommandLine -match '-e\s+([^\s]+)') {
-        $args.ExecutedCommands += $matches[1]
-    }
+    # Extract ALL JVM arguments with their values
+    # Pattern: -Something or -Dkey=value
+    $argMatches = [regex]::Matches($CommandLine, '(-\S+)(?:\s+([^\s-][^\s]*))?')
     
-    if ($CommandLine -match '-exec\s+"([^"]+)"' -or $CommandLine -match '-exec\s+([^\s]+)') {
-        $args.ExecutedCommands += $matches[1]
-    }
-    
-    if ($CommandLine -match '-c\s+"([^"]+)"' -or $CommandLine -match '-c\s+([^\s]+)') {
-        $args.ExecutedCommands += $matches[1]
-    }
-    
-    # Look for suspicious execution patterns
-    $suspiciousPatterns = @(
-        'Runtime\.getRuntime\(\)\.exec',
-        'ProcessBuilder',
-        'powershell',
-        'cmd\.exe',
-        'bash',
-        'sh',
-        'wget',
-        'curl',
-        'certutil',
-        'bitsadmin',
-        'mshta',
-        'rundll32',
-        'regsvr32'
-    )
-    
-    foreach ($pattern in $suspiciousPatterns) {
-        if ($CommandLine -match $pattern -and -not ($CommandLine -match "powershell.*-Command.*Get-Process")) {
-            $args.ExecutedCommands += "Pattern detected: $pattern"
+    foreach ($match in $argMatches) {
+        $argName = $match.Groups[1].Value
+        $argValue = $match.Groups[2].Value
+        
+        # Skip the .jar file (main class)
+        if ($argName -match '\.jar$') { continue }
+        
+        # CATEGORIZE AND FLAG SUSPICIOUS ARGUMENTS
+        
+        # 1. MEMORY ARGUMENTS (-Xmx, -Xms, etc.)
+        if ($argName -match '^-Xmx') {
+            $args.Memory["Xmx"] = $argValue
         }
-    }
-    
-    # Memory
-    if ($CommandLine -match '-Xmx(\d+[MG])') {
-        $args.Memory["Xmx"] = $matches[1]
-    }
-    if ($CommandLine -match '-Xms(\d+[MG])') {
-        $args.Memory["Xms"] = $matches[1]
-    }
-    
-    # System Properties (-D)
-    $propMatches = [regex]::Matches($CommandLine, '-D([^=\s]+)=([^\s]+)')
-    foreach ($match in $propMatches) {
-        $args.Properties[$match.Groups[1].Value] = $match.Groups[2].Value
-    }
-    
-    # GC Args
-    $gcList = @("UseG1GC", "UseConcMarkSweepGC", "UseSerialGC", "UseParallelGC")
-    foreach ($gc in $gcList) {
-        if ($CommandLine -match "-XX:\+$gc") {
-            $args.GC += "-XX:+$gc"
+        elseif ($argName -match '^-Xms') {
+            $args.Memory["Xms"] = $argValue
+        }
+        elseif ($argName -match '^-Xmn') {
+            $args.Memory["Xmn"] = $argValue
+        }
+        elseif ($argName -match '^-Xss') {
+            $args.Memory["Xss"] = $argValue
+        }
+        
+        # 2. SYSTEM PROPERTIES (-D arguments) - FLAG SUSPICIOUS ONES
+        elseif ($argName -match '^-D') {
+            # Extract key=value from -D
+            if ($argName -match '^-D([^=]+)=(.*)') {
+                $key = $matches[1]
+                $value = $matches[2]
+                $args.Properties[$key] = $value
+                
+                # FLAG suspicious -D arguments
+                if ($value -match '\.so$' -or $value -match '\.dll$' -or $value -match '\.exe$') {
+                    $args.SuspiciousArgs += @{
+                        Argument = $argName
+                        Value = $value
+                        Reason = "Loads native library: $value"
+                    }
+                }
+                elseif ($key -match 'java\.library\.path' -and $value -match '\.\./') {
+                    $args.SuspiciousArgs += @{
+                        Argument = $argName
+                        Value = $value
+                        Reason = "Uses parent directory (../) in library path"
+                    }
+                }
+                elseif ($value -match 'http://' -or $value -match 'https://') {
+                    $args.SuspiciousArgs += @{
+                        Argument = $argName
+                        Value = $value
+                        Reason = "Contains URL (potential remote loading)"
+                    }
+                }
+            }
+        }
+        
+        # 3. SUSPICIOUS ARGUMENTS TO FLAG
+        elseif ($argName -match '^-Xbootclasspath') {
+            $args.SuspiciousArgs += @{
+                Argument = $argName
+                Value = $argValue
+                Reason = "Modifies boot classpath (can load malicious classes)"
+            }
+        }
+        elseif ($argName -match '^-javaagent') {
+            $args.SuspiciousArgs += @{
+                Argument = $argName
+                Value = $argValue
+                Reason = "Java agent instrumentation (can modify runtime)"
+            }
+        }
+        elseif ($argName -match '^-Xrunjdwp' -or $argName -match '^-agentlib:jdwp') {
+            $args.SuspiciousArgs += @{
+                Argument = $argName
+                Value = $argValue
+                Reason = "Java Debug Wire Protocol (debugger attachment)"
+            }
+        }
+        
+        # 4. GC ARGUMENTS
+        elseif ($argName -match '^-XX:\+Use') {
+            $args.GC += $argName
+        }
+        
+        # 5. OTHER ARGUMENTS
+        elseif ($argName -match '^-') {
+            $args.Other += $argName
+            if ($argValue) {
+                $args.Other += $argValue
+            }
         }
     }
     
@@ -115,85 +153,88 @@ function Show-Output {
     }
     Write-Host ""
     
-    # Check if this looks like Minecraft
-    $isMinecraft = $Process.CommandLine -match "minecraft" -or 
-                   $Process.CommandLine -match "\.minecraft" -or 
-                   $Process.CommandLine -match "net\.minecraft" -or
-                   ($Process.CommandLine -match "\.jar" -and $Process.Name -match "javaw")
-    
-    if ($isMinecraft) {
-        Write-Color "🎮 This appears to be Minecraft" Green
-    } else {
-        Write-Color "⚠️  This may not be Minecraft" Yellow
-    }
-    Write-Host ""
-    
-    # EXECUTED COMMANDS (RED FLAG) - MOST IMPORTANT SECTION!
-    if ($Args.ExecutedCommands.Count -gt 0) {
-        Write-Color "🚨 EXECUTED COMMANDS DETECTED!" Red
-        Write-Color "════════════════════════════════════════" Red
-        foreach ($cmd in $Args.ExecutedCommands) {
-            Write-Host "  • $cmd" -ForegroundColor Red
+    # SUSPICIOUS JVM ARGUMENTS (RED FLAGS) - MOST IMPORTANT!
+    if ($Args.SuspiciousArgs.Count -gt 0) {
+        Write-Color "🚨 SUSPICIOUS JVM ARGUMENTS DETECTED!" Red
+        Write-Color "══════════════════════════════════════════════════════════" Red
+        
+        foreach ($suspArg in $Args.SuspiciousArgs) {
+            Write-Host "  🔴 ARGUMENT: " -ForegroundColor Red -NoNewline
+            Write-Host "$($suspArg.Argument)" -ForegroundColor White
+            Write-Host "     Value: " -ForegroundColor Yellow -NoNewline
+            Write-Host "$($suspArg.Value)" -ForegroundColor White
+            Write-Host "     Reason: " -ForegroundColor Red -NoNewline
+            Write-Host "$($suspArg.Reason)" -ForegroundColor White
+            Write-Host ""
         }
-        Write-Host ""
-        Write-Color "⚠️  WARNING: This process may be executing system commands!" Red
-        Write-Host ""
-    } else {
-        Write-Color "✅ No suspicious commands detected" Green
         Write-Host ""
     }
     
     # Memory
     if ($Args.Memory.Count -gt 0) {
-        Write-Color "💾 MEMORY:" Green
-        if ($Args.Memory["Xmx"]) {
-            Write-Host "  Max: $($Args.Memory['Xmx'])" -ForegroundColor White
+        Write-Color "💾 MEMORY SETTINGS:" Green
+        foreach ($key in $Args.Memory.Keys) {
+            Write-Host "  $($key): $($Args.Memory[$key])" -ForegroundColor White
         }
-        if ($Args.Memory["Xms"]) {
-            Write-Host "  Min: $($Args.Memory['Xms'])" -ForegroundColor White
-        }
+        Write-Host ""
     }
     
-    # Properties (-D)
+    # System Properties (-D) - Show all
     if ($Args.Properties.Count -gt 0) {
-        Write-Color "`n⚙️  PROPERTIES (-D):" Green
+        Write-Color "⚙️  SYSTEM PROPERTIES (-D):" Green
         foreach ($key in $Args.Properties.Keys) {
-            Write-Host "  $($key):" -ForegroundColor Yellow -NoNewline
-            Write-Host " $($Args.Properties[$key])" -ForegroundColor White
+            $isSuspicious = $Args.SuspiciousArgs | Where-Object { $_.Argument -match $key }
+            if ($isSuspicious) {
+                Write-Host "  ⚠️  $($key): " -ForegroundColor Yellow -NoNewline
+            } else {
+                Write-Host "  $($key): " -ForegroundColor Yellow -NoNewline
+            }
+            Write-Host "$($Args.Properties[$key])" -ForegroundColor White
         }
+        Write-Host ""
     }
     
     # GC
     if ($Args.GC.Count -gt 0) {
-        Write-Color "`n🗑️  GARBAGE COLLECTOR:" Green
+        Write-Color "🗑️  GARBAGE COLLECTOR:" Green
         foreach ($gc in $Args.GC) {
             Write-Host "  • $gc" -ForegroundColor White
         }
+        Write-Host ""
     }
     
-    # Raw command
+    # Other arguments
+    if ($Args.Other.Count -gt 0) {
+        Write-Color "🔧 OTHER ARGUMENTS:" Green
+        foreach ($arg in $Args.Other) {
+            Write-Host "  • $arg" -ForegroundColor White
+        }
+        Write-Host ""
+    }
+    
+    # Security assessment based on suspicious args
+    Write-Color "🔒 SECURITY ASSESSMENT:" Cyan
+    
+    if ($Args.SuspiciousArgs.Count -gt 0) {
+        Write-Color "  ❌ HIGH RISK - Suspicious JVM arguments detected" Red
+        Write-Host "  Suspicious arguments found: $($Args.SuspiciousArgs.Count)" -ForegroundColor Red
+        Write-Host "  Review the red flagged arguments above!" -ForegroundColor Red
+    } else {
+        Write-Color "  ✅ LOW RISK - No suspicious JVM arguments" Green
+    }
+    
+    # Show full command for reference
     Write-Color "`n📝 FULL COMMAND:" Gray
     Write-Host "  $($Process.CommandLine)" -ForegroundColor DarkGray
-    Write-Host ""
-    
-    # Security assessment
-    Write-Color "🔒 SECURITY ASSESSMENT:" Cyan
-    $isSuspicious = $Args.ExecutedCommands.Count -gt 0
-    
-    if ($isSuspicious) {
-        Write-Color "  ❌ HIGH RISK - Command execution detected" Red
-        Write-Host "  Consider terminating this process!" -ForegroundColor Red
-    } else {
-        Write-Color "  ✅ LOW RISK - No command execution" Green
-    }
     Write-Host ""
 }
 
 # Main
 Clear-Host
-Write-Color "Java Process Analyzer with Command Detection" Cyan
-Write-Color "==============================================" Cyan
-Write-Color "Detects executed commands and flags them in RED" Yellow
+Write-Color "Java JVM Argument Analyzer" Cyan
+Write-Color "====================================" Cyan
+Write-Color "Flags suspicious JVM arguments in RED" Yellow
+Write-Host "Detects: -D, -Xbootclasspath, library paths, etc." -ForegroundColor Gray
 Write-Host ""
 
 if ($Continuous) {
