@@ -68,19 +68,6 @@ Write-Host "│" + "Fabric/JVM Arguments Injection Scanner".PadLeft(($lineWidth 
 Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
 Write-Host ""
 
-# Find all javaw.exe processes
-$javaProcesses = Get-Process -Name javaw -ErrorAction SilentlyContinue
-
-if ($javaProcesses.Count -eq 0) {
-    Write-Host "No javaw.exe processes found." -ForegroundColor Yellow
-    Write-Host "Make sure Minecraft is running." -ForegroundColor Yellow
-    Write-Host ""
-} else {
-    Write-Host "Scanning $($javaProcesses.Count) Java process(es)..." -ForegroundColor White
-    Write-Host ""
-
-    $foundInjection = $false
-    $injectionCount = 0
 
     # Comprehensive Fabric/JVM injection patterns
     $fabricPatterns = @{
