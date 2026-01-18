@@ -22,7 +22,8 @@ Write-Host $asciiTitle -ForegroundColor Blue
 Write-Host ""
 
 # Create subtitle line style with double solid lines
-$subtitleText = "YarpLetapStan's Mod Analyzer V5.1"
+$subtitleText = "YarpLetapStan's Mod Analyzer V5.2
+"
 $lineWidth = 80
 $line = "─" * $lineWidth
 
