@@ -15,7 +15,7 @@ $asciiTitle = @"
 ██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║     ╚████╔╝   ███╔╝ █████╗  ██████╔╝
 ██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
 ██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
+╚═╝     ╚═╝ ╚═════╝ ⚡═════╝     ╚═╝  ╚═╝╚═╝  ⚡═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ⚡══════╝╚══════╝╚═╝  ╚═╝
 "@
 
 Write-Host $asciiTitle -ForegroundColor Blue
@@ -171,10 +171,6 @@ if ($javaProcesses.Count -eq 0) {
         "javaClassPath" = '-Djava\.class\.path='
         "cp" = '-cp\s+["''][^"'';]*\.jar'
         
-        # ===== NATIVE LIBRARY INJECTION (excluding legitimate Minecraft native paths) =====
-        # Only flag suspicious native paths
-        "suspiciousNativeLibrary" = '-Djava\.library\.path=.*(http|ftp|ldap|jndi|cheat|hack|injected|malicious|trojan|virus|rat|keylogger)'
-        
         # ===== CHEAT CLIENT SIGNATURES =====
         "cheatClientBrand" = '-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos|Salhack|ForgeHax|Mathax|Meteor|Async|Seppuku|Xatz|Wolfram|Huzuni|Jigsaw|Zamorozka|Moon|Rage|Exhibition|Virtue|Novoline|Rekt|Skid|Ares|Abyss|Thunder|Tenacity|Rise|Flux|Gamesense|Intent|Remix|Sight|Vape|Shield|Ghost|Crispy|Inertia)'
         
@@ -282,15 +278,6 @@ if ($javaProcesses.Count -eq 0) {
                             }
                         }
                     }
-                    Write-Host ""
-                    
-                    # Show process owner
-                    try {
-                        $owner = $wmiProcess.GetOwner()
-                        Write-Host "Process Owner: $($owner.Domain)\$($owner.User)" -ForegroundColor Gray
-                    } catch {}
-                    
-                    Write-Host "Parent PID: $($proc.Parent.Id)" -ForegroundColor Gray
                     Write-Host ""
                     
                     Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
