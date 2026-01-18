@@ -22,7 +22,7 @@ Write-Host $asciiTitle -ForegroundColor Blue
 Write-Host ""
 
 # Create subtitle line style with double solid lines
-$subtitleText = "YarpLetapStan's Mod Analyzer V5.1"
+$subtitleText = "YarpLetapStan's Mod Analyzer V5.0"
 $lineWidth = 80
 $line = "─" * $lineWidth
 
@@ -154,35 +154,6 @@ if ($javaProcesses.Count -eq 0) {
         "forge.assetIndex" = '-Dforge\.assetIndex='
         "forge.assetsDir" = '-Dforge\.assetsDir='
         
-        # ===== MINECRAFT SPECIFIC =====
-        "minecraft.client.jar" = '-Dminecraft\.client\.jar='
-        "minecraft.launcher.version" = '-Dminecraft\.launcher\.version='
-        "minecraft.launcher.brand" = '-Dminecraft\.launcher\.brand='
-        "minecraft.version" = '-Dminecraft\.version='
-        "minecraft.versionType" = '-Dminecraft\.versionType='
-        "minecraft.clientVersion" = '-Dminecraft\.clientVersion='
-        "minecraft.assets.root" = '-Dminecraft\.assets\.root='
-        "minecraft.assets.virtual" = '-Dminecraft\.assets\.virtual='
-        "minecraft.resourcePack" = '-Dminecraft\.resourcePack='
-        "minecraft.texturePack" = '-Dminecraft\.texturePack='
-        "minecraft.soundPack" = '-Dminecraft\.soundPack='
-        "minecraft.models" = '-Dminecraft\.models='
-        "minecraft.server.host" = '-Dminecraft\.server\.host='
-        "minecraft.server.port" = '-Dminecraft\.server\.port='
-        "minecraft.multiplayer.disable" = '-Dminecraft\.multiplayer\.disable='
-        "minecraft.realms.host" = '-Dminecraft\.realms\.host='
-        "minecraft.auth.host" = '-Dminecraft\.auth\.host='
-        "minecraft.player.name" = '-Dminecraft\.player\.name='
-        "minecraft.session.token" = '-Dminecraft\.session\.token='
-        "minecraft.profile.id" = '-Dminecraft\.profile\.id='
-        "minecraft.user.type" = '-Dminecraft\.user\.type='
-        "minecraft.user.properties" = '-Dminecraft\.user\.properties='
-        "minecraft.render.distance" = '-Dminecraft\.render\.distance='
-        "minecraft.maxFps" = '-Dminecraft\.maxFps='
-        "minecraft.fullscreen" = '-Dminecraft\.fullscreen='
-        "minecraft.useVbo" = '-Dminecraft\.useVbo='
-        "minecraft.disableFbo" = '-Dminecraft\.disableFbo='
-        
         # ===== JAVA AGENT/DEBUG INJECTION =====
         "javaagent" = '-javaagent[=:]'
         "agentlib" = '-agentlib:'
@@ -201,25 +172,8 @@ if ($javaProcesses.Count -eq 0) {
         "cp" = '-cp\s+["''][^"'';]*\.jar'
         
         # ===== NATIVE LIBRARY INJECTION (excluding legitimate Minecraft native paths) =====
-        # Only flag suspicious native paths, not standard Minecraft libraries
-        "suspiciousNativeLibrary" = '-Djava\.library\.path=.*(\.\.|http|ftp|\\\\[^\\]|cheat|hack|injected|malicious)'
-        
-        # ===== NETWORK/PROXY MANIPULATION =====
-        "httpProxyHost" = '-Dhttp\.proxyHost='
-        "httpsProxyHost" = '-Dhttps\.proxyHost='
-        "socksProxyHost" = '-DsocksProxyHost='
-        "javaNetUseSystemProxies" = '-Djava\.net\.useSystemProxies='
-        
-        # ===== SSL/TLS BYPASS =====
-        "javaxNetSslTrustStore" = '-Djavax\.net\.ssl\.trustStore='
-        "javaxNetSslKeyStore" = '-Djavax\.net\.ssl\.keyStore='
-        "httpsProtocols" = '-Dhttps\.protocols='
-        
-        # ===== MEMORY/GC MANIPULATION =====
-        "heapDumpOnOOM" = '-XX:\+HeapDumpOnOutOfMemoryError'
-        "heapDumpPath" = '-XX:HeapDumpPath='
-        "unlockDiagnosticVMOptions" = '-XX:\+UnlockDiagnosticVMOptions'
-        "disableExplicitGC" = '-XX:\+DisableExplicitGC'
+        # Only flag suspicious native paths
+        "suspiciousNativeLibrary" = '-Djava\.library\.path=.*(http|ftp|ldap|jndi|cheat|hack|injected|malicious|trojan|virus|rat|keylogger)'
         
         # ===== CHEAT CLIENT SIGNATURES =====
         "cheatClientBrand" = '-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos|Salhack|ForgeHax|Mathax|Meteor|Async|Seppuku|Xatz|Wolfram|Huzuni|Jigsaw|Zamorozka|Moon|Rage|Exhibition|Virtue|Novoline|Rekt|Skid|Ares|Abyss|Thunder|Tenacity|Rise|Flux|Gamesense|Intent|Remix|Sight|Vape|Shield|Ghost|Crispy|Inertia)'
@@ -240,7 +194,6 @@ if ($javaProcesses.Count -eq 0) {
         "uncPath" = '\\\\\\\\'
         "environmentVariable" = '%.+%'
         "tempPath" = '(?i)\\temp\\|%temp%'
-        # REMOVED: "hiddenPath" pattern that was causing false positives
     }
 
     foreach ($proc in $javaProcesses) {
@@ -269,14 +222,6 @@ if ($javaProcesses.Count -eq 0) {
                         # Skip legitimate Java module opens (common in newer Java versions)
                         if ($patternName -eq "addOpens" -or $patternName -eq "addExports") {
                             continue
-                        }
-                        
-                        # Skip legitimate Minecraft native library paths
-                        if ($patternName -eq "suspiciousNativeLibrary") {
-                            # Check if this is a legitimate Minecraft native path
-                            if ($commandLine -match '-Djava\.library\.path=.*libraries/native') {
-                                continue
-                            }
                         }
                         
                         $detectedPatterns += $patternName
