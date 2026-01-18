@@ -154,13 +154,6 @@ if ($javaProcesses.Count -eq 0) {
         "forge.assetIndex" = '-Dforge\.assetIndex='
         "forge.assetsDir" = '-Dforge\.assetsDir='
         
-        # ===== JAVA AGENT/DEBUG INJECTION =====
-        "javaagent" = '-javaagent[=:]'
-        "agentlib" = '-agentlib:'
-        "agentpath" = '-agentpath:'
-        "Xdebug" = '-Xdebug'
-        "Xrunjdwp" = '-Xrunjdwp:'
-        
         # ===== SECURITY BYPASS (excluding legitimate Java module opens) =====
         "javaSecurityManager" = '-Djava\.security\.manager='
         "javaSecurityPolicy" = '-Djava\.security\.policy='
@@ -181,15 +174,6 @@ if ($javaProcesses.Count -eq 0) {
         
         # ===== CHEAT MOD PATTERNS =====
         "cheatPattern" = '-D(xray|fly|speed|killaura|reach|esp|wallhack|noclip|autoclick|aimbot|triggerbot|antiknockback|nofall|timer|step|fullbright|nightvision|cavefinder)\.'
-        
-        # ===== SUSPICIOUS PATTERNS =====
-        "commandInjection" = ';(curl|wget|powershell|cmd|bash|sh)\s'
-        "urlInjection" = '=(http|https|ftp|ldap|rmi|jndi)://'
-        "encodedPayload" = '(%[0-9A-F]{2}|\\u[0-9A-F]{4})'
-        "pathTraversal" = '\.\./|\.\.\\'
-        "uncPath" = '\\\\\\\\'
-        "environmentVariable" = '%.+%'
-        "tempPath" = '(?i)\\temp\\|%temp%'
     }
 
     foreach ($proc in $javaProcesses) {
