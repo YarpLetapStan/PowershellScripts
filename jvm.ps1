@@ -201,7 +201,6 @@ if ($javaProcesses.Count -eq 0) {
             
             if ($commandLine) {
                 Write-Host "`n[Process: $($proc.Id)] $($proc.ProcessName)" -ForegroundColor Green
-                Write-Host "Path: $($wmiProcess.ExecutablePath)" -ForegroundColor Gray
                 
                 # Skip checking the executable path itself
                 if ($commandLine -match '^"([^"]+)"') {
