@@ -1,6 +1,6 @@
 
 Clear-Host
-Write-Host "ade by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 # ASCII Art Title - Using block characters
 $asciiTitle = @"
@@ -67,7 +67,6 @@ Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor yellow
 Write-Host "│" + "Fabric/JVM Arguments Injection Scanner".PadLeft(($lineWidth + "Fabric/JVM Arguments Injection Scanner".Length) / 2).PadRight(78) + "│" -ForegroundColor yellow
 Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
 Write-Host ""
-
 
     # Comprehensive Fabric/JVM injection patterns
     $fabricPatterns = @{
