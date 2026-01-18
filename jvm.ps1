@@ -15,14 +15,14 @@ $asciiTitle = @"
 ██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║     ╚████╔╝   ███╔╝ █████╗  ██████╔╝
 ██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
 ██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
-╚═╝     ╚═╝ ╚═════╝ ⚡═════╝     ╚═╝  ╚═╝╚═╝  ⚡═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ⚡══════╝╚══════╝╚═╝  ╚═╝
+╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
 "@
 
 Write-Host $asciiTitle -ForegroundColor Blue
 Write-Host ""
 
 # Create subtitle line style with double solid lines
-$subtitleText = "YarpLetapStan's Mod Analyzer V5.0"
+$subtitleText = "YarpLetapStan's Mod Analyzer V5.1"
 $lineWidth = 80
 $line = "─" * $lineWidth
 
