@@ -1,4 +1,3 @@
-
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
@@ -16,14 +15,14 @@ $asciiTitle = @"
 ██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║     ╚████╔╝   ███╔╝ █████╗  ██████╔╝
 ██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
 ██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
+╚═╝     ╚═╝ ╚═════╝ ⚡═════╝     ╚═╝  ╚═╝╚═╝  ⚡═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ⚡══════╝╚══════╝╚═╝  ╚═╝
 "@
 
 Write-Host $asciiTitle -ForegroundColor Blue
 Write-Host ""
 
 # Create subtitle line style with double solid lines
-$subtitleText = "YarpLetapStan's Mod Analyzer V5.1"
+$subtitleText = "YarpLetapStan's Mod Analyzer V5.0"
 $lineWidth = 80
 $line = "─" * $lineWidth
 
@@ -67,6 +66,20 @@ Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor yellow
 Write-Host "│" + "Fabric/JVM Arguments Injection Scanner".PadLeft(($lineWidth + "Fabric/JVM Arguments Injection Scanner".Length) / 2).PadRight(78) + "│" -ForegroundColor yellow
 Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
 Write-Host ""
+
+# Find all javaw.exe processes
+$javaProcesses = Get-Process -Name javaw -ErrorAction SilentlyContinue
+
+if ($javaProcesses.Count -eq 0) {
+    Write-Host "No javaw.exe processes found." -ForegroundColor Yellow
+    Write-Host "Make sure Minecraft is running." -ForegroundColor Yellow
+    Write-Host ""
+} else {
+    Write-Host "Scanning $($javaProcesses.Count) Java process(es)..." -ForegroundColor White
+    Write-Host ""
+
+    $foundInjection = $false
+    $injectionCount = 0
 
     # Comprehensive Fabric/JVM injection patterns
     $fabricPatterns = @{
