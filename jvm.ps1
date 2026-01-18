@@ -190,10 +190,7 @@ if ($javaProcesses.Count -eq 0) {
         "Xdebug" = '-Xdebug'
         "Xrunjdwp" = '-Xrunjdwp:'
         
-        # ===== SECURITY BYPASS =====
-        "illegalAccess" = '--illegal-access'
-        "addOpens" = '--add-opens'
-        "addExports" = '--add-exports'
+        # ===== SECURITY BYPASS (excluding legitimate Java module opens) =====
         "javaSecurityManager" = '-Djava\.security\.manager='
         "javaSecurityPolicy" = '-Djava\.security\.policy='
         
@@ -203,10 +200,9 @@ if ($javaProcesses.Count -eq 0) {
         "javaClassPath" = '-Djava\.class\.path='
         "cp" = '-cp\s+["''][^"'';]*\.jar'
         
-        # ===== NATIVE LIBRARY INJECTION =====
-        "javaLibraryPath" = '-Djava\.library\.path='
-        "jnaLibraryPath" = '-Djna\.library\.path='
-        "sunBootLibraryPath" = '-Dsun\.boot\.library\.path='
+        # ===== NATIVE LIBRARY INJECTION (excluding legitimate Minecraft native paths) =====
+        # Only flag suspicious native paths, not standard Minecraft libraries
+        "suspiciousNativeLibrary" = '-Djava\.library\.path=.*(\.\.|http|ftp|\\\\[^\\]|cheat|hack|injected|malicious)'
         
         # ===== NETWORK/PROXY MANIPULATION =====
         "httpProxyHost" = '-Dhttp\.proxyHost='
@@ -244,7 +240,7 @@ if ($javaProcesses.Count -eq 0) {
         "uncPath" = '\\\\\\\\'
         "environmentVariable" = '%.+%'
         "tempPath" = '(?i)\\temp\\|%temp%'
-        "hiddenPath" = '(?i)\\.hidden\\|\\$recycle|\\appdata\\|\\programdata\\'
+        # REMOVED: "hiddenPath" pattern that was causing false positives
     }
 
     foreach ($proc in $javaProcesses) {
@@ -258,12 +254,31 @@ if ($javaProcesses.Count -eq 0) {
                 Write-Host "`n[Process: $($proc.Id)] $($proc.ProcessName)" -ForegroundColor Green
                 Write-Host "Path: $($wmiProcess.ExecutablePath)" -ForegroundColor Gray
                 
+                # Skip checking the executable path itself
+                if ($commandLine -match '^"([^"]+)"') {
+                    $exePath = $matches[1]
+                    $commandLine = $commandLine.Substring($exePath.Length + 2).Trim()
+                }
+                
                 # Check all patterns
                 $detectedPatterns = @()
                 
                 foreach ($patternName in $fabricPatterns.Keys) {
                     $regexPattern = $fabricPatterns[$patternName]
                     if ($commandLine -match $regexPattern) {
+                        # Skip legitimate Java module opens (common in newer Java versions)
+                        if ($patternName -eq "addOpens" -or $patternName -eq "addExports") {
+                            continue
+                        }
+                        
+                        # Skip legitimate Minecraft native library paths
+                        if ($patternName -eq "suspiciousNativeLibrary") {
+                            # Check if this is a legitimate Minecraft native path
+                            if ($commandLine -match '-Djava\.library\.path=.*libraries/native') {
+                                continue
+                            }
+                        }
+                        
                         $detectedPatterns += $patternName
                         $processInjectionFound = $true
                     }
@@ -291,7 +306,7 @@ if ($javaProcesses.Count -eq 0) {
                     $processInjectionFound = $true
                 }
                 
-                if ($processInjectionFound) {
+                if ($processInjectionFound -and $detectedPatterns.Count -gt 0) {
                     $foundInjection = $true
                     $injectionCount++
                     
