@@ -61,7 +61,7 @@ if ($process) {
     } catch {}
 }
 
-# ==================== Fabric/JVM Arguments Injection Detector ====================
+# ==================== Enhanced Fabric/JVM Arguments Injection Detector ====================
 Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor yellow
 Write-Host "│" + "Fabric/JVM Arguments Injection Scanner".PadLeft(($lineWidth + "Fabric/JVM Arguments Injection Scanner".Length) / 2).PadRight(78) + "│" -ForegroundColor yellow
 Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
@@ -81,63 +81,171 @@ if ($javaProcesses.Count -eq 0) {
     $foundInjection = $false
     $injectionCount = 0
 
-    # Fabric/JVM injection patterns
-    $injectionPatterns = @{
-        # Fabric-specific injection
-        "fabric.addMods" = '-Dfabric\.addMods'
-        "fabric.loadMods" = '-Dfabric\.loadMods'
-        "fabric.classPathGroups" = '-Dfabric\.classPathGroups'
-        "fabric.gameJarPath" = '-Dfabric\.gameJarPath'
-        "fabric.skipMcProvider" = '-Dfabric\.skipMcProvider'
-        "fabric.development" = '-Dfabric\.development'
-        "fabric.allowUnsupportedVersion" = '-Dfabric\.allowUnsupportedVersion'
+    # Comprehensive Fabric/JVM injection patterns
+    $fabricPatterns = @{
+        # ===== FABRIC SPECIFIC INJECTION =====
+        # Direct mod injection
+        "fabric.addMods" = '-Dfabric\.addMods='
+        "fabric.loadMods" = '-Dfabric\.loadMods='
+        "fabric.classPathGroups" = '-Dfabric\.classPathGroups='
+        "fabric.gameJarPath" = '-Dfabric\.gameJarPath='
+        "fabric.skipMcProvider" = '-Dfabric\.skipMcProvider='
+        "fabric.development" = '-Dfabric\.development='
+        "fabric.allowUnsupportedVersion" = '-Dfabric\.allowUnsupportedVersion='
         
-        # Forge-specific injection
-        "forge.addMods" = '-Dforge\.addMods'
-        "forge.mods" = '-Dforge\.mods'
-        "fml.coreMods.load" = '-Dfml\.coreMods\.load'
-        "forge.coreMods.dir" = '-Dforge\.coreMods\.dir'
+        # Classpath manipulation
+        "fabric.remapClasspathFile" = '-Dfabric\.remapClasspathFile='
+        "fabric.skipIntermediary" = '-Dfabric\.skipIntermediary='
         
-        # Game manipulation
-        "gameJarOverride" = '-Dminecraft\.client\.jar'
-        "versionOverride" = '-Dminecraft\.version'
-        "launcherBrand" = '-Dminecraft\.launcher\.brand'
+        # Configuration directories
+        "fabric.configDir" = '-Dfabric\.configDir='
+        "fabric.loader.config" = '-Dfabric\.loader\.config='
         
-        # Debug/injection arguments
+        # Debug/development
+        "fabric.log.level" = '-Dfabric\.log\.level='
+        "fabric.debug.dumpClasspath" = '-Dfabric\.debug\.dumpClasspath='
+        "fabric.log.config" = '-Dfabric\.log\.config='
+        "fabric.dli.config" = '-Dfabric\.dli\.config='
+        
+        # Mixin/transformation
+        "fabric.mixin.configs" = '-Dfabric\.mixin\.configs='
+        "fabric.mixin.hotSwap" = '-Dfabric\.mixin\.hotSwap='
+        "fabric.mixin.debug.export" = '-Dfabric\.mixin\.debug\.export='
+        "fabric.mixin.debug.verbose" = '-Dfabric\.mixin\.debug\.verbose='
+        
+        # Game/version
+        "fabric.gameVersion" = '-Dfabric\.gameVersion='
+        "fabric.forceVersion" = '-Dfabric\.forceVersion='
+        "fabric.autoDetectVersion" = '-Dfabric\.autoDetectVersion='
+        
+        # Launcher/brand
+        "fabric.launcher.name" = '-Dfabric\.launcher\.name='
+        "fabric.launcher.brand" = '-Dfabric\.launcher\.brand='
+        
+        # Mod metadata
+        "fabric.mods.toml.path" = '-Dfabric\.mods\.toml\.path='
+        "fabric.customModList" = '-Dfabric\.customModList='
+        
+        # Dependency resolution
+        "fabric.resolve.modFiles" = '-Dfabric\.resolve\.modFiles='
+        "fabric.skipDependencyResolution" = '-Dfabric\.skipDependencyResolution='
+        
+        # Entrypoints/providers
+        "fabric.loader.entrypoints" = '-Dfabric\.loader\.entrypoints='
+        "fabric.language.providers" = '-Dfabric\.language\.providers='
+        
+        # ===== FORGE SPECIFIC INJECTION =====
+        "forge.addMods" = '-Dforge\.addMods='
+        "forge.mods" = '-Dforge\.mods='
+        "fml.coreMods.load" = '-Dfml\.coreMods\.load='
+        "forge.coreMods.dir" = '-Dforge\.coreMods\.dir='
+        "forge.modDir" = '-Dforge\.modDir='
+        "forge.modsDirectories" = '-Dforge\.modsDirectories='
+        "fml.customModList" = '-Dfml\.customModList='
+        "forge.disableModScan" = '-Dforge\.disableModScan='
+        "forge.modList" = '-Dforge\.modList='
+        "forge.forceVersion" = '-Dforge\.forceVersion='
+        "forge.disableUpdateCheck" = '-Dforge\.disableUpdateCheck='
+        "forge.logging.mojang.level" = '-Dforge\.logging\.mojang\.level='
+        "forge.mixin.hotSwap" = '-Dforge\.mixin\.hotSwap='
+        "forge.resourcePack" = '-Dforge\.resourcePack='
+        "forge.defaultResourcePack" = '-Dforge\.defaultResourcePack='
+        "forge.texturePacks" = '-Dforge\.texturePacks='
+        "forge.assetIndex" = '-Dforge\.assetIndex='
+        "forge.assetsDir" = '-Dforge\.assetsDir='
+        
+        # ===== MINECRAFT SPECIFIC =====
+        "minecraft.client.jar" = '-Dminecraft\.client\.jar='
+        "minecraft.launcher.version" = '-Dminecraft\.launcher\.version='
+        "minecraft.launcher.brand" = '-Dminecraft\.launcher\.brand='
+        "minecraft.version" = '-Dminecraft\.version='
+        "minecraft.versionType" = '-Dminecraft\.versionType='
+        "minecraft.clientVersion" = '-Dminecraft\.clientVersion='
+        "minecraft.assets.root" = '-Dminecraft\.assets\.root='
+        "minecraft.assets.virtual" = '-Dminecraft\.assets\.virtual='
+        "minecraft.resourcePack" = '-Dminecraft\.resourcePack='
+        "minecraft.texturePack" = '-Dminecraft\.texturePack='
+        "minecraft.soundPack" = '-Dminecraft\.soundPack='
+        "minecraft.models" = '-Dminecraft\.models='
+        "minecraft.server.host" = '-Dminecraft\.server\.host='
+        "minecraft.server.port" = '-Dminecraft\.server\.port='
+        "minecraft.multiplayer.disable" = '-Dminecraft\.multiplayer\.disable='
+        "minecraft.realms.host" = '-Dminecraft\.realms\.host='
+        "minecraft.auth.host" = '-Dminecraft\.auth\.host='
+        "minecraft.player.name" = '-Dminecraft\.player\.name='
+        "minecraft.session.token" = '-Dminecraft\.session\.token='
+        "minecraft.profile.id" = '-Dminecraft\.profile\.id='
+        "minecraft.user.type" = '-Dminecraft\.user\.type='
+        "minecraft.user.properties" = '-Dminecraft\.user\.properties='
+        "minecraft.render.distance" = '-Dminecraft\.render\.distance='
+        "minecraft.maxFps" = '-Dminecraft\.maxFps='
+        "minecraft.fullscreen" = '-Dminecraft\.fullscreen='
+        "minecraft.useVbo" = '-Dminecraft\.useVbo='
+        "minecraft.disableFbo" = '-Dminecraft\.disableFbo='
+        
+        # ===== JAVA AGENT/DEBUG INJECTION =====
         "javaagent" = '-javaagent[=:]'
         "agentlib" = '-agentlib:'
         "agentpath" = '-agentpath:'
         "Xdebug" = '-Xdebug'
         "Xrunjdwp" = '-Xrunjdwp:'
         
-        # Security bypass
+        # ===== SECURITY BYPASS =====
         "illegalAccess" = '--illegal-access'
         "addOpens" = '--add-opens'
         "addExports" = '--add-exports'
-        "javaSecurityManager" = '-Djava\.security\.manager'
+        "javaSecurityManager" = '-Djava\.security\.manager='
+        "javaSecurityPolicy" = '-Djava\.security\.policy='
         
-        # Classpath manipulation
+        # ===== CLASSPATH MANIPULATION =====
         "bootClasspath" = '-Xbootclasspath'
-        "systemClassLoader" = '-Djava\.system\.class\.loader'
+        "systemClassLoader" = '-Djava\.system\.class\.loader='
+        "javaClassPath" = '-Djava\.class\.path='
+        "cp" = '-cp\s+["''][^"'';]*\.jar'
         
-        # Cheat client signatures
-        "cheatClientBrand" = '-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos)'
+        # ===== NATIVE LIBRARY INJECTION =====
+        "javaLibraryPath" = '-Djava\.library\.path='
+        "jnaLibraryPath" = '-Djna\.library\.path='
+        "sunBootLibraryPath" = '-Dsun\.boot\.library\.path='
         
-        # Suspicious patterns
+        # ===== NETWORK/PROXY MANIPULATION =====
+        "httpProxyHost" = '-Dhttp\.proxyHost='
+        "httpsProxyHost" = '-Dhttps\.proxyHost='
+        "socksProxyHost" = '-DsocksProxyHost='
+        "javaNetUseSystemProxies" = '-Djava\.net\.useSystemProxies='
+        
+        # ===== SSL/TLS BYPASS =====
+        "javaxNetSslTrustStore" = '-Djavax\.net\.ssl\.trustStore='
+        "javaxNetSslKeyStore" = '-Djavax\.net\.ssl\.keyStore='
+        "httpsProtocols" = '-Dhttps\.protocols='
+        
+        # ===== MEMORY/GC MANIPULATION =====
+        "heapDumpOnOOM" = '-XX:\+HeapDumpOnOutOfMemoryError'
+        "heapDumpPath" = '-XX:HeapDumpPath='
+        "unlockDiagnosticVMOptions" = '-XX:\+UnlockDiagnosticVMOptions'
+        "disableExplicitGC" = '-XX:\+DisableExplicitGC'
+        
+        # ===== CHEAT CLIENT SIGNATURES =====
+        "cheatClientBrand" = '-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos|Salhack|ForgeHax|Mathax|Meteor|Async|Seppuku|Xatz|Wolfram|Huzuni|Jigsaw|Zamorozka|Moon|Rage|Exhibition|Virtue|Novoline|Rekt|Skid|Ares|Abyss|Thunder|Tenacity|Rise|Flux|Gamesense|Intent|Remix|Sight|Vape|Shield|Ghost|Crispy|Inertia)'
+        
+        # ===== OPTIFINE/SHADERS =====
+        "optifine" = '-Doptifine\.'
+        "shadersmod" = '-Dshaders?\.'
+        "shaderPack" = '-Dshader[sP]ack='
+        
+        # ===== CHEAT MOD PATTERNS =====
+        "cheatPattern" = '-D(xray|fly|speed|killaura|reach|esp|wallhack|noclip|autoclick|aimbot|triggerbot|antiknockback|nofall|timer|step|fullbright|nightvision|cavefinder)\.'
+        
+        # ===== SUSPICIOUS PATTERNS =====
         "commandInjection" = ';(curl|wget|powershell|cmd|bash|sh)\s'
-        "urlInjection" = '=(http|https|ftp|ldap|rmi)://'
+        "urlInjection" = '=(http|https|ftp|ldap|rmi|jndi)://'
         "encodedPayload" = '(%[0-9A-F]{2}|\\u[0-9A-F]{4})'
+        "pathTraversal" = '\.\./|\.\.\\'
+        "uncPath" = '\\\\\\\\'
+        "environmentVariable" = '%.+%'
+        "tempPath" = '(?i)\\temp\\|%temp%'
+        "hiddenPath" = '(?i)\\.hidden\\|\\$recycle|\\appdata\\|\\programdata\\'
     }
-
-    # Extended cheat client patterns
-    $cheatClientPatterns = @(
-        'Wurst', 'Aristois', 'Impact', 'Kilo', 'Future', 'Lambda', 'Rusher',
-        'Konas', 'Phobos', 'Salhack', 'ForgeHax', 'Mathax', 'Meteor', 'Async',
-        'Seppuku', 'Xatz', 'Wolfram', 'Huzuni', 'Jigsaw', 'Zamorozka', 'Moon',
-        'Rage', 'Exhibition', 'Virtue', 'Novoline', 'Rekt', 'Skid', 'Ares',
-        'Abyss', 'Thunder', 'Tenacity', 'Rise', 'Flux', 'Gamesense', 'Intent',
-        'Remix', 'Sight', 'Vape', 'Shield', 'Ghost', 'Crispy', 'Inertia'
-    )
 
     foreach ($proc in $javaProcesses) {
         $processInjectionFound = $false
@@ -153,24 +261,32 @@ if ($javaProcesses.Count -eq 0) {
                 # Check all patterns
                 $detectedPatterns = @()
                 
-                foreach ($patternName in $injectionPatterns.Keys) {
-                    $regexPattern = $injectionPatterns[$patternName]
+                foreach ($patternName in $fabricPatterns.Keys) {
+                    $regexPattern = $fabricPatterns[$patternName]
                     if ($commandLine -match $regexPattern) {
                         $detectedPatterns += $patternName
                         $processInjectionFound = $true
                     }
                 }
                 
-                # Check for cheat client brands in arguments
-                foreach ($cheatClient in $cheatClientPatterns) {
+                # Check for cheat client names in any argument
+                $cheatClients = @('Wurst', 'Aristois', 'Impact', 'Kilo', 'Future', 'Lambda', 'Rusher', 'Konas', 'Phobos', 
+                                 'Salhack', 'ForgeHax', 'Mathax', 'Meteor', 'Async', 'Seppuku', 'Xatz', 'Wolfram', 
+                                 'Huzuni', 'Jigsaw', 'Zamorozka', 'Moon', 'Rage', 'Exhibition', 'Virtue', 'Novoline', 
+                                 'Rekt', 'Skid', 'Ares', 'Abyss', 'Thunder', 'Tenacity', 'Rise', 'Flux', 'Gamesense', 
+                                 'Intent', 'Remix', 'Sight', 'Vape', 'Shield', 'Ghost', 'Crispy', 'Inertia')
+                
+                foreach ($cheatClient in $cheatClients) {
                     if ($commandLine -match "(?i)\b$cheatClient\b") {
-                        $detectedPatterns += "CheatClient-$cheatClient"
-                        $processInjectionFound = $true
+                        if ($detectedPatterns -notcontains "CheatClient-$cheatClient") {
+                            $detectedPatterns += "CheatClient-$cheatClient"
+                            $processInjectionFound = $true
+                        }
                     }
                 }
                 
                 # Check for encoded/suspicious command execution
-                if ($commandLine -match '(%3B|%26%26|%7C%7C|%7C|%60|%24)') {
+                if ($commandLine -match '(%3B|%26%26|%7C%7C|%7C|%60|%24|%3C|%3E)') {
                     $detectedPatterns += "EncodedInjection"
                     $processInjectionFound = $true
                 }
@@ -195,7 +311,7 @@ if ($javaProcesses.Count -eq 0) {
                     $argLines = $commandLine -split '\s+'
                     foreach ($arg in $argLines) {
                         foreach ($pattern in $detectedPatterns) {
-                            if ($injectionPatterns.ContainsKey($pattern) -and $arg -match $injectionPatterns[$pattern]) {
+                            if ($fabricPatterns.ContainsKey($pattern) -and $arg -match $fabricPatterns[$pattern]) {
                                 Write-Host "  $arg" -ForegroundColor Magenta
                                 break
                             } elseif ($pattern -match "^CheatClient-") {
@@ -218,7 +334,7 @@ if ($javaProcesses.Count -eq 0) {
                     Write-Host ""
                     
                     Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
-                    Write-Host "│" + "WARNING: Potential cheat client or mod injection!".PadLeft(($lineWidth + "WARNING: Potential cheat client or mod injection!".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
+                    Write-Host "│" + "WARNING: Potential cheat client or mod injection detected!".PadLeft(($lineWidth + "WARNING: Potential cheat client or mod injection detected!".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
                     Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
                     Write-Host ""
                 } else {
@@ -237,7 +353,7 @@ if ($javaProcesses.Count -eq 0) {
 
     Write-Host ""
 }
-# ==================== End of JVM Arguments Scanner ====================
+# ==================== End of Enhanced Fabric/JVM Arguments Scanner ====================
 
 
 
@@ -311,7 +427,7 @@ function Get-ZoneIdentifier($filePath) {
                     "github\.com" { "GitHub"; break }
                     "discord" { "Discord"; break }
                     default { "Other" }
-            }
+                }
                 URL = $url
                 IsModrinth = $url -match "modrinth\.com"
             }
