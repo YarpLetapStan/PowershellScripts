@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "ade by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 # ASCII Art Title - Using block characters
 $asciiTitle = @"
@@ -1100,9 +1100,9 @@ if ($unknownMods.Count -gt 0) {
             }
             
             if ($mod.MatchType -eq "Closest Version") {
-                Write-Host "  Using closest version: $($mod.MatchType)" -ForegroundColor Yellow
+                Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
             } elseif ($mod.MatchType -match "Latest Version") {
-                Write-Host "  Using latest version: $($mod.MatchType)" -ForegroundColor Cyan
+                Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
             }
             
             if ($mod.ExpectedSize -gt 0) {
