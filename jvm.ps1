@@ -745,7 +745,7 @@ function Fetch-Megabase($hash) {
 $cheatStrings = @(
     "AimAssist", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
     "AutoHitCrystal", "AutoPot", "AutoTotem",
-    "ClientPlayerInteractionManagerMixin", "DoubleAnchor", "FakeInv", "FakeLag", 
+    "DoubleAnchor", "FakeInv", "FakeLag", 
     "Freecam", "Friends", "HoverTotem", "InventoryTotem", "JumpReset",
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
