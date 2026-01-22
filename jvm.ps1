@@ -1,36 +1,29 @@
+[file name]: image.png
+[file content begin]
+FLAGGED
+
+File: feather-fabric-1.21-1.0.0-SNAPSHOT.temp.jar
+
+Detected Patterns:
+• Discord
+• Flight
+• Friends
+• Hitboxes
+• imgui
+• inject
+• Reach
+• Velocity
+[file content end]
+
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
-# ASCII Art Title - Using block characters
+# ASCII Art Title - Simplified
 $asciiTitle = @"
-██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
-╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║     ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╔╝██╔════╝
- ╚████╔╝ ███████║██████╔╝██████╔╝██║     █████╗     ██║   ███████║██████╔╝███████╗   ██║   ███████║██╔██╗ ██║  ███████╗
-  ╚██╔╝  ██╔══██║██╔══██╗██╔═══╝ ██║     ██╔══╝     ██║   ██╔══██║██╔═══╝ ╚════██║   ██║   ██╔══██║██║╚██╗██║  ╚════██║
-   ██║   ██║  ██║██║  ██║██║     ███████╗███████╗   ██║   ██║  ██║██║     ███████║   ██║   ██║  ██║██║ ╚████║  ███████║
-   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝
-
-███╗   ███╗ ██████╗ ██████╗      █████╗ ███╗   ██╗ █████╗ ██╗    ██╗   ██╗███████╗███████╗██████╗ 
-████╗ ████║██╔═══██╗██╔══██╗    ██╔══██╗████╗  ██║██╔══██╗██║    ╚██╗ ██╔╝╚══███╔╝██╔════╝██╔══██╗
-██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║     ╚████╔╝   ███╔╝ █████╗  ██████╔╝
-██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
-██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
+YarpLetapStan's Mod Analyzer V5.1
 "@
 
 Write-Host $asciiTitle -ForegroundColor Blue
-Write-Host ""
-
-# Create subtitle line style with double solid lines
-$subtitleText = "YarpLetapStan's Mod Analyzer V6.0"
-$lineWidth = 80
-$line = "─" * $lineWidth
-
-Write-Host $line -ForegroundColor cyan
-Write-Host $line -ForegroundColor cyan
-Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
-Write-Host $line -ForegroundColor cyan
-Write-Host $line -ForegroundColor cyan
 Write-Host ""
 
 # Get mods folder path
@@ -743,10 +736,10 @@ function Fetch-Megabase($hash) {
 
 # Enhanced cheat strings list
 $cheatStrings = @(
-    "AimAssist", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
-    "AutoHitCrystal", "AutoPot", "AutoTotem",
-    "DoubleAnchor", "FakeInv", "FakeLag", 
-    "Freecam", "Friends", "HoverTotem", "InventoryTotem", "JumpReset",
+    "AimAssist", "Argon", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
+    "AutoHitCrystal", "AutoPot", "AutoTotem", "ClientPlayerInteractionManagerAccessor", 
+    "ClientPlayerInteractionManagerMixin", "Donut", "DoubleAnchor", "FakeInv", "FakeLag", 
+    "Freecam", "Friends", "HoverTotem", "inject", "InventoryTotem", "JumpReset", "KeyboardMixin",
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
     "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
@@ -994,6 +987,7 @@ if ($verifiedMods.Count -gt 0) {
         
         if (-not $isTampered -and -not $isCheatMod) {
             Write-Host "  ✓ $($mod.ModName) ($($mod.FileName))" -ForegroundColor Green
+            Write-Host "    Size: $($mod.ActualSizeKB) KB" -ForegroundColor Green
         }
     }
 } else {
@@ -1009,6 +1003,7 @@ Write-Host "══════════════════════�
 if ($unknownMods.Count -gt 0) {
     foreach ($mod in $unknownMods) {
         Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
+        Write-Host "    Size: $($mod.FileSizeKB) KB" -ForegroundColor Yellow
         if ($mod.ModName) {
             Write-Host "    Identified as: $($mod.ModName)" -ForegroundColor Cyan
         }
