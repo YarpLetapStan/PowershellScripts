@@ -158,6 +158,9 @@ if ($javaProcesses.Count -eq 0) {
             if ($commandLine) {
                 Write-Host "Process: $($proc.Id) - $($proc.ProcessName)" -ForegroundColor Green
                 
+                # Save the original command line for display
+                $originalCommandLine = $commandLine
+                
                 # Skip checking the executable path itself
                 if ($commandLine -match '^"([^"]+)"') {
                     $exePath = $matches[1]
@@ -166,6 +169,7 @@ if ($javaProcesses.Count -eq 0) {
                 
                 # Check all patterns
                 $detectedPatterns = @()
+                $suspiciousArgs = @()
                 
                 foreach ($patternName in $fabricPatterns.Keys) {
                     $regexPattern = $fabricPatterns[$patternName]
@@ -176,6 +180,14 @@ if ($javaProcesses.Count -eq 0) {
                         }
                         
                         $detectedPatterns += $patternName
+                        
+                        # Extract the suspicious argument
+                        $argLines = $commandLine -split '\s+'
+                        foreach ($arg in $argLines) {
+                            if ($arg -match $regexPattern) {
+                                $suspiciousArgs += $arg
+                            }
+                        }
                         $processInjectionFound = $true
                     }
                 }
@@ -209,11 +221,23 @@ if ($javaProcesses.Count -eq 0) {
                     Write-Host "*** JVM INJECTION DETECTED ***" -ForegroundColor Red
                     Write-Host ""
                     
+                    Write-Host "Command Line:" -ForegroundColor Yellow
+                    Write-Host "  $originalCommandLine" -ForegroundColor Gray
+                    Write-Host ""
+                    
                     Write-Host "Detected patterns:" -ForegroundColor Yellow
                     foreach ($pattern in $detectedPatterns) {
                         Write-Host "  - $pattern" -ForegroundColor Red
                     }
                     Write-Host ""
+                    
+                    if ($suspiciousArgs.Count -gt 0) {
+                        Write-Host "Suspicious JVM arguments:" -ForegroundColor Yellow
+                        foreach ($arg in $suspiciousArgs | Select-Object -Unique) {
+                            Write-Host "  $arg" -ForegroundColor Magenta
+                        }
+                        Write-Host ""
+                    }
                     
                     Write-Host "WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
                     Write-Host ""
@@ -699,8 +723,12 @@ function Fetch-Megabase($hash) {
     return $null
 }
 
-# Cheat strings
+# Enhanced cheat strings list
 $cheatStrings = @(
+    "AimAssist", "Argon", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
+    "AutoHitCrystal", "AutoPot", "AutoTotem", "ClientPlayerInteractionManagerAccessor", 
+    "ClientPlayerInteractionManagerMixin", "Donut", "DoubleAnchor", "FakeInv", "FakeLag", 
+    "Freecam", "Friends", "HoverTotem", "inject", "InventoryTotem", "JumpReset", "KeyboardMixin",
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
     "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
@@ -751,7 +779,7 @@ function Check-Strings($filePath) {
                     if ($content -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
                         $stringsFound.Add($string) | Out-Null
                     }
-                } elseif ($content -match $string) {
+                } elseif ($content -match $string.ToLower()) {
                     $stringsFound.Add($string) | Out-Null
                 }
             }
@@ -949,45 +977,66 @@ if ($verifiedMods.Count -gt 0) {
     Write-Host ""
 }
 
-# Unknown Mods
+# Unknown Mods - SHOW FILENAME
 if ($unknownMods.Count -gt 0) {
     Write-Host "Unknown Mods: $($unknownMods.Count)" -ForegroundColor Yellow
     
     foreach ($mod in $unknownMods) {
+        Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
         if ($mod.ModName) {
-            Write-Host "  ? $($mod.FileName) -> $($mod.ModName)" -ForegroundColor Cyan
-        } else {
-            Write-Host "  ? $($mod.FileName)" -ForegroundColor Yellow
+            Write-Host "    Identified as: $($mod.ModName)" -ForegroundColor Cyan
         }
+        Write-Host ""
     }
     Write-Host ""
 }
 
-# Tampered Mods
+# Tampered Mods - SHOW FILENAME AND SIZE INFO
 if ($tamperedMods.Count -gt 0) {
     Write-Host "Potentially Tampered Mods: $($tamperedMods.Count) ⚠" -ForegroundColor Red
     
     foreach ($mod in $tamperedMods) {
         $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
+        Write-Host "  File: $($mod.FileName)" -ForegroundColor Red
         if ($mod.ModName) {
-            Write-Host "  ⚠ $($mod.ModName) - Size diff: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
-        } else {
-            Write-Host "  ⚠ $($mod.FileName) - Size diff: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
+            Write-Host "    Mod: $($mod.ModName)" -ForegroundColor Magenta
         }
+        Write-Host "    Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sign$($mod.SizeDiffKB) KB)" -ForegroundColor Magenta
+        Write-Host ""
     }
     Write-Host ""
 }
 
-# Cheat Mods
+# Cheat Mods - SHOW FILENAME AND CHEAT STRINGS LIST IN MAGENTA
 if ($cheatMods.Count -gt 0) {
     Write-Host "Cheat Mods Detected: $($cheatMods.Count) ⚠" -ForegroundColor Red
     
     foreach ($mod in $cheatMods) {
+        Write-Host "  File: $($mod.FileName)" -ForegroundColor Red
+        
         if ($mod.ModName) {
-            Write-Host "  ✗ $($mod.ModName) - Cheat strings: $($mod.StringsFound)" -ForegroundColor Red
-        } else {
-            Write-Host "  ✗ $($mod.FileName) - Cheat strings: $($mod.StringsFound)" -ForegroundColor Red
+            Write-Host "    Mod: $($mod.ModName)" -ForegroundColor Gray
         }
+        
+        # Show cheat strings as a list in magenta
+        if ($mod.StringsFound.Count -gt 0) {
+            Write-Host "    Detected Cheat Strings:" -ForegroundColor Yellow
+            # Convert to array and sort for consistent display
+            $cheatList = @($mod.StringsFound) | Sort-Object
+            foreach ($cheatString in $cheatList) {
+                Write-Host "      - $cheatString" -ForegroundColor Magenta
+            }
+        }
+        
+        if ($mod.ExpectedSizeKB -gt 0) {
+            $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
+            if ($mod.SizeDiffKB -eq 0) {
+                Write-Host "    Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Green
+            } else {
+                Write-Host "    Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
+            }
+        }
+        Write-Host ""
     }
     Write-Host ""
 }
