@@ -25,14 +25,14 @@ if (-not (Test-Path $mods -PathType Container)) {
     exit 1
 }
 
-# Check Minecraft uptime
+# Check Minecraft uptime - KEPT ORIGINAL FORMAT
 $process = Get-Process javaw -ErrorAction SilentlyContinue
 if (-not $process) { $process = Get-Process java -ErrorAction SilentlyContinue }
 
 if ($process) {
     try {
         $elapsedTime = (Get-Date) - $process.StartTime
-        Write-Host "Minecraft Uptime: $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n"
+        Write-Host "Minecraft Uptime: $($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n"
     } catch {}
 }
 
@@ -809,11 +809,18 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
         }
         
-        $verifiedMods += $modEntry; $allModsInfo += $modEntry
+        # Only add to verified mods if it's not tampered or a cheat mod
+        $modEntry.IsVerified = $true
+        $verifiedMods += $modEntry
+        $allModsInfo += $modEntry
         
         if ($modData.ExpectedSize -gt 0 -and $actualSize -ne $modData.ExpectedSize) {
             $sizeMismatchMods += $modEntry
-            if ([math]::Abs($sizeDiff) -gt 1024) { $tamperedMods += $modEntry }
+            if ([math]::Abs($sizeDiff) -gt 1024) { 
+                $tamperedMods += $modEntry
+                # Remove from verified mods if tampered
+                $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $file.Name }
+            }
         }
     } elseif ($megabaseData = Fetch-Megabase -hash $hash) {
         $modEntry = [PSCustomObject]@{ 
@@ -825,7 +832,8 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             JarModLoader = $jarModInfo.ModLoader
         }
         
-        $verifiedMods += $modEntry; $allModsInfo += $modEntry
+        $verifiedMods += $modEntry
+        $allModsInfo += $modEntry
     } else {
         $unknownModEntry = [PSCustomObject]@{ 
             FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneInfo.URL; DownloadSource = $zoneInfo.Source
@@ -835,7 +843,8 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
         }
         
-        $unknownMods += $unknownModEntry; $allModsInfo += $unknownModEntry
+        $unknownMods += $unknownModEntry
+        $allModsInfo += $unknownModEntry
     }
 }
 
@@ -861,6 +870,22 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
                 $allModsInfo[$j].ModName = $modrinthInfo.Name; $allModsInfo[$j].MatchType = $modrinthInfo.MatchType
                 $allModsInfo[$j].ExactMatch = $modrinthInfo.ExactMatch; $allModsInfo[$j].IsLatestVersion = $modrinthInfo.IsLatestVersion
                 $allModsInfo[$j].LoaderType = $modrinthInfo.LoaderType
+                
+                # Move from unknown to verified if successfully identified
+                if ($modrinthInfo.ExpectedSize -gt 0) {
+                    $newVerifiedEntry = [PSCustomObject]@{ 
+                        ModName = $modrinthInfo.Name; FileName = $mod.FileName; Version = $modrinthInfo.VersionNumber
+                        ExpectedSize = $modrinthInfo.ExpectedSize; ExpectedSizeKB = $mod.ExpectedSizeKB; ActualSize = $mod.FileSize; ActualSizeKB = $mod.FileSizeKB
+                        SizeDiff = $mod.SizeDiff; SizeDiffKB = $mod.SizeDiffKB; DownloadSource = $mod.DownloadSource; SourceURL = $mod.ZoneId
+                        IsModrinthDownload = $mod.IsModrinthDownload; ModrinthUrl = $modrinthInfo.ModrinthUrl; IsVerified = $true; MatchType = $modrinthInfo.MatchType
+                        ExactMatch = $modrinthInfo.ExactMatch; IsLatestVersion = $modrinthInfo.IsLatestVersion; LoaderType = $modrinthInfo.LoaderType
+                        PreferredLoader = $mod.PreferredLoader; FilePath = $mod.FilePath; JarModId = $mod.JarModId; JarName = $mod.JarName
+                        JarVersion = $mod.JarVersion; JarModLoader = $mod.JarModLoader
+                    }
+                    
+                    $verifiedMods += $newVerifiedEntry
+                    $unknownMods = $unknownMods | Where-Object { $_.FileName -ne $mod.FileName }
+                }
                 break
             }
         }
@@ -892,6 +917,9 @@ try {
                 MatchType = $mod.MatchType; ExactMatch = $mod.ExactMatch; IsLatestVersion = $mod.IsLatestVersion
                 LoaderType = $mod.LoaderType
             }
+            
+            # Remove from verified mods if cheat detected
+            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
     }
 } catch {
@@ -905,17 +933,18 @@ Write-Host "`nScanning complete!`n" -ForegroundColor Green
 # Display results
 Write-Host "Results Summary`n" -ForegroundColor Cyan
 
-# Verified Mods
+# Verified Mods - WITH GREEN CHECK MARKS
 if ($verifiedMods.Count -gt 0) {
     Write-Host "Verified Mods: $($verifiedMods.Count)" -ForegroundColor Green
     
     foreach ($mod in $verifiedMods) {
-        $isCheatMod = $cheatMods.FileName -contains $mod.FileName
+        # Skip if mod is tampered or cheat
         $isTampered = $tamperedMods.FileName -contains $mod.FileName
+        $isCheatMod = $cheatMods.FileName -contains $mod.FileName
         
-        if ($isTampered) { Write-Host "  $($mod.ModName)" -ForegroundColor Red }
-        elseif ($isCheatMod) { Write-Host "  $($mod.ModName)" -ForegroundColor Red }
-        else { Write-Host "  $($mod.ModName)" -ForegroundColor Green }
+        if (-not $isTampered -and -not $isCheatMod) {
+            Write-Host "  ✓ $($mod.FileName)" -ForegroundColor Green
+        }
     }
     Write-Host ""
 }
@@ -926,9 +955,9 @@ if ($unknownMods.Count -gt 0) {
     
     foreach ($mod in $unknownMods) {
         if ($mod.ModName) {
-            Write-Host "  $($mod.FileName) -> $($mod.ModName)" -ForegroundColor Cyan
+            Write-Host "  ? $($mod.FileName) -> $($mod.ModName)" -ForegroundColor Cyan
         } else {
-            Write-Host "  $($mod.FileName)" -ForegroundColor Yellow
+            Write-Host "  ? $($mod.FileName)" -ForegroundColor Yellow
         }
     }
     Write-Host ""
@@ -940,7 +969,11 @@ if ($tamperedMods.Count -gt 0) {
     
     foreach ($mod in $tamperedMods) {
         $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-        Write-Host "  $($mod.ModName) - Diff: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
+        if ($mod.ModName) {
+            Write-Host "  ⚠ $($mod.ModName) - Size diff: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
+        } else {
+            Write-Host "  ⚠ $($mod.FileName) - Size diff: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
+        }
     }
     Write-Host ""
 }
@@ -951,9 +984,9 @@ if ($cheatMods.Count -gt 0) {
     
     foreach ($mod in $cheatMods) {
         if ($mod.ModName) {
-            Write-Host "  $($mod.ModName) - $($mod.StringsFound)" -ForegroundColor Red
+            Write-Host "  ✗ $($mod.ModName) - Cheat strings: $($mod.StringsFound)" -ForegroundColor Red
         } else {
-            Write-Host "  $($mod.FileName) - $($mod.StringsFound)" -ForegroundColor Red
+            Write-Host "  ✗ $($mod.FileName) - Cheat strings: $($mod.StringsFound)" -ForegroundColor Red
         }
     }
     Write-Host ""
