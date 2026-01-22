@@ -1,3 +1,20 @@
+[file name]: image.png
+[file content begin]
+FLAGGED
+
+File: feather-fabric-1.21-1.0.0-SNAPSHOT.temp.jar
+
+Detected Patterns:
+• Discord
+• Flight
+• Friends
+• Hitboxes
+• imgui
+• inject
+• Reach
+• Velocity
+[file content end]
+
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
@@ -221,8 +238,10 @@ if ($javaProcesses.Count -eq 0) {
                     Write-Host "*** JVM INJECTION DETECTED ***" -ForegroundColor Red
                     Write-Host ""
                     
-                    Write-Host "Command Line:" -ForegroundColor Yellow
-                    Write-Host "  $originalCommandLine" -ForegroundColor Gray
+                    Write-Host "Detected JVM Arguments:" -ForegroundColor Yellow
+                    foreach ($arg in $suspiciousArgs | Select-Object -Unique) {
+                        Write-Host "  $arg" -ForegroundColor Magenta
+                    }
                     Write-Host ""
                     
                     Write-Host "Detected patterns:" -ForegroundColor Yellow
@@ -230,14 +249,6 @@ if ($javaProcesses.Count -eq 0) {
                         Write-Host "  - $pattern" -ForegroundColor Red
                     }
                     Write-Host ""
-                    
-                    if ($suspiciousArgs.Count -gt 0) {
-                        Write-Host "Suspicious JVM arguments:" -ForegroundColor Yellow
-                        foreach ($arg in $suspiciousArgs | Select-Object -Unique) {
-                            Write-Host "  $arg" -ForegroundColor Magenta
-                        }
-                        Write-Host ""
-                    }
                     
                     Write-Host "WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
                     Write-Host ""
@@ -958,59 +969,78 @@ try {
 
 Write-Host "`nScanning complete!`n" -ForegroundColor Green
 
-# Display results
-Write-Host "Results Summary`n" -ForegroundColor Cyan
+# ==================== RESULTS SECTION ====================
+Write-Host "============= RESULTS SUMMARY =============`n" -ForegroundColor Cyan
 
-# Verified Mods - WITH GREEN CHECK MARKS
+# Verified Mods Section
+Write-Host "====================" -ForegroundColor Green
+Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green
+Write-Host "====================" -ForegroundColor Green
+
 if ($verifiedMods.Count -gt 0) {
-    Write-Host "Verified Mods: $($verifiedMods.Count)" -ForegroundColor Green
-    
     foreach ($mod in $verifiedMods) {
-        # Skip if mod is tampered or cheat
         $isTampered = $tamperedMods.FileName -contains $mod.FileName
         $isCheatMod = $cheatMods.FileName -contains $mod.FileName
         
         if (-not $isTampered -and -not $isCheatMod) {
             Write-Host "  ✓ $($mod.FileName)" -ForegroundColor Green
+            if ($mod.ModName) {
+                Write-Host "    Name: $($mod.ModName)" -ForegroundColor Gray
+            }
+            if ($mod.Version) {
+                Write-Host "    Version: $($mod.Version)" -ForegroundColor Gray
+            }
+            Write-Host ""
         }
     }
-    Write-Host ""
+} else {
+    Write-Host "  No verified mods found`n" -ForegroundColor Gray
 }
 
-# Unknown Mods - SHOW FILENAME
+# Unknown Mods Section
+Write-Host "====================" -ForegroundColor Yellow
+Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
+Write-Host "====================" -ForegroundColor Yellow
+
 if ($unknownMods.Count -gt 0) {
-    Write-Host "Unknown Mods: $($unknownMods.Count)" -ForegroundColor Yellow
-    
     foreach ($mod in $unknownMods) {
         Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
         if ($mod.ModName) {
             Write-Host "    Identified as: $($mod.ModName)" -ForegroundColor Cyan
         }
+        Write-Host "    Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
         Write-Host ""
     }
-    Write-Host ""
+} else {
+    Write-Host "  No unknown mods found`n" -ForegroundColor Gray
 }
 
-# Tampered Mods - SHOW FILENAME AND SIZE INFO
+# Tampered Mods Section
+Write-Host "====================" -ForegroundColor DarkYellow
+Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
+Write-Host "====================" -ForegroundColor DarkYellow
+
 if ($tamperedMods.Count -gt 0) {
-    Write-Host "Potentially Tampered Mods: $($tamperedMods.Count) ⚠" -ForegroundColor Red
-    
     foreach ($mod in $tamperedMods) {
         $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-        Write-Host "  File: $($mod.FileName)" -ForegroundColor Red
+        Write-Host "  File: $($mod.FileName)" -ForegroundColor DarkYellow
         if ($mod.ModName) {
             Write-Host "    Mod: $($mod.ModName)" -ForegroundColor Magenta
         }
-        Write-Host "    Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sign$($mod.SizeDiffKB) KB)" -ForegroundColor Magenta
+        Write-Host "    Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
+        Write-Host "    Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
         Write-Host ""
     }
-    Write-Host ""
+} else {
+    Write-Host "  No tampered mods found`n" -ForegroundColor Gray
 }
 
-# Cheat Mods - SHOW FILENAME AND CHEAT STRINGS LIST IN MAGENTA
+# Cheat Mods Section
+Write-Host "====================" -ForegroundColor Red
+Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
+Write-Host "====================" -ForegroundColor Red
+
 if ($cheatMods.Count -gt 0) {
-    Write-Host "Cheat Mods Detected: $($cheatMods.Count) ⚠" -ForegroundColor Red
-    
     foreach ($mod in $cheatMods) {
         Write-Host "  File: $($mod.FileName)" -ForegroundColor Red
         
@@ -1021,7 +1051,6 @@ if ($cheatMods.Count -gt 0) {
         # Show cheat strings as a list in magenta
         if ($mod.StringsFound.Count -gt 0) {
             Write-Host "    Detected Cheat Strings:" -ForegroundColor Yellow
-            # Convert to array and sort for consistent display
             $cheatList = @($mod.StringsFound) | Sort-Object
             foreach ($cheatString in $cheatList) {
                 Write-Host "      - $cheatString" -ForegroundColor Magenta
@@ -1033,16 +1062,17 @@ if ($cheatMods.Count -gt 0) {
             if ($mod.SizeDiffKB -eq 0) {
                 Write-Host "    Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Green
             } else {
-                Write-Host "    Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
+                Write-Host "    Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Yellow
+                Write-Host "    Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
             }
         }
         Write-Host ""
     }
-    Write-Host ""
+} else {
+    Write-Host "  No cheat mods detected ✓`n" -ForegroundColor Green
 }
 
+Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-
-powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/MeowTonynoh/MeowModAnalyzer/main/MeowModAnalyzer.ps1')"
