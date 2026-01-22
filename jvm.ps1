@@ -954,15 +954,15 @@ try {
 Write-Host "`nScanning complete!`n" -ForegroundColor Green
 
 # ==================== RESULTS SECTION ====================
-Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan
-Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
 # Verified Mods Section
-Write-Host "==========================================" -ForegroundColor Green
+Write-Host "══════════════════════════════════════════" -ForegroundColor Green
 Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green
-Write-Host "==========================================" -ForegroundColor Green
+Write-Host "══════════════════════════════════════════" -ForegroundColor Green
 
 if ($verifiedMods.Count -gt 0) {
     foreach ($mod in $verifiedMods) {
@@ -979,9 +979,9 @@ if ($verifiedMods.Count -gt 0) {
 Write-Host ""
 
 # Unknown Mods Section
-Write-Host "==========================================" -ForegroundColor Yellow
+Write-Host "══════════════════════════════════════════" -ForegroundColor Yellow
 Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
-Write-Host "==========================================" -ForegroundColor Yellow
+Write-Host "══════════════════════════════════════════" -ForegroundColor Yellow
 
 if ($unknownMods.Count -gt 0) {
     foreach ($mod in $unknownMods) {
@@ -996,9 +996,9 @@ if ($unknownMods.Count -gt 0) {
 Write-Host ""
 
 # Tampered Mods Section
-Write-Host "==========================================" -ForegroundColor DarkYellow
+Write-Host "══════════════════════════════════════════" -ForegroundColor DarkYellow
 Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
-Write-Host "==========================================" -ForegroundColor DarkYellow
+Write-Host "══════════════════════════════════════════" -ForegroundColor DarkYellow
 
 if ($tamperedMods.Count -gt 0) {
     foreach ($mod in $tamperedMods) {
@@ -1016,24 +1016,26 @@ if ($tamperedMods.Count -gt 0) {
 Write-Host ""
 
 # Cheat Mods Section
-Write-Host "==========================================" -ForegroundColor Red
+Write-Host "══════════════════════════════════════════" -ForegroundColor Red
 Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
-Write-Host "==========================================" -ForegroundColor Red
+Write-Host "══════════════════════════════════════════" -ForegroundColor Red
 
 if ($cheatMods.Count -gt 0) {
-    foreach ($mod in $cheatMods) {
+    for ($i = 0; $i -lt $cheatMods.Count; $i++) {
+        $mod = $cheatMods[$i]
+        
         Write-Host "  File: $($mod.FileName)" -ForegroundColor Red
         
         if ($mod.ModName) {
             Write-Host "    Mod: $($mod.ModName)" -ForegroundColor Gray
         }
         
-        # Show cheat strings as a list in magenta using . instead of -
+        # Show cheat strings as a list using • bullets
         if ($mod.StringsFound.Count -gt 0) {
             Write-Host "    Detected Cheat Strings:" -ForegroundColor Yellow
             $cheatList = @($mod.StringsFound) | Sort-Object
             foreach ($cheatString in $cheatList) {
-                Write-Host "      . $cheatString" -ForegroundColor Magenta
+                Write-Host "      • $cheatString" -ForegroundColor Magenta
             }
         }
         
@@ -1046,13 +1048,18 @@ if ($cheatMods.Count -gt 0) {
                 Write-Host "    Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
             }
         }
+        
+        # Add gray separator between cheat mods (but not after the last one)
+        if ($i -lt $cheatMods.Count - 1) {
+            Write-Host "    ══════════════════════════════════════════" -ForegroundColor Gray
+        }
     }
 } else {
     Write-Host "  No cheat mods detected ✓" -ForegroundColor Green
 }
 Write-Host ""
 
-Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
