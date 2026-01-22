@@ -723,7 +723,7 @@ $cheatStrings = @(
     "AimAssist", "Argon", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
     "AutoHitCrystal", "AutoPot", "AutoTotem", "ClientPlayerInteractionManagerAccessor", 
     "ClientPlayerInteractionManagerMixin", "Donut", "DoubleAnchor", "FakeInv", "FakeLag", 
-    "Freecam", "Friends", "HoverTotem", "inject", "InventoryTotem", "JumpReset", "KeyboardMixin",
+    "Freecam", "Friends", "HoverTotem", "InventoryTotem", "JumpReset", "KeyboardMixin",
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
     "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
