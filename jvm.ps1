@@ -1,19 +1,3 @@
-[file name]: image.png
-[file content begin]
-FLAGGED
-
-File: feather-fabric-1.21-1.0.0-SNAPSHOT.temp.jar
-
-Detected Patterns:
-• Discord
-• Flight
-• Friends
-• Hitboxes
-• imgui
-• inject
-• Reach
-• Velocity
-[file content end]
 
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
