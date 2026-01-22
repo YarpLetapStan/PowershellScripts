@@ -1,36 +1,12 @@
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
-# ASCII Art Title - Using block characters
+# ASCII Art Title - Simplified
 $asciiTitle = @"
-██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
-╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║     ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╔╝██╔════╝
- ╚████╔╝ ███████║██████╔╝██████╔╝██║     █████╗     ██║   ███████║██████╔╝███████╗   ██║   ███████║██╔██╗ ██║  ███████╗
-  ╚██╔╝  ██╔══██║██╔══██╗██╔═══╝ ██║     ██╔══╝     ██║   ██╔══██║██╔═══╝ ╚════██║   ██║   ██╔══██║██║╚██╗██║  ╚════██║
-   ██║   ██║  ██║██║  ██║██║     ███████╗███████╗   ██║   ██║  ██║██║     ███████║   ██║   ██║  ██║██║ ╚████║  ███████║
-   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝
-
-███╗   ███╗ ██████╗ ██████╗      █████╗ ███╗   ██╗ █████╗ ██╗    ██╗   ██╗███████╗███████╗██████╗ 
-████╗ ████║██╔═══██╗██╔══██╗    ██╔══██╗████╗  ██║██╔══██╗██║    ╚██╗ ██╔╝╚══███╔╝██╔════╝██╔══██╗
-██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║     ╚████╔╝   ███╔╝ █████╗  ██████╔╝
-██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
-██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
+YarpLetapStan's Mod Analyzer V5.1
 "@
 
 Write-Host $asciiTitle -ForegroundColor Blue
-Write-Host ""
-
-# Create subtitle line style with double solid lines
-$subtitleText = "YarpLetapStan's Mod Analyzer V5.2"
-$lineWidth = 80
-$line = "─" * $lineWidth
-
-Write-Host $line -ForegroundColor cyan
-Write-Host $line -ForegroundColor cyan
-Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
-Write-Host $line -ForegroundColor cyan
-Write-Host $line -ForegroundColor cyan
 Write-Host ""
 
 # Get mods folder path
@@ -41,7 +17,7 @@ Write-Host
 
 if (-not $mods) {
     $mods = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
-    Write-Host "Continuing with $mods`n" -ForegroundColor White
+    Write-Host "Using default path: $mods`n" -ForegroundColor White
 }
 
 if (-not (Test-Path $mods -PathType Container)) {
@@ -56,15 +32,12 @@ if (-not $process) { $process = Get-Process java -ErrorAction SilentlyContinue }
 if ($process) {
     try {
         $elapsedTime = (Get-Date) - $process.StartTime
-        Write-Host "{ Minecraft Uptime }" -ForegroundColor Cyan
-        Write-Host "$($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n"
+        Write-Host "Minecraft Uptime: $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n"
     } catch {}
 }
 
 # ==================== Enhanced Fabric/JVM Arguments Injection Detector ====================
-Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor yellow
-Write-Host "│" + "Fabric/JVM Arguments Injection Scanner".PadLeft(($lineWidth + "Fabric/JVM Arguments Injection Scanner".Length) / 2).PadRight(78) + "│" -ForegroundColor yellow
-Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor yellow
+Write-Host "Fabric/JVM Arguments Injection Scanner" -ForegroundColor Yellow
 Write-Host ""
 
 # Find all javaw.exe processes
@@ -84,7 +57,6 @@ if ($javaProcesses.Count -eq 0) {
     # Comprehensive Fabric/JVM injection patterns
     $fabricPatterns = @{
         # ===== FABRIC SPECIFIC INJECTION =====
-        # Direct mod injection
         "fabric.addMods" = '-Dfabric\.addMods='
         "fabric.loadMods" = '-Dfabric\.loadMods='
         "fabric.classPathGroups" = '-Dfabric\.classPathGroups='
@@ -154,7 +126,7 @@ if ($javaProcesses.Count -eq 0) {
         "forge.assetIndex" = '-Dforge\.assetIndex='
         "forge.assetsDir" = '-Dforge\.assetsDir='
         
-        # ===== SECURITY BYPASS (excluding legitimate Java module opens) =====
+        # ===== SECURITY BYPASS =====
         "javaSecurityManager" = '-Djava\.security\.manager='
         "javaSecurityPolicy" = '-Djava\.security\.policy='
         
@@ -184,7 +156,7 @@ if ($javaProcesses.Count -eq 0) {
             $commandLine = $wmiProcess.CommandLine
             
             if ($commandLine) {
-                Write-Host "`n[Process: $($proc.Id)] $($proc.ProcessName)" -ForegroundColor Green
+                Write-Host "Process: $($proc.Id) - $($proc.ProcessName)" -ForegroundColor Green
                 
                 # Skip checking the executable path itself
                 if ($commandLine -match '^"([^"]+)"') {
@@ -198,7 +170,7 @@ if ($javaProcesses.Count -eq 0) {
                 foreach ($patternName in $fabricPatterns.Keys) {
                     $regexPattern = $fabricPatterns[$patternName]
                     if ($commandLine -match $regexPattern) {
-                        # Skip legitimate Java module opens (common in newer Java versions)
+                        # Skip legitimate Java module opens
                         if ($patternName -eq "addOpens" -or $patternName -eq "addExports") {
                             continue
                         }
@@ -208,7 +180,7 @@ if ($javaProcesses.Count -eq 0) {
                     }
                 }
                 
-                # Check for cheat client names in any argument
+                # Check for cheat client names
                 $cheatClients = @('Wurst', 'Aristois', 'Impact', 'Kilo', 'Future', 'Lambda', 'Rusher', 'Konas', 'Phobos', 
                                  'Salhack', 'ForgeHax', 'Mathax', 'Meteor', 'Async', 'Seppuku', 'Xatz', 'Wolfram', 
                                  'Huzuni', 'Jigsaw', 'Zamorozka', 'Moon', 'Rage', 'Exhibition', 'Virtue', 'Novoline', 
@@ -234,9 +206,7 @@ if ($javaProcesses.Count -eq 0) {
                     $foundInjection = $true
                     $injectionCount++
                     
-                    Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
-                    Write-Host "│" + "*** JVM INJECTION DETECTED ***".PadLeft(($lineWidth + "*** JVM INJECTION DETECTED ***".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
-                    Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
+                    Write-Host "*** JVM INJECTION DETECTED ***" -ForegroundColor Red
                     Write-Host ""
                     
                     Write-Host "Detected patterns:" -ForegroundColor Yellow
@@ -245,27 +215,7 @@ if ($javaProcesses.Count -eq 0) {
                     }
                     Write-Host ""
                     
-                    # Extract and show suspicious arguments
-                    Write-Host "Suspicious arguments found:" -ForegroundColor Yellow
-                    $argLines = $commandLine -split '\s+'
-                    foreach ($arg in $argLines) {
-                        foreach ($pattern in $detectedPatterns) {
-                            if ($fabricPatterns.ContainsKey($pattern) -and $arg -match $fabricPatterns[$pattern]) {
-                                Write-Host "  $arg" -ForegroundColor Magenta
-                                break
-                            } elseif ($pattern -match "^CheatClient-") {
-                                $clientName = $pattern -replace "^CheatClient-", ""
-                                if ($arg -match $clientName) {
-                                    Write-Host "  $arg" -ForegroundColor Magenta
-                                }
-                            }
-                        }
-                    }
-                    Write-Host ""
-                    
-                    Write-Host "┌" + ("─" * 78) + "┐" -ForegroundColor Red
-                    Write-Host "│" + "WARNING: Potential cheat client or mod injection detected!".PadLeft(($lineWidth + "WARNING: Potential cheat client or mod injection detected!".Length) / 2).PadRight(78) + "│" -ForegroundColor Red
-                    Write-Host "└" + ("─" * 78) + "┘" -ForegroundColor Red
+                    Write-Host "WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
                     Write-Host ""
                 } else {
                     Write-Host "✓ No JVM injection patterns detected" -ForegroundColor Green
@@ -284,8 +234,6 @@ if ($javaProcesses.Count -eq 0) {
     Write-Host ""
 }
 # ==================== End of Enhanced Fabric/JVM Arguments Scanner ====================
-
-
 
 function Get-Minecraft-Version-From-Mods($modsFolder) {
     $minecraftVersions = @{}
@@ -314,7 +262,7 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
     
     if ($minecraftVersions.Count -gt 0) {
         $mostCommon = $minecraftVersions.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1
-        Write-Host "`nDetected Minecraft version: $($mostCommon.Key) (from $($mostCommon.Value) mods)" -ForegroundColor Cyan
+        Write-Host "Detected Minecraft version: $($mostCommon.Key) (from $($mostCommon.Value) mods)" -ForegroundColor Cyan
         return $mostCommon.Key
     }
     
@@ -323,17 +271,17 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
         try {
             $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
             if ($cmdLine -match '-Dfabric.gameVersion=(\d+(\.\d+)+)') {
-                Write-Host "`nDetected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan
+                Write-Host "Detected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan
                 return $matches[1]
             }
             elseif ($cmdLine -match '--version\s+(\d+(\.\d+)+)') {
-                Write-Host "`nDetected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan
+                Write-Host "Detected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan
                 return $matches[1]
             }
         } catch {}
     }
     
-    Write-Host "`nCould not auto-detect Minecraft version from mods." -ForegroundColor Yellow
+    Write-Host "Could not auto-detect Minecraft version from mods." -ForegroundColor Yellow
     $mcVersion = Read-Host "Enter your Minecraft version (e.g., 1.21, 1.20.1) or press Enter to skip filtering"
     return if ($mcVersion -eq '') { $null } else { $mcVersion }
 }
@@ -819,6 +767,8 @@ $verifiedMods = @(); $unknownMods = @(); $cheatMods = @(); $sizeMismatchMods = @
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 $spinner = @("|", "/", "-", "\"); $totalMods = $jarFiles.Count
 
+Write-Host "Scanning $totalMods mods..." -ForegroundColor White
+
 for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $file = $jarFiles[$i]
     Write-Host "`r[$($spinner[$i % $spinner.Length])] Scanning mods: $($i+1) / $totalMods" -ForegroundColor Magenta -NoNewline
@@ -925,9 +875,11 @@ try {
     if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
     New-Item -ItemType Directory -Path $tempDir | Out-Null
     
+    Write-Host "`nScanning for cheat strings..." -ForegroundColor White
+    
     foreach ($mod in $allModsInfo) {
         $counter++
-        Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning mods for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
+        Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
         
         if ($modStrings = Check-Strings $mod.FilePath) {
             $cheatMods += [PSCustomObject]@{ 
@@ -948,184 +900,67 @@ try {
     if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
 }
 
-Write-Host "`r$(' ' * 80)`r" -NoNewline
+Write-Host "`nScanning complete!`n" -ForegroundColor Green
 
 # Display results
-Write-Host "`n{ Results Summary }`n" -ForegroundColor Cyan
+Write-Host "Results Summary`n" -ForegroundColor Cyan
 
 # Verified Mods
 if ($verifiedMods.Count -gt 0) {
-    Write-Host "{ Verified Mods }" -ForegroundColor Cyan
-    Write-Host "Total: $($verifiedMods.Count)`n"
+    Write-Host "Verified Mods: $($verifiedMods.Count)" -ForegroundColor Green
     
     foreach ($mod in $verifiedMods) {
         $isCheatMod = $cheatMods.FileName -contains $mod.FileName
         $isTampered = $tamperedMods.FileName -contains $mod.FileName
         
-        if ($isTampered) { Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline }
-        elseif ($isCheatMod) { Write-Host "> $($mod.ModName)" -ForegroundColor Red -NoNewline }
-        else { Write-Host "> $($mod.ModName)" -ForegroundColor Green -NoNewline }
-        
-        Write-Host " - $($mod.FileName)" -ForegroundColor $(if ($isTampered -or $isCheatMod) { 'Magenta' } else { 'Gray' }) -NoNewline
-        
-        if ($mod.Version -and $mod.Version -ne "Unknown") {
-            Write-Host " [$($mod.Version)]" -ForegroundColor DarkGray -NoNewline
-        }
-        
-        $matchIndicator = switch ($mod.MatchType) {
-            { $_ -match "Exact" } { @{ Symbol = "✓"; Color = "Green" } }
-            { $_ -match "Closest" } { @{ Symbol = "≈"; Color = "Yellow" } }
-            { $_ -match "Latest" } { @{ Symbol = "↑"; Color = "Cyan" } }
-            default { $null }
-        }
-        
-        if ($matchIndicator) { Write-Host " $($matchIndicator.Symbol)" -ForegroundColor $matchIndicator.Color -NoNewline }
-        if ($mod.LoaderType -ne "Unknown") { Write-Host " ($($mod.LoaderType))" -ForegroundColor $(if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }) -NoNewline }
-        if ($mod.DownloadSource -ne "Unknown") { Write-Host " [$($mod.DownloadSource)]" -ForegroundColor $(if ($mod.IsModrinthDownload) { 'Green' } else { 'DarkYellow' }) }
-        else { Write-Host "" }
-        
-        if ($mod.ExpectedSize -gt 0) {
-            if ($mod.ActualSize -eq $mod.ExpectedSize) {
-                Write-Host "  Size: $($mod.ActualSizeKB) KB ✓" -ForegroundColor Green
-            } else {
-                $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-                $color = if ($isTampered) { 'Magenta' } else { 'Yellow' }
-                Write-Host "  Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB, Diff: $sign$($mod.SizeDiffKB) KB)" -ForegroundColor $color
-            }
-        }
+        if ($isTampered) { Write-Host "  $($mod.ModName)" -ForegroundColor Red }
+        elseif ($isCheatMod) { Write-Host "  $($mod.ModName)" -ForegroundColor Red }
+        else { Write-Host "  $($mod.ModName)" -ForegroundColor Green }
     }
     Write-Host ""
 }
 
 # Unknown Mods
 if ($unknownMods.Count -gt 0) {
-    Write-Host "{ Unknown Mods }" -ForegroundColor Yellow
-    Write-Host "Total: $($unknownMods.Count)`n"
+    Write-Host "Unknown Mods: $($unknownMods.Count)" -ForegroundColor Yellow
     
     foreach ($mod in $unknownMods) {
-        Write-Host "> $($mod.FileName)" -ForegroundColor Yellow
-        Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
-        
         if ($mod.ModName) {
-            Write-Host "  Identified as: $($mod.ModName)" -ForegroundColor Cyan
-            
-            if ($mod.LoaderType -ne "Unknown") {
-                $loaderColor = if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }
-                Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
-            }
-            
-            if ($mod.MatchType -eq "Closest Version") {
-                Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
-            } elseif ($mod.MatchType -match "Latest Version") {
-                Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
-            }
-            
-            if ($mod.ExpectedSize -gt 0) {
-                if ($mod.FileSize -eq $mod.ExpectedSize) {
-                    Write-Host "  Size matches Modrinth: $($mod.FileSizeKB) KB ✓" -ForegroundColor Green
-                } else {
-                    $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-                    Write-Host "  Size: $($mod.FileSizeKB) KB (Expected from Modrinth: $($mod.ExpectedSizeKB) KB, Diff: $sign$($mod.SizeDiffKB) KB)" -ForegroundColor Yellow
-                }
-            }
+            Write-Host "  $($mod.FileName) -> $($mod.ModName)" -ForegroundColor Cyan
+        } else {
+            Write-Host "  $($mod.FileName)" -ForegroundColor Yellow
         }
-        
-        if ($mod.ZoneId) {
-            $sourceColor = if ($mod.IsModrinthDownload) { 'Green' } else { 'DarkYellow' }
-            Write-Host "  Downloaded from: $($mod.DownloadSource)" -ForegroundColor $sourceColor
-        }
-        
-        Write-Host ""
     }
+    Write-Host ""
 }
 
 # Tampered Mods
 if ($tamperedMods.Count -gt 0) {
-    Write-Host "{ Potentially Tampered Mods }" -ForegroundColor Red
-    Write-Host "Total: $($tamperedMods.Count) ⚠ WARNING`n"
+    Write-Host "Potentially Tampered Mods: $($tamperedMods.Count) ⚠" -ForegroundColor Red
     
     foreach ($mod in $tamperedMods) {
         $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-        Write-Host "> $($mod.FileName)" -ForegroundColor Red
-        Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Magenta
-        
-        if ($mod.LoaderType -ne "Unknown") {
-            $loaderColor = if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }
-            Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
-        }
-        
-        if ($mod.MatchType -eq "Closest Version") {
-            Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
-        } elseif ($mod.MatchType -match "Latest Version") {
-            Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
-        }
-        
-        Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Actual: $($mod.ActualSizeKB) KB | Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
-        Write-Host "  ⚠ File size differs significantly from Modrinth version!" -ForegroundColor Red
-        
-        if ($mod.ModrinthUrl) {
-            Write-Host "  Verify: $($mod.ModrinthUrl)" -ForegroundColor DarkGray
-        }
-        
-        Write-Host ""
+        Write-Host "  $($mod.ModName) - Diff: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Magenta
     }
+    Write-Host ""
 }
 
 # Cheat Mods
 if ($cheatMods.Count -gt 0) {
-    Write-Host "{ Cheat Mods Detected }" -ForegroundColor Red
-    Write-Host "Total: $($cheatMods.Count) ⚠ WARNING`n"
+    Write-Host "Cheat Mods Detected: $($cheatMods.Count) ⚠" -ForegroundColor Red
     
     foreach ($mod in $cheatMods) {
-        Write-Host "> $($mod.FileName)" -ForegroundColor Red
-        
         if ($mod.ModName) {
-            Write-Host "  Mod: $($mod.ModName)" -ForegroundColor Gray
-            
-            if ($mod.LoaderType -ne "Unknown") {
-                $loaderColor = if ($mod.LoaderType -eq "Fabric") { 'Magenta' } else { 'Yellow' }
-                Write-Host "  Loader: $($mod.LoaderType)" -ForegroundColor $loaderColor
-            }
-            
-            if ($mod.MatchType -eq "Closest Version") {
-                Write-Host "  Note: Compared to closest available version on Modrinth" -ForegroundColor Yellow
-            } elseif ($mod.MatchType -match "Latest Version") {
-                Write-Host "  Note: Compared to latest version on Modrinth" -ForegroundColor Cyan
-            }
-        }
-        
-        Write-Host "  Cheat Strings: $($mod.StringsFound)" -ForegroundColor Magenta
-        Write-Host "  Size: $($mod.FileSizeKB) KB" -ForegroundColor Gray
-        
-        if ($mod.ExpectedSizeKB -gt 0) {
-            $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-            if ($mod.SizeDiffKB -eq 0) {
-                Write-Host "  Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Green
-            } else {
-                Write-Host "  Expected: $($mod.ExpectedSizeKB) KB | Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Yellow
-                
-                if ([math]::Abs($mod.SizeDiffKB) -gt 1) {
-                    Write-Host "  ⚠ Size mismatch detected! Could be tampered with cheat code." -ForegroundColor Red
-                }
-            }
+            Write-Host "  $($mod.ModName) - $($mod.StringsFound)" -ForegroundColor Red
         } else {
-            Write-Host "  Note: No Modrinth size data available for comparison" -ForegroundColor DarkGray
+            Write-Host "  $($mod.FileName) - $($mod.StringsFound)" -ForegroundColor Red
         }
-        
-        if ($mod.DownloadSource -ne "Unknown") {
-            $sourceColor = if ($mod.DownloadSource -eq "Modrinth") { 'Green' } else { 'DarkYellow' }
-            Write-Host "  Source: $($mod.DownloadSource)" -ForegroundColor $sourceColor
-        }
-        
-        if ($mod.IsVerifiedMod) {
-            Write-Host "  ⚠ Legitimate mod contains cheat code!" -ForegroundColor Red
-            Write-Host "  ⚠ This appears to be a tampered version of a legitimate mod" -ForegroundColor Red
-        }
-        
-        Write-Host ""
     }
+    Write-Host ""
 }
 
-Write-Host "`nCredits to Habibi Mod Analyzer" -ForegroundColor DarkGray -BackgroundColor Black
+Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+powershell -ExecutionPolicy Bypass -Command "Invoke-Expression (Invoke-RestMethod 'https://raw.githubusercontent.com/MeowTonynoh/MeowModAnalyzer/main/MeowModAnalyzer.ps1')"
