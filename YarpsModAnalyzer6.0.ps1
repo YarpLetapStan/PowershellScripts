@@ -56,7 +56,7 @@ if (-not $process) { $process = Get-Process java -ErrorAction SilentlyContinue }
 if ($process) {
     try {
         $elapsedTime = (Get-Date) - $process.StartTime
-        Write-Host "Minecraft Uptime: $($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n"
+        Write-Host "Minecraft Uptime: $($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n" -ForegroundColor Green
     } catch {}
 }
 
