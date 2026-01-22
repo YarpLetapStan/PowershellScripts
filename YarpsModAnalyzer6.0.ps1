@@ -743,10 +743,10 @@ function Fetch-Megabase($hash) {
 
 # Enhanced cheat strings list
 $cheatStrings = @(
-    "AimAssist", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
-    "AutoHitCrystal", "AutoPot", "AutoTotem",
-    "DoubleAnchor", "FakeInv", "FakeLag", 
-    "Freecam", "Friends", "HoverTotem", "InventoryTotem", "JumpReset",
+    "AimAssist", "Argon", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
+    "AutoHitCrystal", "AutoPot", "AutoTotem", "ClientPlayerInteractionManagerAccessor", 
+    "ClientPlayerInteractionManagerMixin", "Donut", "DoubleAnchor", "FakeInv", "FakeLag", 
+    "Freecam", "Friends", "HoverTotem", "inject", "InventoryTotem", "JumpReset", "KeyboardMixin",
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
     "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
@@ -994,6 +994,7 @@ if ($verifiedMods.Count -gt 0) {
         
         if (-not $isTampered -and -not $isCheatMod) {
             Write-Host "  ✓ $($mod.ModName) ($($mod.FileName))" -ForegroundColor Green
+            Write-Host "    Size: $($mod.ActualSizeKB) KB" -ForegroundColor Green
         }
     }
 } else {
@@ -1009,6 +1010,7 @@ Write-Host "══════════════════════�
 if ($unknownMods.Count -gt 0) {
     foreach ($mod in $unknownMods) {
         Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
+        Write-Host "    Size: $($mod.FileSizeKB) KB" -ForegroundColor Yellow
         if ($mod.ModName) {
             Write-Host "    Identified as: $($mod.ModName)" -ForegroundColor Cyan
         }
