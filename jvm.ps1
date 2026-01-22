@@ -26,6 +26,13 @@ $subtitleText = "YarpLetapStan's Mod Analyzer V5.1"
 $lineWidth = 80
 $line = "─" * $lineWidth
 
+Write-Host $line -ForegroundColor cyan
+Write-Host $line -ForegroundColor cyan
+Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
+Write-Host $line -ForegroundColor cyan
+Write-Host $line -ForegroundColor cyan
+Write-Host ""
+
 # Get mods folder path
 Write-Host "Enter path to the mods folder: " -NoNewline
 Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
