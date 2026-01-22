@@ -61,18 +61,20 @@ if ($process) {
 }
 
 # ==================== Enhanced Fabric/JVM Arguments Injection Detector ====================
-Write-Host "Fabric/JVM Arguments Injection Scanner" -ForegroundColor Yellow
+Write-Host "══════════════════════════════════════════" -ForegroundColor Yellow
+Write-Host "JVM ARGUMENTS INJECTION SCANNER" -ForegroundColor Yellow
+Write-Host "══════════════════════════════════════════" -ForegroundColor Yellow
 Write-Host ""
 
 # Find all javaw.exe processes
 $javaProcesses = Get-Process -Name javaw -ErrorAction SilentlyContinue
 
 if ($javaProcesses.Count -eq 0) {
-    Write-Host "No javaw.exe processes found." -ForegroundColor Yellow
-    Write-Host "Make sure Minecraft is running." -ForegroundColor Yellow
+    Write-Host "  [!] No javaw.exe processes found" -ForegroundColor Yellow
+    Write-Host "  [i] Make sure Minecraft is running" -ForegroundColor Yellow
     Write-Host ""
 } else {
-    Write-Host "Scanning $($javaProcesses.Count) Java process(es)..." -ForegroundColor White
+    Write-Host "  [i] Scanning $($javaProcesses.Count) Java process(es)..." -ForegroundColor White
     Write-Host ""
 
     $foundInjection = $false
@@ -180,10 +182,7 @@ if ($javaProcesses.Count -eq 0) {
             $commandLine = $wmiProcess.CommandLine
             
             if ($commandLine) {
-                Write-Host "Process: $($proc.Id) - $($proc.ProcessName)" -ForegroundColor Green
-                
-                # Save the original command line for display
-                $originalCommandLine = $commandLine
+                Write-Host "  ┌─ Process: PID $($proc.Id) - $($proc.ProcessName)" -ForegroundColor Green
                 
                 # Skip checking the executable path itself
                 if ($commandLine -match '^"([^"]+)"') {
@@ -242,35 +241,71 @@ if ($javaProcesses.Count -eq 0) {
                     $foundInjection = $true
                     $injectionCount++
                     
-                    Write-Host "*** JVM INJECTION DETECTED ***" -ForegroundColor Red
+                    Write-Host "  ├─ [✗] JVM INJECTION DETECTED" -ForegroundColor Red
                     Write-Host ""
                     
-                    Write-Host "Detected JVM Arguments:" -ForegroundColor Yellow
-                    foreach ($arg in $suspiciousArgs | Select-Object -Unique) {
-                        Write-Host "  $arg" -ForegroundColor Magenta
-                    }
-                    Write-Host ""
-                    
-                    Write-Host "Detected patterns:" -ForegroundColor Yellow
+                    # Show detected patterns grouped by type
+                    $groupedPatterns = @{}
                     foreach ($pattern in $detectedPatterns) {
-                        Write-Host "  - $pattern" -ForegroundColor Red
+                        if ($pattern -match "^(fabric|forge|javaSecurity|bootClasspath|systemClassLoader|javaClassPath|cp|cheatClient|optifine|shadersmod|shaderPack|cheatPattern|EncodedInjection)") {
+                            $type = $matches[1]
+                        } else {
+                            $type = "other"
+                        }
+                        if (-not $groupedPatterns.ContainsKey($type)) {
+                            $groupedPatterns[$type] = @()
+                        }
+                        $groupedPatterns[$type] += $pattern
+                    }
+                    
+                    Write-Host "  │  Detected JVM Arguments:" -ForegroundColor Yellow
+                    foreach ($arg in $suspiciousArgs | Select-Object -Unique) {
+                        Write-Host "  │    • $arg" -ForegroundColor Magenta
                     }
                     Write-Host ""
                     
-                    Write-Host "WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
+                    Write-Host "  │  Detected Pattern Categories:" -ForegroundColor Yellow
+                    foreach ($type in $groupedPatterns.Keys | Sort-Object) {
+                        $typeName = switch ($type) {
+                            "fabric" { "Fabric Injection" }
+                            "forge" { "Forge Injection" }
+                            "javaSecurity" { "Security Bypass" }
+                            "bootClasspath" { "Classpath Manipulation" }
+                            "systemClassLoader" { "Class Loader" }
+                            "javaClassPath" { "Class Path" }
+                            "cp" { "Classpath (-cp)" }
+                            "cheatClient" { "Cheat Client" }
+                            "optifine" { "Optifine/Shaders" }
+                            "shadersmod" { "Shader Mod" }
+                            "shaderPack" { "Shader Pack" }
+                            "cheatPattern" { "Cheat Pattern" }
+                            "EncodedInjection" { "Encoded Injection" }
+                            default { "Other" }
+                        }
+                        Write-Host "  │    └─ $typeName" -ForegroundColor White
+                        foreach ($pattern in $groupedPatterns[$type]) {
+                            $displayPattern = $pattern -replace 'CheatClient-', ''
+                            Write-Host "  │        • $displayPattern" -ForegroundColor Red
+                        }
+                    }
+                    Write-Host ""
+                    
+                    Write-Host "  └─ [⚠] WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
                     Write-Host ""
                 } else {
-                    Write-Host "✓ No JVM injection patterns detected" -ForegroundColor Green
+                    Write-Host "  └─ [✓] No JVM injection patterns detected" -ForegroundColor Green
+                    Write-Host ""
                 }
             }
         } catch {
-            Write-Host "Warning: Could not retrieve command line for PID $($proc.Id)" -ForegroundColor DarkYellow
-            Write-Host "Run as Administrator for complete detection." -ForegroundColor DarkYellow
+            Write-Host "  └─ [!] Warning: Could not retrieve command line for PID $($proc.Id)" -ForegroundColor DarkYellow
+            Write-Host "      [i] Run as Administrator for complete detection." -ForegroundColor DarkYellow
+            Write-Host ""
         }
     }
 
     if (-not $foundInjection) {
-        Write-Host "[CLEAN] No JVM argument injections detected in any Java process" -ForegroundColor Green
+        Write-Host "  [✓] CLEAN: No JVM argument injections detected in any Java process" -ForegroundColor Green
     }
 
     Write-Host ""
