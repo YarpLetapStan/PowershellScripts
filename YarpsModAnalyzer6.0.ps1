@@ -746,7 +746,7 @@ $cheatStrings = @(
     "AimAssist", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
     "AutoHitCrystal", "AutoPot", "AutoTotem", 
     "Donut", "DoubleAnchor", "FakeInv", "FakeLag", 
-    "Freecam", "Friends", "HoverTotem", "InventoryTotem", "JumpReset",
+    "Friends", "HoverTotem", "InventoryTotem", "JumpReset",
     "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
     "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
     "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
