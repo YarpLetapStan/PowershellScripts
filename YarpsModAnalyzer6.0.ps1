@@ -315,47 +315,148 @@ if ($javaProcesses.Count -eq 0) {
 function Get-Minecraft-Version-From-Mods($modsFolder) {
     $minecraftVersions = @{}
     $jarFiles = Get-ChildItem -Path $modsFolder -Filter *.jar
+    $modsScanned = 0
+    
+    Write-Host "Analyzing mods for Minecraft version..." -ForegroundColor Cyan
     
     foreach ($file in $jarFiles) {
         try {
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip = [System.IO.Compression.ZipFile]::OpenRead($file.FullName)
             
+            # Check fabric.mod.json
             if ($fabricModJson = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1) {
                 $reader = New-Object System.IO.StreamReader($fabricModJson.Open())
                 $fabricData = $reader.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue
                 $reader.Close()
                 
                 if ($fabricData.depends.minecraft) {
-                    $mcVersion = $fabricData.depends.minecraft -replace '^[><=~^]*\s*' -replace '\s*$'
-                    if ($mcVersion -match '^\d+(\.\d+)+(\.\d+)?$') {
-                        $minecraftVersions[$mcVersion] = ($minecraftVersions[$mcVersion] + 1)
+                    $mcVersionString = $fabricData.depends.minecraft
+                    $extractedVersions = @()
+                    
+                    # Handle version ranges like ">=1.20 <=1.21.4"
+                    if ($mcVersionString -match '>=\s*(\d+\.\d+(?:\.\d+)?).*<=\s*(\d+\.\d+(?:\.\d+)?)') {
+                        # Range detected: use the upper bound as it's more specific
+                        $extractedVersions += $matches[2]
+                    }
+                    # Handle single constraints like ">=1.20", "~1.21", "^1.20.1"
+                    elseif ($mcVersionString -match '[><=~^]+\s*(\d+\.\d+(?:\.\d+)?)') {
+                        $extractedVersions += $matches[1]
+                    }
+                    # Handle exact version like "1.21.4"
+                    elseif ($mcVersionString -match '^(\d+\.\d+(?:\.\d+)?)$') {
+                        $extractedVersions += $matches[1]
+                    }
+                    # Fallback: extract any version number pattern
+                    elseif ($mcVersionString -match '(\d+\.\d+(?:\.\d+)?)') {
+                        $extractedVersions += $matches[1]
+                    }
+                    
+                    # Add all found versions to the count
+                    foreach ($ver in $extractedVersions) {
+                        if ($ver -match '^\d+\.\d+(?:\.\d+)?$') {
+                            if (-not $minecraftVersions.ContainsKey($ver)) {
+                                $minecraftVersions[$ver] = 0
+                            }
+                            $minecraftVersions[$ver]++
+                            $modsScanned++
+                        }
                     }
                 }
             }
+            
+            # Check mods.toml for Forge/NeoForge mods
+            if ($modsToml = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1) {
+                $reader = New-Object System.IO.StreamReader($modsToml.Open())
+                $tomlContent = $reader.ReadToEnd()
+                $reader.Close()
+                
+                # Extract Minecraft version from mods.toml
+                # Pattern: [[dependencies.modid]]
+                #          modId="minecraft"
+                #          versionRange="[1.20.1,1.21)"
+                if ($tomlContent -match 'modId\s*=\s*"minecraft"[\s\S]{0,200}versionRange\s*=\s*"([^"]+)"') {
+                    $versionRange = $matches[1]
+                    
+                    # Parse version range [1.20.1,1.21) or [1.20.1]
+                    if ($versionRange -match '\[(\d+\.\d+(?:\.\d+)?),(\d+\.\d+(?:\.\d+)?)\)') {
+                        # Use lower bound of range as it's the minimum required
+                        $ver = $matches[1]
+                        if (-not $minecraftVersions.ContainsKey($ver)) {
+                            $minecraftVersions[$ver] = 0
+                        }
+                        $minecraftVersions[$ver]++
+                        $modsScanned++
+                    }
+                    elseif ($versionRange -match '\[(\d+\.\d+(?:\.\d+)?)\]') {
+                        # Exact version
+                        $ver = $matches[1]
+                        if (-not $minecraftVersions.ContainsKey($ver)) {
+                            $minecraftVersions[$ver] = 0
+                        }
+                        $minecraftVersions[$ver]++
+                        $modsScanned++
+                    }
+                    elseif ($versionRange -match '(\d+\.\d+(?:\.\d+)?)') {
+                        # Fallback: extract any version
+                        $ver = $matches[1]
+                        if (-not $minecraftVersions.ContainsKey($ver)) {
+                            $minecraftVersions[$ver] = 0
+                        }
+                        $minecraftVersions[$ver]++
+                        $modsScanned++
+                    }
+                }
+            }
+            
             $zip.Dispose()
-        } catch { continue }
+        } catch { 
+            continue 
+        }
     }
     
     if ($minecraftVersions.Count -gt 0) {
-        $mostCommon = $minecraftVersions.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1
-        Write-Host "Detected Minecraft version: $($mostCommon.Key) (from $($mostCommon.Value) mods)" -ForegroundColor Cyan
+        # Sort by count (descending) and then by version number (descending) for ties
+        $sortedVersions = $minecraftVersions.GetEnumerator() | Sort-Object -Property @{Expression={$_.Value}; Descending=$true}, @{Expression={$_.Key}; Descending=$true}
+        $mostCommon = $sortedVersions | Select-Object -First 1
+        
+        Write-Host "Detected Minecraft version: $($mostCommon.Key) (from $($mostCommon.Value) out of $modsScanned mods)" -ForegroundColor Cyan
+        
+        # Show all detected versions if multiple were found
+        if ($minecraftVersions.Count -gt 1) {
+            Write-Host "Other detected versions:" -ForegroundColor DarkGray
+            foreach ($ver in $sortedVersions | Select-Object -Skip 1) {
+                Write-Host "  - $($ver.Key): $($ver.Value) mods" -ForegroundColor DarkGray
+            }
+        }
+        
         return $mostCommon.Key
     }
     
-    # Try to get from process
+    # Enhanced process detection with multiple patterns
     if ($process) {
         try {
             $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
-            if ($cmdLine -match '-Dfabric.gameVersion=(\d+(\.\d+)+)') {
-                Write-Host "Detected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan
-                return $matches[1]
+            
+            # Try multiple patterns in order of reliability
+            $patterns = @(
+                'versions[/\\](\d+\.\d+(?:\.\d+)?)[/\\]',  # Most reliable: path-based
+                '-Dminecraft\.version=(\d+\.\d+(?:\.\d+)?)',
+                '-Dfabric\.gameVersion=(\d+\.\d+(?:\.\d+)?)',
+                '--version\s+["\']?(\d+\.\d+(?:\.\d+)?)["\']?',
+                'net\.minecraft\.client\.main\.Main.*?(\d+\.\d+(?:\.\d+)?)'
+            )
+            
+            foreach ($pattern in $patterns) {
+                if ($cmdLine -match $pattern) {
+                    $detectedVersion = $matches[1]
+                    Write-Host "Detected Minecraft version from process: $detectedVersion" -ForegroundColor Cyan
+                    return $detectedVersion
+                }
             }
-            elseif ($cmdLine -match '--version\s+(\d+(\.\d+)+)') {
-                Write-Host "Detected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan
-                return $matches[1]
-            }
-        } catch {}
+        } catch {
+            Write-Host "Warning: Could not read process command line" -ForegroundColor DarkYellow
+        }
     }
     
     Write-Host "Could not auto-detect Minecraft version from mods." -ForegroundColor Yellow
