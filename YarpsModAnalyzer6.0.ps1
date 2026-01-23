@@ -419,13 +419,7 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
         
         Write-Host "Detected Minecraft version: $($mostCommon.Key) (from $($mostCommon.Value) out of $modsScanned mods)" -ForegroundColor Cyan
         
-        # Show all detected versions if multiple were found
-        if ($minecraftVersions.Count -gt 1) {
-            Write-Host "Other detected versions:" -ForegroundColor DarkGray
-            foreach ($ver in $sortedVersions | Select-Object -Skip 1) {
-                Write-Host "  - $($ver.Key): $($ver.Value) mods" -ForegroundColor DarkGray
-            }
-        }
+  
         
         return $mostCommon.Key
     }
