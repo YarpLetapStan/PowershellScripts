@@ -340,7 +340,7 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
                         $extractedVersions += $matches[2]
                     }
                     # Handle single constraints like ">=1.20", "~1.21", "^1.20.1"
-                    elseif ($mcVersionString -match '[><=~^]+\s*(\d+\.\d+(?:\.\d+)?)') {
+                    elseif ($mcVersionString -match '[><=~\^]+\s*(\d+\.\d+(?:\.\d+)?)') {
                         $extractedVersions += $matches[1]
                     }
                     # Handle exact version like "1.21.4"
@@ -372,9 +372,6 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
                 $reader.Close()
                 
                 # Extract Minecraft version from mods.toml
-                # Pattern: [[dependencies.modid]]
-                #          modId="minecraft"
-                #          versionRange="[1.20.1,1.21)"
                 if ($tomlContent -match 'modId\s*=\s*"minecraft"[\s\S]{0,200}versionRange\s*=\s*"([^"]+)"') {
                     $versionRange = $matches[1]
                     
@@ -440,10 +437,10 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
             
             # Try multiple patterns in order of reliability
             $patterns = @(
-                'versions[/\\](\d+\.\d+(?:\.\d+)?)[/\\]',  # Most reliable: path-based
+                'versions[/\\](\d+\.\d+(?:\.\d+)?)[/\\]',
                 '-Dminecraft\.version=(\d+\.\d+(?:\.\d+)?)',
                 '-Dfabric\.gameVersion=(\d+\.\d+(?:\.\d+)?)',
-                '--version\s+["\']?(\d+\.\d+(?:\.\d+)?)["\']?',
+                '--version\s+(\d+\.\d+(?:\.\d+)?)',
                 'net\.minecraft\.client\.main\.Main.*?(\d+\.\d+(?:\.\d+)?)'
             )
             
