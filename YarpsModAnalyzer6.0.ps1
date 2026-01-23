@@ -1120,7 +1120,9 @@ if ($verifiedMods.Count -gt 0) {
         $isCheatMod = $cheatMods.FileName -contains $mod.FileName
         
         if (-not $isTampered -and -not $isCheatMod) {
-            Write-Host "  ✓ $($mod.ModName) ($($mod.FileName))" -ForegroundColor Green
+            Write-Host "  ✓ " -NoNewline -ForegroundColor Green
+            Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White
+            Write-Host "($($mod.FileName))" -ForegroundColor Green
             Write-Host "    Size: $($mod.ActualSizeKB) KB" -ForegroundColor Green
         }
     }
