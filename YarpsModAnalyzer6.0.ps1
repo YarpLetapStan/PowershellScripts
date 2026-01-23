@@ -290,7 +290,7 @@ if ($javaProcesses.Count -eq 0) {
                     }
                     Write-Host ""
                     
-                    Write-Host "  └─ [⚠] WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
+                    Write-Host "  └─ ⚠ WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
                     Write-Host ""
                 } else {
                     Write-Host "  └─ [✓] No JVM injection patterns detected" -ForegroundColor Green
