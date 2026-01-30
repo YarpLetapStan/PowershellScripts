@@ -1,7 +1,7 @@
 # Batch File Execution Detector with Permanent Logging
 # Logs bat file names and locations even if files are moved/deleted
 
-Write-Host "=== Batch File Execution Tracker ===" -ForegroundColor Cyan
+Write-Host "=== Batch File Execution Trackerr ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Create a dedicated log file in AppData (survives reboots)
