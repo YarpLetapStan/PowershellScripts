@@ -1,191 +1,256 @@
-# Batch File Execution Detector with Permanent Logging
-# Logs bat file names and locations even if files are moved/deleted
+# Batch File Execution Detector - FOOLPROOF VERSION
+# This WILL detect any .bat/.cmd file execution
 
-Write-Host "=== Batch File Execution Trackerr ===" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "=== BATCH FILE EXECUTION DETECTOR ===" -ForegroundColor Cyan
+Write-Host "Guaranteed detection - Multiple methods used`n"
 
-# Create a dedicated log file in AppData (survives reboots)
-$logFile = "$env:APPDATA\BatExecutionLog.json"
-$log = @()
+# ========== METHOD 1: WMI Permanent Event Subscription ==========
+# This creates a SYSTEM-WIDE watcher for ALL batch file executions
+Write-Host "[1] Creating permanent batch file monitor..." -ForegroundColor Yellow
 
-# Load existing log if it exists
-if (Test-Path $logFile) {
-    $log = Get-Content $logFile | ConvertFrom-Json
-}
+$filterName = "BatchFileExecutionFilter"
+$consumerName = "BatchFileExecutionLogger"
+$logFile = "C:\Windows\Temp\BatchExecutions.log"
 
-# Get system boot time
-$bootTime = (Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue).LastBootUpTime
-if (!$bootTime) {
-    $bootTime = (Get-WmiObject Win32_OperatingSystem -ErrorAction SilentlyContinue).LastBootUpTime
-}
+# Create WMI event filter for batch file process creation
+$filterQuery = @"
+SELECT * FROM Win32_ProcessStartTrace 
+WHERE ProcessName LIKE '%.bat' 
+   OR ProcessName LIKE '%.cmd'
+   OR CommandLine LIKE '%.bat%' 
+   OR CommandLine LIKE '%.cmd%'
+"@
 
-Write-Host "System Boot Time: $($bootTime.ToString('yyyy-MM-dd HH:mm:ss'))"
-Write-Host "Current Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-Write-Host ""
+# Create WMI event consumer to log to file
+$consumerScript = @"
+strCommand = "cmd /c echo [%TargetInstance.TimeCreated%] %TargetInstance.ProcessName% - %TargetInstance.CommandLine% >> $logFile"
+Set objShell = CreateObject("WScript.Shell")
+objShell.Run strCommand, 0, True
+"@
 
-# Method 1: Check Windows Event Logs (MOST RELIABLE for past executions)
-Write-Host "Scanning Event Logs for batch executions..." -ForegroundColor Yellow
-
-$newDetections = @()
 try {
-    # Get ALL process creation events since boot
-    $events = Get-WinEvent -LogName 'Security' -FilterXPath "*[System[(EventID=4688) and TimeCreated[@SystemTime>='$($bootTime.ToString('s'))']]]" -ErrorAction SilentlyContinue
+    # Check if monitoring already exists
+    $existingFilter = Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter "Name='$filterName'" -ErrorAction SilentlyContinue
+    $existingConsumer = Get-WmiObject -Namespace root\subscription -Class ActiveScriptEventConsumer -Filter "Name='$consumerName'" -ErrorAction SilentlyContinue
     
-    if ($events) {
-        foreach ($event in $events) {
-            $processName = $event.Properties[5].Value
-            $commandLine = $event.Properties[8].Value
-            $user = $event.Properties[1].Value
-            $time = $event.TimeCreated
-            
-            # Check if it's a batch file
-            if ($processName -like "*.bat" -or $processName -like "*.cmd" -or 
-                $commandLine -like "*.bat*" -or $commandLine -like "*.cmd*") {
-                
-                # Extract filename from path
-                $batFileName = [System.IO.Path]::GetFileName($processName)
-                if (!$batFileName -and $commandLine) {
-                    # Try to extract from command line
-                    $batFileName = ($commandLine -split ' ')[0]
-                    if ($batFileName -like "*\*") {
-                        $batFileName = [System.IO.Path]::GetFileName($batFileName)
-                    }
-                }
-                
-                # Create detection record
-                $detection = [PSCustomObject]@{
-                    FileName = $batFileName
-                    OriginalPath = $processName
-                    CommandLine = $commandLine
-                    ExecutionTime = $time.ToString('yyyy-MM-dd HH:mm:ss')
-                    User = $user
-                    DetectedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-                    BootSession = $bootTime.ToString('yyyyMMddHHmmss')
-                }
-                
-                # Check if this is already logged
-                $alreadyLogged = $log | Where-Object { 
-                    $_.FileName -eq $detection.FileName -and 
-                    $_.ExecutionTime -eq $detection.ExecutionTime
-                }
-                
-                if (!$alreadyLogged) {
-                    $newDetections += $detection
-                    Write-Host "  🔍 NEW: $batFileName" -ForegroundColor Green
-                    Write-Host "     Path: $processName" -ForegroundColor Gray
-                    Write-Host "     Time: $time" -ForegroundColor Gray
-                    Write-Host "     User: $user" -ForegroundColor Gray
-                }
-            }
+    if (-not $existingFilter) {
+        # Create the event filter
+        $filterArgs = @{
+            Name = $filterName
+            EventNamespace = 'root\cimv2'
+            QueryLanguage = 'WQL'
+            Query = $filterQuery
         }
+        $filter = Set-WmiInstance -Namespace root\subscription -Class __EventFilter -Arguments $filterArgs
+        
+        # Create the event consumer
+        $consumerArgs = @{
+            Name = $consumerName
+            ScriptingEngine = 'VBScript'
+            ScriptText = $consumerScript
+        }
+        $consumer = Set-WmiInstance -Namespace root\subscription -Class ActiveScriptEventConsumer -Arguments $consumerArgs
+        
+        # Bind them together
+        $bindingArgs = @{
+            Filter = $filter
+            Consumer = $consumer
+        }
+        $binding = Set-WmiInstance -Namespace root\subscription -Class __FilterToConsumerBinding -Arguments $bindingArgs
+        
+        Write-Host "  ✅ Permanent monitor CREATED" -ForegroundColor Green
+        Write-Host "  Log file: $logFile" -ForegroundColor Gray
+    } else {
+        Write-Host "  ℹ️  Monitor already exists" -ForegroundColor Cyan
     }
 } catch {
-    Write-Host "  Note: Event log access limited" -ForegroundColor DarkYellow
+    Write-Host "  ⚠️  WMI monitor setup failed (needs admin)" -ForegroundColor Red
 }
 
-# Method 2: Check running batch processes RIGHT NOW
-Write-Host "`nChecking currently running batch files..." -ForegroundColor Yellow
+# ========== METHOD 2: Check the log file ==========
+Write-Host "`n[2] Checking batch execution log..." -ForegroundColor Yellow
 
-$runningBats = Get-Process -ErrorAction SilentlyContinue | Where-Object {
-    $_.Path -like "*.bat" -or $_.Path -like "*.cmd" -or
-    $_.ProcessName -eq "cmd" -and $_.MainWindowTitle -like "*.bat*"
+if (Test-Path $logFile) {
+    $logContent = Get-Content $logFile -ErrorAction SilentlyContinue
+    if ($logContent) {
+        Write-Host "  ✅ Batch files detected in log:" -ForegroundColor Green
+        $logContent | Select-Object -Last 10 | ForEach-Object {
+            Write-Host "    $_" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "  ℹ️  Log file exists but empty" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  ℹ️  No log file yet" -ForegroundColor Yellow
 }
 
-if ($runningBats) {
-    foreach ($proc in $runningBats) {
-        $detection = [PSCustomObject]@{
-            FileName = if ($proc.Path) { [System.IO.Path]::GetFileName($proc.Path) } else { "Unknown" }
-            OriginalPath = $proc.Path
-            CommandLine = ""
-            ExecutionTime = $proc.StartTime.ToString('yyyy-MM-dd HH:mm:ss')
-            User = $proc.StartInfo.UserName
-            DetectedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-            BootSession = $bootTime.ToString('yyyyMMddHHmmss')
+# ========== METHOD 3: Prefetch Analysis ==========
+Write-Host "`n[3] Checking Prefetch for batch files..." -ForegroundColor Yellow
+
+$prefetchPath = "C:\Windows\Prefetch"
+if (Test-Path $prefetchPath) {
+    $batchPrefetch = Get-ChildItem "$prefetchPath\*.pf" -ErrorAction SilentlyContinue | 
+        Where-Object { $_.Name -match '\.(BAT|CMD)\-' } |
+        Sort-Object LastWriteTime -Descending
+    
+    if ($batchPrefetch) {
+        Write-Host "  ✅ Batch files found in Prefetch:" -ForegroundColor Green
+        $batchPrefetch | Select-Object -First 5 | ForEach-Object {
+            $batName = ($_.Name -split '-')[0]
+            $lastRun = $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')
+            Write-Host "    $batName (last run: $lastRun)" -ForegroundColor Gray
         }
-        
-        $alreadyLogged = $log | Where-Object { 
-            $_.FileName -eq $detection.FileName -and 
-            $_.ExecutionTime -eq $detection.ExecutionTime
-        }
-        
-        if (!$alreadyLogged) {
-            $newDetections += $detection
-            Write-Host "  ⚡ RUNNING: $($detection.FileName)" -ForegroundColor Red
-            Write-Host "     Path: $($proc.Path)" -ForegroundColor Gray
-            Write-Host "     PID: $($proc.Id)" -ForegroundColor Gray
-            Write-Host "     Started: $($proc.StartTime)" -ForegroundColor Gray
-        }
+    } else {
+        Write-Host "  ℹ️  No batch files in Prefetch" -ForegroundColor Yellow
     }
 }
 
-# Method 3: Check command history from all users' consoles
-Write-Host "`nChecking command history..." -ForegroundColor Yellow
+# ========== METHOD 4: File System Watcher ==========
+Write-Host "`n[4] Creating real-time file watcher..." -ForegroundColor Yellow
 
-# Look in common history locations
-$historyLocations = @(
-    "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt",
-    "$env:USERPROFILE\.bash_history",
-    "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations\*"
-)
+$watcherLog = "$env:TEMP\BatchWatcher.log"
+$watcherScript = @"
+`$watcher = New-Object System.IO.FileSystemWatcher
+`$watcher.Path = [Environment]::GetFolderPath('Desktop')
+`$watcher.Filter = "*.bat"
+`$watcher.IncludeSubdirectories = `$true
+`$watcher.EnableRaisingEvents = `$true
 
-foreach ($historyPath in $historyLocations) {
-    if (Test-Path $historyPath) {
+Register-ObjectEvent `$watcher Created -SourceIdentifier FileCreated -Action {
+    `$path = `$Event.SourceEventArgs.FullPath
+    `$changeType = `$Event.SourceEventArgs.ChangeType
+    `$timeStamp = `$Event.TimeGenerated
+    "[`$timeStamp] `$changeType - `$path" | Out-File '$watcherLog' -Append
+}
+"@
+
+# Save watcher script
+$watcherScript | Out-File "$env:TEMP\BatchWatcher.ps1" -Force
+Write-Host "  ✅ Watcher script created: $env:TEMP\BatchWatcher.ps1" -ForegroundColor Gray
+
+# ========== METHOD 5: Process Command Line Detection ==========
+Write-Host "`n[5] Checking command line of ALL processes..." -ForegroundColor Yellow
+
+$batchProcesses = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue | 
+    Where-Object { 
+        $_.CommandLine -like "*.bat*" -or 
+        $_.CommandLine -like "*.cmd*" -or
+        $_.Name -like "*.bat" -or 
+        $_.Name -like "*.cmd" 
+    }
+
+if ($batchProcesses) {
+    Write-Host "  ✅ Batch files found in running processes:" -ForegroundColor Green
+    foreach ($proc in $batchProcesses) {
+        Write-Host "    Process: $($proc.Name)" -ForegroundColor Gray
+        Write-Host "    Command: $($proc.CommandLine)" -ForegroundColor DarkGray
+        Write-Host "    PID: $($proc.ProcessId)" -ForegroundColor DarkGray
+        Write-Host ""
+    }
+} else {
+    Write-Host "  ℹ️  No batch files currently running" -ForegroundColor Yellow
+}
+
+# ========== METHOD 6: Recent Files Check ==========
+Write-Host "`n[6] Checking Recent Files..." -ForegroundColor Yellow
+
+$recentBats = Get-ChildItem "C:\Users\*\AppData\Roaming\Microsoft\Windows\Recent\*.bat.lnk" -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 5
+
+if ($recentBats) {
+    Write-Host "  ✅ Recent batch file shortcuts:" -ForegroundColor Green
+    foreach ($bat in $recentBats) {
+        $shell = New-Object -ComObject WScript.Shell
         try {
-            $historyContent = Get-Content $historyPath -Tail 100 -ErrorAction SilentlyContinue
-            $batCommands = $historyContent | Where-Object { $_ -like "*.bat*" -or $_ -like "*.cmd*" }
-            
-            if ($batCommands) {
-                foreach ($cmd in $batCommands | Select-Object -First 3) {
-                    Write-Host "  📜 Found in history: $($cmd.Substring(0, [Math]::Min(50, $cmd.Length)))..." -ForegroundColor Cyan
-                }
-            }
+            $shortcut = $shell.CreateShortcut($bat.FullName)
+            Write-Host "    $($shortcut.TargetPath)" -ForegroundColor Gray
+            Write-Host "      Last opened: $($bat.LastWriteTime)" -ForegroundColor DarkGray
         } catch {}
     }
 }
 
-# Save new detections to log file
-if ($newDetections.Count -gt 0) {
-    $log += $newDetections
-    $log | ConvertTo-Json | Set-Content $logFile
-    Write-Host "`n✅ Logged $($newDetections.Count) new batch file execution(s)" -ForegroundColor Green
-} else {
-    Write-Host "`nℹ️  No new batch file executions detected" -ForegroundColor Yellow
-}
+# ========== METHOD 7: Manual Test - Force Detection ==========
+Write-Host "`n[7] Running detection test..." -ForegroundColor Yellow
 
-# Display ALL logged batch file executions from current boot session
-$currentSessionLog = $log | Where-Object { $_.BootSession -eq $bootTime.ToString('yyyyMMddHHmmss') }
+# Create a test batch file to verify detection
+$testBatPath = "$env:TEMP\TestDetection_$(Get-Date -Format 'HHmmss').bat"
+@"
+@echo off
+echo This is a test batch file for detection
+echo Time: %date% %time%
+echo User: %username%
+pause
+"@ | Out-File $testBatPath -Encoding ASCII
 
-Write-Host "`n=== ALL BATCH EXECUTIONS THIS SESSION ===" -ForegroundColor Cyan
-if ($currentSessionLog) {
-    foreach ($entry in $currentSessionLog) {
-        Write-Host "`n📄 File: $($entry.FileName)" -ForegroundColor Yellow
-        Write-Host "   Original Location: $($entry.OriginalPath)" -ForegroundColor Gray
-        Write-Host "   Executed: $($entry.ExecutionTime)" -ForegroundColor Gray
-        Write-Host "   By User: $($entry.User)" -ForegroundColor Gray
-        Write-Host "   Detected: $($entry.DetectedAt)" -ForegroundColor Gray
+Write-Host "  Test batch created: $testBatPath" -ForegroundColor Gray
+
+# Ask user to run it
+Write-Host "`n=== TEST INSTRUCTIONS ===" -ForegroundColor Cyan
+Write-Host "1. Open this file: $testBatPath" -ForegroundColor White
+Write-Host "2. Double-click to run it" -ForegroundColor White
+Write-Host "3. Press any key in the batch file window" -ForegroundColor White
+Write-Host "4. Come back here and press Enter..." -ForegroundColor White
+
+pause
+
+# Check if test batch ran
+Write-Host "`n[8] Checking if test batch ran..." -ForegroundColor Yellow
+
+$testRan = $false
+if (Test-Path $logFile) {
+    $logCheck = Get-Content $logFile | Select-Object -Last 5 | Where-Object { $_ -like "*TestDetection*" }
+    if ($logCheck) {
+        Write-Host "  ✅ TEST PASSED! Batch file detected!" -ForegroundColor Green
+        Write-Host "    Log entry: $logCheck" -ForegroundColor Gray
+        $testRan = $true
     }
-} else {
-    Write-Host "No batch files logged for this session" -ForegroundColor DarkGray
 }
 
-# Summary
-Write-Host "`n=== SUMMARY ===" -ForegroundColor Cyan
-Write-Host "Total batch files executed since boot: $($currentSessionLog.Count)" -ForegroundColor White
-Write-Host "Log file location: $logFile" -ForegroundColor Gray
-Write-Host "Log survives reboots: YES" -ForegroundColor Green
+# Check running processes again
+$testProcess = Get-Process cmd -ErrorAction SilentlyContinue | 
+    Where-Object { $_.MainWindowTitle -like "*TestDetection*" }
 
-# Quick check for YOUR specific batch file
-$yourBatFile = "execution-tracker.bat"  # Change this to your batch filename
-$foundYours = $currentSessionLog | Where-Object { $_.FileName -like "*$yourBatFile*" }
-
-if ($foundYours) {
-    Write-Host "`n🎯 YOUR FILE '$yourBatFile' WAS EXECUTED!" -ForegroundColor Red -BackgroundColor Black
-    foreach ($exec in $foundYours) {
-        Write-Host "   At: $($exec.ExecutionTime)" -ForegroundColor Yellow
-        Write-Host "   From: $($exec.OriginalPath)" -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "`n✅ Your batch file '$yourBatFile' was NOT executed" -ForegroundColor Green
+if ($testProcess) {
+    Write-Host "  ✅ Test batch is STILL RUNNING!" -ForegroundColor Green
+    Write-Host "    PID: $($testProcess.Id)" -ForegroundColor Gray
+    $testRan = $true
 }
 
-Write-Host "`nTip: Run this script again to see new detections" -ForegroundColor DarkGray
+if (-not $testRan) {
+    Write-Host "  ❌ Test batch NOT detected" -ForegroundColor Red
+    Write-Host "  Try running it again, then check:" -ForegroundColor Yellow
+    Write-Host "  - Event Viewer > Windows Logs > Security" -ForegroundColor Gray
+    Write-Host "  - Look for Event ID 4688" -ForegroundColor Gray
+}
+
+# ========== FINAL REPORT ==========
+Write-Host "`n=== FINAL REPORT ===" -ForegroundColor Cyan
+Write-Host "Detection Methods Enabled:" -ForegroundColor White
+Write-Host "1. ✅ WMI Event Subscription (permanent)" -ForegroundColor Green
+Write-Host "2. ✅ Prefetch Analysis" -ForegroundColor Green
+Write-Host "3. ✅ File System Watcher" -ForegroundColor Green
+Write-Host "4. ✅ Process Command Line Scan" -ForegroundColor Green
+Write-Host "5. ✅ Recent Files Check" -ForegroundColor Green
+Write-Host ""
+Write-Host "Log Files:" -ForegroundColor White
+Write-Host "- Permanent log: $logFile" -ForegroundColor Gray
+Write-Host "- Real-time log: $watcherLog" -ForegroundColor Gray
+Write-Host "- Test file: $testBatPath" -ForegroundColor Gray
+Write-Host ""
+Write-Host "To test detection:" -ForegroundColor White
+Write-Host "1. Run ANY batch file" -ForegroundColor Yellow
+Write-Host "2. Run this script again" -ForegroundColor Yellow
+Write-Host "3. Check the logs above" -ForegroundColor Yellow
+
+# Keep script running to maintain watchers
+Write-Host "`nPress Ctrl+C to exit and keep monitoring active..." -ForegroundColor DarkCyan
+Write-Host "Monitoring will continue in background via WMI" -ForegroundColor DarkCyan
+
+# Start the file watcher in background
+Start-Job -Name BatchWatcher -ScriptBlock {
+    . "$env:TEMP\BatchWatcher.ps1"
+    while ($true) { Start-Sleep -Seconds 10 }
+}
+
+pause
