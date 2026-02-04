@@ -7,10 +7,23 @@ $pecmdPath = "$env:TEMP\PECmd.exe"
 $xxstringsPath = "$env:TEMP\xxstrings64.exe"
 
 # Download forensic tools
-Invoke-WebRequest -Uri $pecmdUrl -OutFile $pecmdPath -ErrorAction SilentlyContinue
-Invoke-WebRequest -Uri $xxstringsUrl -OutFile $xxstringsPath -ErrorAction SilentlyContinue
+Write-Host "[*] Downloading forensic tools..." -ForegroundColor Gray
+try {
+    Invoke-WebRequest -Uri $pecmdUrl -OutFile $pecmdPath -ErrorAction Stop
+    Write-Host "[✓] Downloaded PECmd.exe" -ForegroundColor Green
+} catch {
+    Write-Host "[!] Failed to download PECmd.exe: $_" -ForegroundColor Red
+}
+
+try {
+    Invoke-WebRequest -Uri $xxstringsUrl -OutFile $xxstringsPath -ErrorAction Stop
+    Write-Host "[✓] Downloaded xxstrings64.exe" -ForegroundColor Green
+} catch {
+    Write-Host "[!] Failed to download xxstrings64.exe: $_" -ForegroundColor Red
+}
 
 $logonTime = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+Write-Host "[*] System last boot: $logonTime" -ForegroundColor Gray
 
 # Function to detect deleted/renamed prefetch files (even with emptied Recycle Bin)
 function Detect-TamperedPrefetch {
@@ -22,202 +35,249 @@ function Detect-TamperedPrefetch {
     $prefetchFolder = "C:\Windows\Prefetch"
     
     # METHOD 1: Check if prefetch is disabled or cleared
-    $prefetchEnabled = $true
+    Write-Host "`n[1] Checking Prefetch Registry Settings..." -ForegroundColor Gray
     try {
         $prefetchValue = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -Name "EnablePrefetcher" -ErrorAction SilentlyContinue
         if ($prefetchValue.EnablePrefetcher -eq 0) {
             Write-Host "[!] PREFETCH IS DISABLED IN REGISTRY!" -ForegroundColor Red
             Write-Host "    HKLM:\...\PrefetchParameters\EnablePrefetcher = 0" -ForegroundColor Yellow
             $evidenceFound = $true
-            $prefetchEnabled = $false
+        } elseif ($prefetchValue.EnablePrefetcher) {
+            Write-Host "[✓] Prefetch is enabled (Value: $($prefetchValue.EnablePrefetcher))" -ForegroundColor Green
         }
     } catch {
-        Write-Host "[*] Could not check prefetch registry settings (admin required)" -ForegroundColor Gray
+        Write-Host "[*] Could not check prefetch registry settings" -ForegroundColor Gray
     }
     
     # METHOD 2: Check Event Logs for file deletions (works even if Recycle Bin emptied)
-    Write-Host "`n[*] Checking Event Logs for prefetch deletions..." -ForegroundColor Gray
+    Write-Host "`n[2] Checking Event Logs for prefetch deletions..." -ForegroundColor Gray
     try {
-        # Event ID 4660: File deleted
-        $deletionEvents = Get-WinEvent -LogName Security -FilterXPath "*[System[(EventID=4660) and TimeCreated[@SystemTime>='$($sinceTime.ToString('yyyy-MM-ddTHH:mm:ss'))']]]" -ErrorAction SilentlyContinue -MaxEvents 100 | 
-            Where-Object { $_.Properties[6].Value -like "*\Prefetch\*.pf" }
+        $hasSecurityLog = $false
+        try {
+            $logTest = Get-WinEvent -ListLog Security -ErrorAction SilentlyContinue
+            if ($logTest) { $hasSecurityLog = $true }
+        } catch {}
         
-        if ($deletionEvents.Count -gt 0) {
-            Write-Host "[!] Found prefetch file deletion events (Event ID 4660):" -ForegroundColor Red
-            foreach ($event in $deletionEvents) {
-                $filePath = $event.Properties[6].Value
-                $user = $event.Properties[1].Value
-                $time = $event.TimeCreated
-                Write-Host "    - $filePath deleted by $user at $time" -ForegroundColor Yellow
+        if ($hasSecurityLog) {
+            $filter = @{
+                LogName = 'Security'
+                StartTime = $sinceTime.AddDays(-1)
             }
-            $evidenceFound = $true
+            
+            $deletionEvents = Get-WinEvent -FilterHashtable $filter -MaxEvents 50 -ErrorAction SilentlyContinue | 
+                Where-Object { 
+                    $_.Id -eq 4660 -and 
+                    $_.Properties[6].Value -like "*\Prefetch\*.pf" 
+                }
+            
+            if ($deletionEvents.Count -gt 0) {
+                Write-Host "[!] Found prefetch file deletion events:" -ForegroundColor Red
+                foreach ($event in $deletionEvents | Select-Object -First 3) {
+                    $filePath = $event.Properties[6].Value
+                    $user = $event.Properties[1].Value
+                    $time = $event.TimeCreated.ToString("HH:mm:ss")
+                    Write-Host "    - $([System.IO.Path]::GetFileName($filePath)) at $time by $user" -ForegroundColor Yellow
+                }
+                if ($deletionEvents.Count -gt 3) {
+                    Write-Host "    ... and $($deletionEvents.Count - 3) more events" -ForegroundColor Yellow
+                }
+                $evidenceFound = $true
+            } else {
+                Write-Host "[✓] No recent prefetch deletion events found" -ForegroundColor Green
+            }
         } else {
-            Write-Host "[✓] No recent prefetch deletion events found in Security logs" -ForegroundColor Green
+            Write-Host "[*] Security event log not accessible" -ForegroundColor Gray
         }
     } catch {
-        Write-Host "[*] Could not access Security event logs (admin required)" -ForegroundColor Gray
+        Write-Host "[*] Event log check failed" -ForegroundColor Gray
     }
     
-    # METHOD 3: Check for evidence in USN Journal (if admin)
-    Write-Host "`n[*] Checking USN Journal for deleted file records..." -ForegroundColor Gray
+    # METHOD 3: Quick USN Journal check with timeout (won't hang)
+    Write-Host "`n[3] Checking USN Journal for deleted file records..." -ForegroundColor Gray
     try {
-        # Use fsutil to query USN Journal (requires admin)
-        $usnData = fsutil usn readjournal C: 2>$null | Select-String "\.pf" | Select-String "DELETE"
-        
-        if ($usnData) {
-            Write-Host "[!] Found references to deleted .pf files in USN Journal:" -ForegroundColor Red
-            $usnData | Select-Object -First 5 | ForEach-Object {
-                Write-Host "    - $_" -ForegroundColor Yellow
+        $usnCheckScript = {
+            $usnResult = @()
+            try {
+                $tempFile = [System.IO.Path]::GetTempFileName()
+                
+                $process = Start-Process -FilePath "fsutil.exe" `
+                    -ArgumentList "usn", "readjournal", "C:" `
+                    -NoNewWindow `
+                    -RedirectStandardOutput $tempFile `
+                    -PassThru `
+                    -WindowStyle Hidden
+                
+                $process | Wait-Process -Timeout 5 -ErrorAction SilentlyContinue
+                
+                if (-not $process.HasExited) {
+                    $process.Kill()
+                    return @("TIMEOUT")
+                }
+                
+                if (Test-Path $tempFile) {
+                    $content = Get-Content $tempFile -ErrorAction SilentlyContinue
+                    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                    
+                    $usnResult = $content | Where-Object { 
+                        $_ -match "\.pf" -and $_ -match "DELETE|CLOSE.*DELETE" 
+                    } | Select-Object -First 5
+                }
+            } catch {
+                # If any error, just return empty
             }
-            if ($usnData.Count -gt 5) {
-                Write-Host "    ... and $($usnData.Count - 5) more entries" -ForegroundColor Yellow
+            return $usnResult
+        }
+        
+        $job = Start-Job -ScriptBlock $usnCheckScript
+        $usnResult = $job | Wait-Job -Timeout 7 | Receive-Job
+        $job | Remove-Job -Force
+        
+        if ($usnResult -contains "TIMEOUT") {
+            Write-Host "[*] USN Journal check timed out (normal on large drives)" -ForegroundColor Gray
+        } elseif ($usnResult -and $usnResult.Count -gt 0) {
+            Write-Host "[!] Found references to deleted .pf files in USN Journal:" -ForegroundColor Red
+            foreach ($entry in $usnResult | Select-Object -First 3) {
+                if ($entry -match "[^\\]+\\.pf") {
+                    $fileName = $matches[0]
+                    Write-Host "    - $fileName" -ForegroundColor Yellow
+                } else {
+                    Write-Host "    - $($entry.Substring(0, [Math]::Min(50, $entry.Length)))..." -ForegroundColor Yellow
+                }
             }
             $evidenceFound = $true
         } else {
-            Write-Host "[*] No recent .pf deletions found in USN Journal" -ForegroundColor Gray
+            Write-Host "[✓] No recent .pf deletions found in USN Journal" -ForegroundColor Green
         }
     } catch {
         Write-Host "[*] USN Journal query requires elevated privileges" -ForegroundColor Gray
     }
     
-    # METHOD 4: Indirect detection - check for missing prefetch files that SHOULD exist
-    Write-Host "`n[*] Checking for missing prefetch files via indirect evidence..." -ForegroundColor Gray
-    
-    # Get currently running processes that would normally create prefetch
-    $runningJavaProcesses = Get-Process | Where-Object { $_.ProcessName -match "java(w?)" } | Select-Object -First 10
-    
-    if ($runningJavaProcesses.Count -gt 0) {
-        Write-Host "[*] Currently running Java processes found:" -ForegroundColor Gray
-        foreach ($proc in $runningJavaProcesses) {
-            $exeName = $proc.ProcessName
-            $expectedPrefetch = "$exeName.exe"
+    # METHOD 4: Check for running processes without prefetch files
+    Write-Host "`n[4] Checking for missing prefetch files..." -ForegroundColor Gray
+    try {
+        $runningJava = Get-Process -ErrorAction SilentlyContinue | 
+            Where-Object { $_.ProcessName -match "^javaw?$" } | 
+            Select-Object -First 5
+        
+        if ($runningJava.Count -gt 0) {
+            Write-Host "[*] Found $($runningJava.Count) running Java process(es)" -ForegroundColor Gray
             
-            # Check if prefetch file exists for this running process
-            $prefetchFiles = Get-ChildItem -Path $prefetchFolder -Filter "*$exeName*" -ErrorAction SilentlyContinue
-            
-            if (-not $prefetchFiles) {
-                Write-Host "[!] Running process '$exeName' has no prefetch file!" -ForegroundColor Red
-                Write-Host "    Process ID: $($proc.Id), Path: $(try { $proc.Path } catch { 'Unknown' })" -ForegroundColor Yellow
-                $evidenceFound = $true
+            foreach ($proc in $runningJava) {
+                $prefetchFiles = Get-ChildItem -Path $prefetchFolder -Filter "*$($proc.ProcessName)*" -ErrorAction SilentlyContinue
+                
+                if (-not $prefetchFiles -or $prefetchFiles.Count -eq 0) {
+                    Write-Host "[!] Running '$($proc.ProcessName)' (PID: $($proc.Id)) has no prefetch!" -ForegroundColor Red
+                    
+                    try {
+                        $procPath = $proc.Path
+                        if ($procPath) {
+                            Write-Host "    Path: $procPath" -ForegroundColor Yellow
+                        }
+                    } catch {}
+                    
+                    $evidenceFound = $true
+                } else {
+                    Write-Host "[✓] '$($proc.ProcessName)' has prefetch file(s)" -ForegroundColor Green
+                }
             }
+        } else {
+            Write-Host "[*] No Java processes currently running" -ForegroundColor Gray
         }
+    } catch {
+        Write-Host "[*] Could not check running processes" -ForegroundColor Gray
     }
     
-    # METHOD 5: Check for renamed prefetch files by scanning for prefetch signatures
-    Write-Host "`n[*] Scanning for renamed prefetch files (checking file signatures)..." -ForegroundColor Gray
-    
-    # Common locations where malware might hide renamed prefetch files
-    $scanLocations = @(
-        "$env:TEMP",
-        "$env:APPDATA",
-        "$env:LOCALAPPDATA\Temp",
-        "C:\Windows\Temp"
-    )
-    
-    $filesChecked = 0
-    foreach ($location in $scanLocations) {
-        if (Test-Path $location) {
-            # Get files that might be prefetch based on size (prefetch files are typically 10KB-10MB)
-            $potentialFiles = Get-ChildItem -Path $location -File -ErrorAction SilentlyContinue | 
-                Where-Object { $_.Length -gt 10240 -and $_.Length -lt 10485760 } | 
-                Select-Object -First 20
+    # METHOD 5: Statistical analysis of prefetch folder
+    Write-Host "`n[5] Analyzing prefetch folder contents..." -ForegroundColor Gray
+    try {
+        $prefetchFiles = Get-ChildItem -Path $prefetchFolder -Filter *.pf -ErrorAction SilentlyContinue
+        
+        if ($prefetchFiles) {
+            $fileCount = $prefetchFiles.Count
+            Write-Host "    - Total prefetch files: $fileCount" -ForegroundColor Gray
             
-            foreach ($file in $potentialFiles) {
-                $filesChecked++
+            $javaPrefetch = $prefetchFiles | Where-Object { $_.Name -match "java|JAVA" }
+            if ($javaPrefetch.Count -gt 0) {
+                Write-Host "    - Java-related prefetch files: $($javaPrefetch.Count)" -ForegroundColor Gray
+                foreach ($file in $javaPrefetch | Select-Object -First 3) {
+                    Write-Host "      > $($file.Name) (Last: $($file.LastWriteTime.ToString('MM/dd HH:mm')))" -ForegroundColor Gray
+                }
+            }
+            
+            if ($fileCount -lt 15) {
+                Write-Host "[!] Very few prefetch files ($fileCount) - may have been cleared!" -ForegroundColor Red
+                Write-Host "    Normal Windows systems typically have 50-500+ prefetch files" -ForegroundColor Yellow
+                $evidenceFound = $true
+            }
+            
+            $recentFiles = $prefetchFiles | Where-Object { $_.LastWriteTime -gt (Get-Date).AddHours(-1) }
+            if ($recentFiles.Count -gt 0) {
+                Write-Host "    - Files modified in last hour: $($recentFiles.Count)" -ForegroundColor Gray
+            }
+        } else {
+            Write-Host "[!] No prefetch files found at all!" -ForegroundColor Red
+            Write-Host "    This is highly suspicious on a normal Windows system" -ForegroundColor Yellow
+            $evidenceFound = $true
+        }
+    } catch {
+        Write-Host "[*] Could not analyze prefetch folder" -ForegroundColor Gray
+    }
+    
+    # METHOD 6: Quick scan for renamed prefetch files
+    Write-Host "`n[6] Scanning for renamed prefetch files..." -ForegroundColor Gray
+    try {
+        $tempFolder = $env:TEMP
+        if (Test-Path $tempFolder) {
+            $recentFiles = Get-ChildItem -Path $tempFolder -File -ErrorAction SilentlyContinue | 
+                Where-Object { 
+                    $_.Length -gt 50000 -and $_.Length -lt 5000000 -and
+                    $_.LastWriteTime -gt (Get-Date).AddDays(-1) 
+                } | 
+                Select-Object -First 10
+            
+            $suspiciousCount = 0
+            foreach ($file in $recentFiles) {
                 try {
-                    # Read first 4 bytes to check for prefetch signature
                     $stream = [System.IO.File]::OpenRead($file.FullName)
-                    $bytes = New-Object byte[] 4
-                    $bytesRead = $stream.Read($bytes, 0, 4)
+                    $bytes = New-Object byte[] 8
+                    $bytesRead = $stream.Read($bytes, 0, 8)
                     $stream.Close()
                     
-                    if ($bytesRead -eq 4) {
-                        # Check for 'MAM' (4D 41 4D) or 'SCCA' (53 43 43 41) signature
-                        if (($bytes[0] -eq 0x4D -and $bytes[1] -eq 0x41 -and $bytes[2] -eq 0x4D) -or
-                            ($bytes[0] -eq 0x53 -and $bytes[1] -eq 0x43 -and $bytes[2] -eq 0x43 -and $bytes[3] -eq 0x41)) {
-                            
-                            Write-Host "[!] Found renamed prefetch file: $($file.FullName)" -ForegroundColor Red
-                            Write-Host "    Size: $([math]::Round($file.Length/1KB,2)) KB, Modified: $($file.LastWriteTime)" -ForegroundColor Yellow
-                            Write-Host "    Signature: $([System.BitConverter]::ToString($bytes))" -ForegroundColor Yellow
+                    if ($bytesRead -ge 4) {
+                        $hexSignature = [System.BitConverter]::ToString($bytes[0..3])
+                        
+                        if ($hexSignature -match "^4D-41-4D" -or $hexSignature -match "^53-43-43-41") {
+                            $suspiciousCount++
+                            Write-Host "[!] Found potential renamed prefetch: $($file.Name)" -ForegroundColor Red
+                            Write-Host "    Location: $($file.DirectoryName)" -ForegroundColor Yellow
                             $evidenceFound = $true
+                            
+                            if ($suspiciousCount -ge 3) {
+                                Write-Host "    ... and more possible renamed files" -ForegroundColor Yellow
+                                break
+                            }
                         }
                     }
                 } catch {
-                    # File might be locked or inaccessible
+                    # File might be locked, skip
                 }
             }
-        }
-    }
-    
-    Write-Host "[*] Scanned $filesChecked files for prefetch signatures" -ForegroundColor Gray
-    
-    # METHOD 6: Check Volume Shadow Copies (if available and admin)
-    Write-Host "`n[*] Checking for Volume Shadow Copies..." -ForegroundColor Gray
-    try {
-        # Quick check without hanging
-        $vssProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c vssadmin list shadows 2>&1" -NoNewWindow -PassThru -Wait -RedirectStandardOutput "$env:TEMP\vss_check.txt"
-        Start-Sleep -Seconds 2
-        
-        if (Test-Path "$env:TEMP\vss_check.txt") {
-            $vssContent = Get-Content "$env:TEMP\vss_check.txt" -ErrorAction SilentlyContinue
-            Remove-Item "$env:TEMP\vss_check.txt" -ErrorAction SilentlyContinue
             
-            if ($vssContent -match "Shadow Copy Volume") {
-                Write-Host "[*] Volume Shadow Copies available" -ForegroundColor Gray
-                Write-Host "    Deleted prefetch files might be recoverable using:" -ForegroundColor Gray
-                Write-Host "    - Forensic tools like FTK Imager or Autopsy" -ForegroundColor Gray
-                Write-Host "    - vssadmin or diskshadow commands" -ForegroundColor Gray
-            } else {
-                Write-Host "[*] No accessible Volume Shadow Copies found" -ForegroundColor Gray
+            if ($suspiciousCount -eq 0) {
+                Write-Host "[✓] No renamed prefetch files found in TEMP" -ForegroundColor Green
             }
         }
     } catch {
-        Write-Host "[*] Volume Shadow Copy check requires admin privileges" -ForegroundColor Gray
-    }
-    
-    # METHOD 7: Check for suspicious empty prefetch folder or very few files
-    $prefetchFiles = Get-ChildItem -Path $prefetchFolder -Filter *.pf -ErrorAction SilentlyContinue
-    if ($prefetchFiles) {
-        $fileCount = $prefetchFiles.Count
-        Write-Host "`n[*] Prefetch folder analysis:" -ForegroundColor Gray
-        Write-Host "    - Total prefetch files: $fileCount" -ForegroundColor Gray
-        
-        # Typical Windows system has dozens to hundreds of prefetch files
-        if ($fileCount -lt 20 -and $prefetchEnabled) {
-            Write-Host "[!] Very few prefetch files ($fileCount) - may have been cleared!" -ForegroundColor Red
-            $evidenceFound = $true
-        }
-        
-        # Check oldest and newest files
-        $oldestFile = $prefetchFiles | Sort-Object LastWriteTime | Select-Object -First 1
-        $newestFile = $prefetchFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        
-        Write-Host "    - Oldest file: $($oldestFile.Name) ($($oldestFile.LastWriteTime))" -ForegroundColor Gray
-        Write-Host "    - Newest file: $($newestFile.Name) ($($newestFile.LastWriteTime))" -ForegroundColor Gray
-        
-        # If all files are very recent, might indicate a purge
-        $hoursSinceOldest = (Get-Date) - $oldestFile.LastWriteTime
-        if ($hoursSinceOldest.TotalHours -lt 24 -and $fileCount -gt 30) {
-            Write-Host "[!] All prefetch files are less than 24 hours old - possible recent purge!" -ForegroundColor Red
-            $evidenceFound = $true
-        }
-    } else {
-        Write-Host "[!] No prefetch files found at all!" -ForegroundColor Red
-        Write-Host "    This is highly suspicious on a normal Windows system" -ForegroundColor Yellow
-        $evidenceFound = $true
+        Write-Host "[*] Could not scan for renamed files" -ForegroundColor Gray
     }
     
     # Summary
     Write-Host "`n" + "="*60
     if ($evidenceFound) {
-        Write-Host "[!] EVIDENCE OF PREFETCH TAMPERING DETECTED!" -ForegroundColor Red
-        Write-Host "    Deleted files may still be recoverable via:" -ForegroundColor Yellow
-        Write-Host "    1. Forensic file carving tools" -ForegroundColor Gray
-        Write-Host "    2. Volume Shadow Copies (if available)" -ForegroundColor Gray
-        Write-Host "    3. MFT analysis with specialized tools" -ForegroundColor Gray
+        Write-Host "[!] SUSPICIOUS ACTIVITY DETECTED!" -ForegroundColor Red
+        Write-Host "    Possible prefetch tampering or deletion" -ForegroundColor Yellow
     } else {
-        Write-Host "[✓] No obvious evidence of prefetch tampering detected" -ForegroundColor Green
-        Write-Host "    Note: Advanced deletion methods may still leave no traces" -ForegroundColor Gray
+        Write-Host "[✓] No obvious evidence of prefetch tampering" -ForegroundColor Green
     }
     Write-Host "="*60
     
@@ -227,5 +287,138 @@ function Detect-TamperedPrefetch {
 # Run the detection
 Detect-TamperedPrefetch -sinceTime $logonTime
 
-# Continue with original analysis...
-# [Rest of your original script here...]
+# CONTINUE WITH ORIGINAL SCRIPT
+Write-Host "`n" + "="*60
+Write-Host "CONTINUING WITH STANDARD PREFETCH ANALYSIS..." -ForegroundColor Cyan
+Write-Host "="*60 + "`n"
+
+$prefetchFolder = "C:\Windows\Prefetch"
+$files = Get-ChildItem -Path $prefetchFolder -Filter *.pf -ErrorAction SilentlyContinue
+
+if (-not $files) {
+    Write-Host "[!] CRITICAL: No prefetch files found!" -ForegroundColor Red
+    exit 1
+}
+
+$filteredFiles = $files | Where-Object { 
+    ($_.Name -match "java|javaw") -and ($_.LastWriteTime -gt $logonTime)
+}
+
+if ($filteredFiles.Count -gt 0) {
+    Write-Host "PF files found after logon time.." -ForegroundColor Gray
+    $filteredFiles | ForEach-Object { 
+        Write-Host " "
+        Write-Host $_.FullName -ForegroundColor DarkCyan
+        
+        # Check if file is accessible (not locked or corrupted)
+        try {
+            $testStream = [System.IO.File]::Open($_.FullName, 'Open', 'Read', 'None')
+            $testStream.Close()
+        } catch {
+            Write-Host "[!] Warning: Prefetch file may be corrupted or locked: $($_.FullName)" -ForegroundColor Red
+        }
+        
+        $prefetchFilePath = $_.FullName
+        $pecmdOutput = & $pecmdPath -f $prefetchFilePath 2>$null
+        
+        if ($LASTEXITCODE -ne 0 -or -not $pecmdOutput) {
+            Write-Host "[!] Failed to parse prefetch file (might be corrupted)" -ForegroundColor Red
+            return
+        }
+        
+        $filteredImports = $pecmdOutput
+
+        if ($filteredImports.Count -gt 0) {
+            Write-Host "Imports found:" -ForegroundColor DarkYellow
+            $filteredImports | ForEach-Object {
+                $line = $_
+                if ($line -match '\\VOLUME{(.+?)}') {
+                    $line = $line -replace '\\VOLUME{(.+?)}', 'C:'
+                }
+                $line = $line -replace '^\d+: ', ''
+
+                try {
+                    if ((Get-Content $line -First 1 -ErrorAction SilentlyContinue) -match 'PK\x03\x04') {
+                        if ($line -notmatch "\.jar$") {
+                            Write-Host "File .jar modified extension: $line " -ForegroundColor DarkRed
+                        } else {
+                            Write-Host "Valid .jar file: $line" -ForegroundColor DarkGreen
+                        }
+                    }
+                } catch {
+                    if ($line -match "\.jar$") {
+                        Write-Host "File .jar deleted maybe: $line" -ForegroundColor DarkYellow
+                    }
+                }
+
+                if ($line -match "\.jar$" -and !(Test-Path $line)) {
+                    Write-Host "File .jar deleted maybe: $line" -ForegroundColor DarkYellow
+                }
+            }
+        } else {
+            Write-Host "No imports found for the file $($_.Name)." -ForegroundColor Red
+        }
+    }
+} else {
+    Write-Host "No PF files containing 'java' or 'javaw' and modified after logon time were found." -ForegroundColor Red
+}
+
+Write-Output " "
+Write-Host "Searching for DcomLaunch PID..." -ForegroundColor Gray
+
+$pidDcomLaunch = (Get-CimInstance -ClassName Win32_Service | Where-Object { $_.Name -eq 'DcomLaunch' }).ProcessId
+Write-Host "[*] DcomLaunch PID: $pidDcomLaunch" -ForegroundColor Gray
+
+if (Test-Path $xxstringsPath) {
+    $xxstringsOutput = & $xxstringsPath -p $pidDcomLaunch -raw 2>$null | findstr /C:"-jar"
+    
+    if ($xxstringsOutput) {
+        Write-Host "Strings found in DcomLaunch process memory containing '-jar':" -ForegroundColor DarkYellow
+
+        $xxstringsOutput | ForEach-Object {
+            Write-Host $_ -ForegroundColor Gray
+
+            # Try to extract a .jar path after the -jar argument
+            if ($_ -match '-jar\s+"?([^"\s]+\.jar)"?') {
+                $jarPath = $Matches[1]
+
+                # Replace \VOLUME{} if present
+                if ($jarPath -match '\\VOLUME{[^}]+}') {
+                    $jarPath = $jarPath -replace '\\VOLUME{[^}]+}', 'C:'
+                }
+
+                Write-Host "`nProcessing JAR file: $jarPath" -ForegroundColor Cyan
+
+                try {
+                    $firstByte = Get-Content $jarPath -Encoding Byte -TotalCount 4 -ErrorAction Stop
+                    if ($firstByte[0] -eq 0x50 -and $firstByte[1] -eq 0x4B -and $firstByte[2] -eq 0x03 -and $firstByte[3] -eq 0x04) {
+                        Write-Host "Valid .jar file in memory string: $jarPath" -ForegroundColor DarkGreen
+                    } else {
+                        Write-Host "Invalid .jar file (wrong magic): $jarPath" -ForegroundColor DarkRed
+                    }
+                } catch {
+                    Write-Host "File not found or inaccessible: $jarPath" -ForegroundColor DarkYellow
+                }
+            } else {
+                Write-Host "Could not extract .jar path from string: $_" -ForegroundColor Red
+            }
+        }
+    } else {
+        Write-Host "No strings containing '-jar' were found in DcomLaunch process memory." -ForegroundColor Red
+    }
+} else {
+    Write-Host "[!] xxstrings64.exe not found, skipping memory analysis" -ForegroundColor Red
+}
+
+# Final summary
+Write-Host "`n" + "="*60
+Write-Host "ANALYSIS COMPLETE" -ForegroundColor Cyan
+Write-Host "="*60
+Write-Host "Summary of findings:" -ForegroundColor Yellow
+Write-Host "1. Prefetch tampering detection completed" -ForegroundColor Gray
+Write-Host "2. Java prefetch files analyzed: $($filteredFiles.Count)" -ForegroundColor Gray
+Write-Host "3. DcomLaunch memory analyzed for JAR execution" -ForegroundColor Gray
+Write-Host "`nRecommendations:" -ForegroundColor Yellow
+Write-Host "- Check suspicious JAR files in antivirus" -ForegroundColor Gray
+Write-Host "- Monitor for unusual Java processes" -ForegroundColor Gray
+Write-Host "- Consider full system scan with anti-malware tools" -ForegroundColor Gray
