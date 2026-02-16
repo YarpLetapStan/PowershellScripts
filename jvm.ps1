@@ -941,117 +941,26 @@ Write-Host ""
 
 # List of disallowed mods with their Modrinth slugs
 $disallowedMods = @{
-    "clickcrystals" = @{
-        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod", "ClickCrystals")
-        Reason = "PvP macro/automation mod"
-    }
     "xeros-minimap" = @{
         Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod")
-        Reason = "Disallowed minimap mod"
+    }
+    "freecam" = @{
+        Names = @("Freecam", "freecam", "FreeCam", "Free Cam")
+    }
+    "health-indicators" = @{
+        Names = @("Health Indicators", "health indicators", "HealthIndicators", "Health Indicators Mod")
+    }
+    "clickcrystals" = @{
+        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod")
     }
     "mousetweaks" = @{
-        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks", "Mouse Tweaks Mod")
-        Reason = "Disallowed mouse utility mod"
+        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks")
     }
-    "wurst" = @{
-        Names = @("Wurst", "wurst", "Wurst Client", "Wurst Mod")
-        Reason = "Cheat client"
+    "itemscroller" = @{
+        Names = @("Item Scroller", "itemscroller", "ItemScroller")
     }
-    "meteor-client" = @{
-        Names = @("Meteor Client", "meteor-client", "Meteor")
-        Reason = "Cheat client"
-    }
-    "aristois" = @{
-        Names = @("Aristois", "aristois", "Aristois Client")
-        Reason = "Cheat client"
-    }
-    "impact" = @{
-        Names = @("Impact", "impact", "Impact Client")
-        Reason = "Cheat client"
-    }
-    "future" = @{
-        Names = @("Future", "future", "Future Client")
-        Reason = "Cheat client"
-    }
-    "forgehax" = @{
-        Names = @("ForgeHax", "forgehax", "ForgeHax Client")
-        Reason = "Cheat client"
-    }
-    "labymod" = @{
-        Names = @("LabyMod", "labymod", "LabyMod Client")
-        Reason = "Disallowed client modification"
-    }
-    "badlion" = @{
-        Names = @("Badlion", "badlion", "Badlion Client")
-        Reason = "Disallowed client modification"
-    }
-    "optifine" = @{
-        Names = @("OptiFine", "optifine", "Optifine")
-        Reason = "Disallowed optimization mod"
-    }
-    "sodium" = @{
-        Names = @("Sodium", "sodium", "Sodium Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "lithium" = @{
-        Names = @("Lithium", "lithium", "Lithium Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "phosphor" = @{
-        Names = @("Phosphor", "phosphor", "Phosphor Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "starlight" = @{
-        Names = @("Starlight", "starlight", "Starlight Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "caffeine" = @{
-        Names = @("Caffeine", "caffeine", "Caffeine Mod")
-        Reason = "Disallowed performance mod"
-    }
-    "ferritecore" = @{
-        Names = @("FerriteCore", "ferritecore", "FerriteCore Mod")
-        Reason = "Disallowed performance mod"
-    }
-    "krypton" = @{
-        Names = @("Krypton", "krypton", "Krypton Mod")
-        Reason = "Disallowed performance mod"
-    }
-    "entityculling" = @{
-        Names = @("EntityCulling", "entityculling", "Entity Culling")
-        Reason = "Disallowed performance mod"
-    }
-    "reeses-sodium-options" = @{
-        Names = @("Reese's Sodium Options", "reeses-sodium-options", "Reese's Sodium Options Mod")
-        Reason = "Disallowed Sodium addon"
-    }
-    "sodium-extra" = @{
-        Names = @("Sodium Extra", "sodium-extra", "Sodium Extra Mod")
-        Reason = "Disallowed Sodium addon"
-    }
-    "iris" = @{
-        Names = @("Iris", "iris", "Iris Shaders")
-        Reason = "Disallowed shader mod"
-    }
-    "canvas" = @{
-        Names = @("Canvas", "canvas", "Canvas Renderer")
-        Reason = "Disallowed renderer mod"
-    }
-    "fabric-api" = @{
-        Names = @("Fabric API", "fabric-api", "FabricAPI")
-        Reason = "Disallowed mod API"
-    }
-    "fabricloader" = @{
-        Names = @("Fabric Loader", "fabricloader", "FabricLoader")
-        Reason = "Disallowed mod loader"
-    }
-    "forge" = @{
-        Names = @("Forge", "forge", "Forge Mod Loader")
-        Reason = "Disallowed mod loader"
-    }
-    "neoforge" = @{
-        Names = @("NeoForge", "neoforge", "NeoForge Mod Loader")
-        Reason = "Disallowed mod loader"
+    "tweakeroo" = @{
+        Names = @("Tweakeroo", "tweakeroo", "Tweakeroo")
     }
 }
 
@@ -1069,7 +978,6 @@ foreach ($file in $jarFiles) {
     foreach ($modSlug in $disallowedMods.Keys) {
         $modData = $disallowedMods[$modSlug]
         $isDisallowed = $false
-        $matchType = ""
         
         # Check filename
         foreach ($name in $modData.Names) {
@@ -1077,7 +985,6 @@ foreach ($file in $jarFiles) {
                 $fileName -match [regex]::Escape($modSlug.ToLower()) -or
                 $fileName -match [regex]::Escape(($name -replace ' ', '').ToLower())) {
                 $isDisallowed = $true
-                $matchType = "Filename match"
                 break
             }
         }
@@ -1086,46 +993,18 @@ foreach ($file in $jarFiles) {
         if (-not $isDisallowed) {
             if ($modInfo.ModId -and $modInfo.ModId.ToLower() -match $modSlug.ToLower()) {
                 $isDisallowed = $true
-                $matchType = "ModID match"
             }
             elseif ($modInfo.Name -and $modInfo.Name.ToLower() -match $modSlug.ToLower()) {
                 $isDisallowed = $true
-                $matchType = "ModName match"
             }
         }
         
-        # Query Modrinth API to verify if it's the actual mod
         if ($isDisallowed) {
-            try {
-                $modrinthCheck = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$modSlug" -Method Get -UseBasicParsing -ErrorAction SilentlyContinue
-                if ($modrinthCheck.id) {
-                    $disallowedModsFound += [PSCustomObject]@{
-                        FileName = $file.Name
-                        ModName = $modData.Names[0]
-                        ModSlug = $modSlug
-                        Reason = $modData.Reason
-                        MatchType = $matchType
-                        FilePath = $file.FullName
-                        ModrinthUrl = "https://modrinth.com/mod/$modSlug"
-                        DetectedName = if ($modInfo.Name) { $modInfo.Name } else { "Unknown" }
-                        DetectedModId = if ($modInfo.ModId) { $modInfo.ModId } else { "Unknown" }
-                    }
-                    break
-                }
-            } catch {
-                # If API fails, still flag it based on local detection
-                $disallowedModsFound += [PSCustomObject]@{
-                    FileName = $file.Name
-                    ModName = $modData.Names[0]
-                    ModSlug = $modSlug
-                    Reason = $modData.Reason
-                    MatchType = "$matchType (API unavailable)"
-                    FilePath = $file.FullName
-                    ModrinthUrl = "https://modrinth.com/mod/$modSlug"
-                    DetectedName = if ($modInfo.Name) { $modInfo.Name } else { "Unknown" }
-                    DetectedModId = if ($modInfo.ModId) { $modInfo.ModId } else { "Unknown" }
-                }
+            $disallowedModsFound += [PSCustomObject]@{
+                FileName = $file.Name
+                ModName = $modData.Names[0]
             }
+            break
         }
     }
 }
@@ -1140,12 +1019,6 @@ if ($disallowedModsFound.Count -gt 0) {
         Write-Host "  ╠══" -ForegroundColor Red
         Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
         Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
-        Write-Host "  ║ Reason: $($mod.Reason)" -ForegroundColor Yellow
-        Write-Host "  ║ Match Type: $($mod.MatchType)" -ForegroundColor Yellow
-        if ($mod.DetectedName -ne "Unknown") {
-            Write-Host "  ║ Detected as: $($mod.DetectedName)" -ForegroundColor Gray
-        }
-        Write-Host "  ║ Modrinth: $($mod.ModrinthUrl)" -ForegroundColor Blue
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
         Write-Host ""
     }
@@ -1352,17 +1225,25 @@ if ($verifiedMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Unknown Mods Section
+# Unknown Mods Section with Box
 Write-Host "══════════════════════════════════════════" -ForegroundColor Yellow
 Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
 Write-Host "══════════════════════════════════════════" -ForegroundColor Yellow
 
 if ($unknownMods.Count -gt 0) {
-    foreach ($mod in $unknownMods) {
-        Write-Host "  File: $($mod.FileName)" -ForegroundColor Yellow
-        Write-Host "    Size: $($mod.FileSizeKB) KB" -ForegroundColor Yellow
+    for ($i = 0; $i -lt $unknownMods.Count; $i++) {
+        $mod = $unknownMods[$i]
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Yellow
+        Write-Host "  ║ UNKNOWN MOD" -ForegroundColor Yellow
+        Write-Host "  ╠══" -ForegroundColor Yellow
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
+        Write-Host "  ║ Size: $($mod.FileSizeKB) KB" -ForegroundColor Yellow
         if ($mod.ModName) {
-            Write-Host "    Identified as: $($mod.ModName)" -ForegroundColor Cyan
+            Write-Host "  ║ Identified as: $($mod.ModName)" -ForegroundColor Cyan
+        }
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Yellow
+        if ($i -lt $unknownMods.Count - 1) {
+            Write-Host ""
         }
     }
 } else {
@@ -1370,27 +1251,35 @@ if ($unknownMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Tampered Mods Section
+# Tampered Mods Section with Box
 Write-Host "══════════════════════════════════════════" -ForegroundColor DarkYellow
 Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
 Write-Host "══════════════════════════════════════════" -ForegroundColor DarkYellow
 
 if ($tamperedMods.Count -gt 0) {
-    foreach ($mod in $tamperedMods) {
+    for ($i = 0; $i -lt $tamperedMods.Count; $i++) {
+        $mod = $tamperedMods[$i]
         $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-        Write-Host "  File: $($mod.FileName)" -ForegroundColor DarkYellow
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkYellow
+        Write-Host "  ║ TAMPERED MOD" -ForegroundColor DarkYellow
+        Write-Host "  ╠══" -ForegroundColor DarkYellow
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
         if ($mod.ModName) {
-            Write-Host "    Mod: $($mod.ModName)" -ForegroundColor Magenta
+            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Magenta
         }
-        Write-Host "    Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
-        Write-Host "    Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        Write-Host "  ║ Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
+        Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkYellow
+        if ($i -lt $tamperedMods.Count - 1) {
+            Write-Host ""
+        }
     }
 } else {
     Write-Host "  No tampered mods found" -ForegroundColor Gray
 }
 Write-Host ""
 
-# Cheat Mods Section
+# Cheat Mods Section with Box
 Write-Host "══════════════════════════════════════════" -ForegroundColor Red
 Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
 Write-Host "══════════════════════════════════════════" -ForegroundColor Red
@@ -1398,35 +1287,36 @@ Write-Host "══════════════════════�
 if ($cheatMods.Count -gt 0) {
     for ($i = 0; $i -lt $cheatMods.Count; $i++) {
         $mod = $cheatMods[$i]
-        
-        Write-Host "  File: $($mod.FileName)" -ForegroundColor Red
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "  ║ CHEAT MOD DETECTED" -ForegroundColor Red
+        Write-Host "  ╠══" -ForegroundColor Red
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
         
         if ($mod.ModName) {
-            Write-Host "    Mod: $($mod.ModName)" -ForegroundColor Gray
+            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Gray
         }
         
         # Show cheat strings as a list using • bullets
         if ($mod.StringsFound.Count -gt 0) {
-            Write-Host "    Detected Cheat Strings:" -ForegroundColor Yellow
+            Write-Host "  ║ Detected Cheat Strings:" -ForegroundColor Yellow
             $cheatList = @($mod.StringsFound) | Sort-Object
             foreach ($cheatString in $cheatList) {
-                Write-Host "      • $cheatString" -ForegroundColor Magenta
+                Write-Host "  ║   • $cheatString" -ForegroundColor Magenta
             }
         }
         
         if ($mod.ExpectedSizeKB -gt 0) {
             $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
             if ($mod.SizeDiffKB -eq 0) {
-                Write-Host "    Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Green
+                Write-Host "  ║ Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Green
             } else {
-                Write-Host "    Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Yellow
-                Write-Host "    Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+                Write-Host "  ║ Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Yellow
+                Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
             }
         }
-        
-        # Add gray separator between cheat mods (but not after the last one)
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
         if ($i -lt $cheatMods.Count - 1) {
-            Write-Host "    ══════════════════════════════════════════" -ForegroundColor Gray
+            Write-Host ""
         }
     }
 } else {
@@ -1434,27 +1324,22 @@ if ($cheatMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Disallowed Mods Section (Modrinth specific)
+# Disallowed Mods Section (Simplified)
 Write-Host "══════════════════════════════════════════" -ForegroundColor Red
-Write-Host "MODRINTH DISALLOWED MODS: $($disallowedModsFound.Count) ⚠" -ForegroundColor Red
+Write-Host "DISALLOWED MODS: $($disallowedModsFound.Count) ⚠" -ForegroundColor Red
 Write-Host "══════════════════════════════════════════" -ForegroundColor Red
 
 if ($disallowedModsFound.Count -gt 0) {
     for ($i = 0; $i -lt $disallowedModsFound.Count; $i++) {
         $mod = $disallowedModsFound[$i]
-        
-        Write-Host "  File: $($mod.FileName)" -ForegroundColor Red
-        Write-Host "    Mod: $($mod.ModName)" -ForegroundColor Gray
-        Write-Host "    Reason: $($mod.Reason)" -ForegroundColor Yellow
-        Write-Host "    Match Type: $($mod.MatchType)" -ForegroundColor Yellow
-        if ($mod.DetectedName -ne "Unknown") {
-            Write-Host "    Detected as: $($mod.DetectedName)" -ForegroundColor Gray
-        }
-        Write-Host "    Modrinth: $($mod.ModrinthUrl)" -ForegroundColor Blue
-        
-        # Add gray separator between disallowed mods (but not after the last one)
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "  ║ DISALLOWED MOD DETECTED" -ForegroundColor Red
+        Write-Host "  ╠══" -ForegroundColor Red
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
+        Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
         if ($i -lt $disallowedModsFound.Count - 1) {
-            Write-Host "    ══════════════════════════════════════════" -ForegroundColor Gray
+            Write-Host ""
         }
     }
 } else {
