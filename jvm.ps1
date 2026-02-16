@@ -933,100 +933,6 @@ function Check-Strings($filePath) {
     return $stringsFound
 }
 
-# ==================== DISALLOWED MODS DETECTOR ====================
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
-Write-Host "DISALLOWED MODS DETECTOR" -ForegroundColor Red
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
-Write-Host ""
-
-# List of disallowed mods with their Modrinth slugs
-$disallowedMods = @{
-    "xeros-minimap" = @{
-        Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod")
-    }
-    "freecam" = @{
-        Names = @("Freecam", "freecam", "FreeCam", "Free Cam")
-    }
-    "health-indicators" = @{
-        Names = @("Health Indicators", "health indicators", "HealthIndicators", "Health Indicators Mod")
-    }
-    "clickcrystals" = @{
-        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod")
-    }
-    "mousetweaks" = @{
-        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks")
-    }
-    "itemscroller" = @{
-        Names = @("Item Scroller", "itemscroller", "ItemScroller")
-    }
-    "tweakeroo" = @{
-        Names = @("Tweakeroo", "tweakeroo", "Tweakeroo")
-    }
-}
-
-# Scan for disallowed mods
-$disallowedModsFound = @()
-$jarFiles = Get-ChildItem -Path $mods -Filter *.jar
-
-Write-Host "Scanning for disallowed mods..." -ForegroundColor White
-
-foreach ($file in $jarFiles) {
-    $fileName = $file.Name.ToLower()
-    $modInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
-    
-    # Check each disallowed mod
-    foreach ($modSlug in $disallowedMods.Keys) {
-        $modData = $disallowedMods[$modSlug]
-        $isDisallowed = $false
-        
-        # Check filename
-        foreach ($name in $modData.Names) {
-            if ($fileName -match [regex]::Escape($name.ToLower()) -or 
-                $fileName -match [regex]::Escape($modSlug.ToLower()) -or
-                $fileName -match [regex]::Escape(($name -replace ' ', '').ToLower())) {
-                $isDisallowed = $true
-                break
-            }
-        }
-        
-        # Check mod info from jar
-        if (-not $isDisallowed) {
-            if ($modInfo.ModId -and $modInfo.ModId.ToLower() -match $modSlug.ToLower()) {
-                $isDisallowed = $true
-            }
-            elseif ($modInfo.Name -and $modInfo.Name.ToLower() -match $modSlug.ToLower()) {
-                $isDisallowed = $true
-            }
-        }
-        
-        if ($isDisallowed) {
-            $disallowedModsFound += [PSCustomObject]@{
-                FileName = $file.Name
-                ModName = $modData.Names[0]
-            }
-            break
-        }
-    }
-}
-
-# Display disallowed mods
-if ($disallowedModsFound.Count -gt 0) {
-    Write-Host "  [!] Found $($disallowedModsFound.Count) disallowed mod(s):" -ForegroundColor Red
-    Write-Host ""
-    foreach ($mod in $disallowedModsFound) {
-        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ DISALLOWED MOD DETECTED" -ForegroundColor Red
-        Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
-        Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
-        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host ""
-    }
-} else {
-    Write-Host "  [✓] No disallowed mods detected" -ForegroundColor Green
-}
-Write-Host ""
-
 # Collections for results
 $verifiedMods = @(); $unknownMods = @(); $cheatMods = @(); $sizeMismatchMods = @(); $tamperedMods = @(); $allModsInfo = @()
 
@@ -1197,6 +1103,75 @@ try {
 
 Write-Host "`nScanning complete!`n" -ForegroundColor Green
 
+# ==================== DISALLOWED MODS DETECTOR ====================
+# List of disallowed mods with their Modrinth slugs
+$disallowedMods = @{
+    "xeros-minimap" = @{
+        Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod")
+    }
+    "freecam" = @{
+        Names = @("Freecam", "freecam", "FreeCam", "Free Cam")
+    }
+    "health-indicators" = @{
+        Names = @("Health Indicators", "health indicators", "HealthIndicators", "Health Indicators Mod")
+    }
+    "clickcrystals" = @{
+        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod")
+    }
+    "mousetweaks" = @{
+        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks")
+    }
+    "itemscroller" = @{
+        Names = @("Item Scroller", "itemscroller", "ItemScroller")
+    }
+    "tweakeroo" = @{
+        Names = @("Tweakeroo", "tweakeroo", "Tweakeroo")
+    }
+}
+
+# Scan for disallowed mods
+$disallowedModsFound = @()
+$jarFiles = Get-ChildItem -Path $mods -Filter *.jar
+
+foreach ($file in $jarFiles) {
+    $fileName = $file.Name.ToLower()
+    $modInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
+    
+    # Check each disallowed mod
+    foreach ($modSlug in $disallowedMods.Keys) {
+        $modData = $disallowedMods[$modSlug]
+        $isDisallowed = $false
+        
+        # Check filename
+        foreach ($name in $modData.Names) {
+            if ($fileName -match [regex]::Escape($name.ToLower()) -or 
+                $fileName -match [regex]::Escape($modSlug.ToLower()) -or
+                $fileName -match [regex]::Escape(($name -replace ' ', '').ToLower())) {
+                $isDisallowed = $true
+                break
+            }
+        }
+        
+        # Check mod info from jar
+        if (-not $isDisallowed) {
+            if ($modInfo.ModId -and $modInfo.ModId.ToLower() -match $modSlug.ToLower()) {
+                $isDisallowed = $true
+            }
+            elseif ($modInfo.Name -and $modInfo.Name.ToLower() -match $modSlug.ToLower()) {
+                $isDisallowed = $true
+            }
+        }
+        
+        if ($isDisallowed) {
+            $disallowedModsFound += [PSCustomObject]@{
+                FileName = $file.Name
+                ModName = $modData.Names[0]
+            }
+            break
+        }
+    }
+}
+
 # ==================== RESULTS SECTION ====================
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan
@@ -1225,7 +1200,7 @@ if ($verifiedMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Unknown Mods Section with Box
+# Unknown Mods Section with Box - All Yellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
 Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
@@ -1236,10 +1211,10 @@ if ($unknownMods.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Yellow
         Write-Host "  ║ UNKNOWN MOD" -ForegroundColor Yellow
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Yellow
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor Yellow
         Write-Host "  ║ Size: $($mod.FileSizeKB) KB" -ForegroundColor Yellow
         if ($mod.ModName) {
-            Write-Host "  ║ Identified as: $($mod.ModName)" -ForegroundColor Cyan
+            Write-Host "  ║ Identified as: $($mod.ModName)" -ForegroundColor Yellow
         }
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Yellow
         if ($i -lt $unknownMods.Count - 1) {
@@ -1251,7 +1226,7 @@ if ($unknownMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Tampered Mods Section with Box
+# Tampered Mods Section with Box - All Dark Yellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor DarkYellow
 Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor DarkYellow
@@ -1263,12 +1238,12 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkYellow
         Write-Host "  ║ TAMPERED MOD" -ForegroundColor DarkYellow
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor DarkYellow
         if ($mod.ModName) {
-            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Magenta
+            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor DarkYellow
         }
-        Write-Host "  ║ Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
-        Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        Write-Host "  ║ Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor DarkYellow
+        Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor DarkYellow
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkYellow
         if ($i -lt $tamperedMods.Count - 1) {
             Write-Host ""
@@ -1279,7 +1254,7 @@ if ($tamperedMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Cheat Mods Section with Box
+# Cheat Mods Section with Box - All Red
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
 Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
@@ -1290,27 +1265,27 @@ if ($cheatMods.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
         Write-Host "  ║ CHEAT MOD DETECTED" -ForegroundColor Red
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor Red
         
         if ($mod.ModName) {
-            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Gray
+            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Red
         }
         
         # Show cheat strings as a list using • bullets
         if ($mod.StringsFound.Count -gt 0) {
-            Write-Host "  ║ Detected Cheat Strings:" -ForegroundColor Yellow
+            Write-Host "  ║ Detected Cheat Strings:" -ForegroundColor Red
             $cheatList = @($mod.StringsFound) | Sort-Object
             foreach ($cheatString in $cheatList) {
-                Write-Host "  ║   • $cheatString" -ForegroundColor Magenta
+                Write-Host "  ║   • $cheatString" -ForegroundColor Red
             }
         }
         
         if ($mod.ExpectedSizeKB -gt 0) {
             $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
             if ($mod.SizeDiffKB -eq 0) {
-                Write-Host "  ║ Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Green
+                Write-Host "  ║ Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Red
             } else {
-                Write-Host "  ║ Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Yellow
+                Write-Host "  ║ Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Red
                 Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
             }
         }
@@ -1324,7 +1299,7 @@ if ($cheatMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Disallowed Mods Section (Simplified)
+# Disallowed Mods Section - All Red
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
 Write-Host "DISALLOWED MODS: $($disallowedModsFound.Count) ⚠" -ForegroundColor Red
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
@@ -1335,8 +1310,8 @@ if ($disallowedModsFound.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
         Write-Host "  ║ DISALLOWED MOD DETECTED" -ForegroundColor Red
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
-        Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor Red
+        Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Red
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
         if ($i -lt $disallowedModsFound.Count - 1) {
             Write-Host ""
