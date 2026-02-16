@@ -312,227 +312,6 @@ if ($javaProcesses.Count -eq 0) {
 }
 # ==================== End of Enhanced Fabric/JVM Arguments Scanner ====================
 
-# ==================== DISALLOWED MODS DETECTOR ====================
-Write-Host "══════════════════════════════════════════" -ForegroundColor Red
-Write-Host "DISALLOWED MODS DETECTOR" -ForegroundColor Red
-Write-Host "══════════════════════════════════════════" -ForegroundColor Red
-Write-Host ""
-
-# List of disallowed mods with their Modrinth slugs
-$disallowedMods = @{
-    "clickcrystals" = @{
-        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod", "ClickCrystals")
-        Reason = "PvP macro/automation mod"
-    }
-    "xeros-minimap" = @{
-        Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod")
-        Reason = "Disallowed minimap mod"
-    }
-    "mousetweaks" = @{
-        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks", "Mouse Tweaks Mod")
-        Reason = "Disallowed mouse utility mod"
-    }
-    "wurst" = @{
-        Names = @("Wurst", "wurst", "Wurst Client", "Wurst Mod")
-        Reason = "Cheat client"
-    }
-    "meteor-client" = @{
-        Names = @("Meteor Client", "meteor-client", "Meteor")
-        Reason = "Cheat client"
-    }
-    "aristois" = @{
-        Names = @("Aristois", "aristois", "Aristois Client")
-        Reason = "Cheat client"
-    }
-    "impact" = @{
-        Names = @("Impact", "impact", "Impact Client")
-        Reason = "Cheat client"
-    }
-    "future" = @{
-        Names = @("Future", "future", "Future Client")
-        Reason = "Cheat client"
-    }
-    "forgehax" = @{
-        Names = @("ForgeHax", "forgehax", "ForgeHax Client")
-        Reason = "Cheat client"
-    }
-    "labymod" = @{
-        Names = @("LabyMod", "labymod", "LabyMod Client")
-        Reason = "Disallowed client modification"
-    }
-    "badlion" = @{
-        Names = @("Badlion", "badlion", "Badlion Client")
-        Reason = "Disallowed client modification"
-    }
-    "optifine" = @{
-        Names = @("OptiFine", "optifine", "Optifine")
-        Reason = "Disallowed optimization mod"
-    }
-    "sodium" = @{
-        Names = @("Sodium", "sodium", "Sodium Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "lithium" = @{
-        Names = @("Lithium", "lithium", "Lithium Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "phosphor" = @{
-        Names = @("Phosphor", "phosphor", "Phosphor Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "starlight" = @{
-        Names = @("Starlight", "starlight", "Starlight Mod")
-        Reason = "Disallowed optimization mod"
-    }
-    "caffeine" = @{
-        Names = @("Caffeine", "caffeine", "Caffeine Mod")
-        Reason = "Disallowed performance mod"
-    }
-    "ferritecore" = @{
-        Names = @("FerriteCore", "ferritecore", "FerriteCore Mod")
-        Reason = "Disallowed performance mod"
-    }
-    "krypton" = @{
-        Names = @("Krypton", "krypton", "Krypton Mod")
-        Reason = "Disallowed performance mod"
-    }
-    "entityculling" = @{
-        Names = @("EntityCulling", "entityculling", "Entity Culling")
-        Reason = "Disallowed performance mod"
-    }
-    "reeses-sodium-options" = @{
-        Names = @("Reese's Sodium Options", "reeses-sodium-options", "Reese's Sodium Options Mod")
-        Reason = "Disallowed Sodium addon"
-    }
-    "sodium-extra" = @{
-        Names = @("Sodium Extra", "sodium-extra", "Sodium Extra Mod")
-        Reason = "Disallowed Sodium addon"
-    }
-    "iris" = @{
-        Names = @("Iris", "iris", "Iris Shaders")
-        Reason = "Disallowed shader mod"
-    }
-    "canvas" = @{
-        Names = @("Canvas", "canvas", "Canvas Renderer")
-        Reason = "Disallowed renderer mod"
-    }
-    "fabric-api" = @{
-        Names = @("Fabric API", "fabric-api", "FabricAPI")
-        Reason = "Disallowed mod API"
-    }
-    "fabricloader" = @{
-        Names = @("Fabric Loader", "fabricloader", "FabricLoader")
-        Reason = "Disallowed mod loader"
-    }
-    "forge" = @{
-        Names = @("Forge", "forge", "Forge Mod Loader")
-        Reason = "Disallowed mod loader"
-    }
-    "neoforge" = @{
-        Names = @("NeoForge", "neoforge", "NeoForge Mod Loader")
-        Reason = "Disallowed mod loader"
-    }
-}
-
-# Scan for disallowed mods
-$disallowedModsFound = @()
-$jarFiles = Get-ChildItem -Path $mods -Filter *.jar
-
-Write-Host "Scanning for disallowed mods..." -ForegroundColor White
-
-foreach ($file in $jarFiles) {
-    $fileName = $file.Name.ToLower()
-    $modInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
-    
-    # Check each disallowed mod
-    foreach ($modSlug in $disallowedMods.Keys) {
-        $modData = $disallowedMods[$modSlug]
-        $isDisallowed = $false
-        $matchType = ""
-        
-        # Check filename
-        foreach ($name in $modData.Names) {
-            if ($fileName -match [regex]::Escape($name.ToLower()) -or 
-                $fileName -match [regex]::Escape($modSlug.ToLower()) -or
-                $fileName -match [regex]::Escape(($name -replace ' ', '').ToLower())) {
-                $isDisallowed = $true
-                $matchType = "Filename match"
-                break
-            }
-        }
-        
-        # Check mod info from jar
-        if (-not $isDisallowed) {
-            if ($modInfo.ModId -and $modInfo.ModId.ToLower() -match $modSlug.ToLower()) {
-                $isDisallowed = $true
-                $matchType = "ModID match"
-            }
-            elseif ($modInfo.Name -and $modInfo.Name.ToLower() -match $modSlug.ToLower()) {
-                $isDisallowed = $true
-                $matchType = "ModName match"
-            }
-        }
-        
-        # Query Modrinth API to verify if it's the actual mod
-        if ($isDisallowed) {
-            try {
-                $modrinthCheck = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$modSlug" -Method Get -UseBasicParsing -ErrorAction SilentlyContinue
-                if ($modrinthCheck.id) {
-                    $disallowedModsFound += [PSCustomObject]@{
-                        FileName = $file.Name
-                        ModName = $modData.Names[0]
-                        ModSlug = $modSlug
-                        Reason = $modData.Reason
-                        MatchType = $matchType
-                        FilePath = $file.FullName
-                        ModrinthUrl = "https://modrinth.com/mod/$modSlug"
-                        DetectedName = if ($modInfo.Name) { $modInfo.Name } else { "Unknown" }
-                        DetectedModId = if ($modInfo.ModId) { $modInfo.ModId } else { "Unknown" }
-                    }
-                    break
-                }
-            } catch {
-                # If API fails, still flag it based on local detection
-                $disallowedModsFound += [PSCustomObject]@{
-                    FileName = $file.Name
-                    ModName = $modData.Names[0]
-                    ModSlug = $modSlug
-                    Reason = $modData.Reason
-                    MatchType = "$matchType (API unavailable)"
-                    FilePath = $file.FullName
-                    ModrinthUrl = "https://modrinth.com/mod/$modSlug"
-                    DetectedName = if ($modInfo.Name) { $modInfo.Name } else { "Unknown" }
-                    DetectedModId = if ($modInfo.ModId) { $modInfo.ModId } else { "Unknown" }
-                }
-            }
-        }
-    }
-}
-
-# Display disallowed mods
-if ($disallowedModsFound.Count -gt 0) {
-    Write-Host "  [!] Found $($disallowedModsFound.Count) disallowed mod(s):" -ForegroundColor Red
-    Write-Host ""
-    foreach ($mod in $disallowedModsFound) {
-        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ DISALLOWED MOD DETECTED" -ForegroundColor Red
-        Write-Host "  ╠══" -ForegroundColor Red
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
-        Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
-        Write-Host "  ║ Reason: $($mod.Reason)" -ForegroundColor Yellow
-        Write-Host "  ║ Match Type: $($mod.MatchType)" -ForegroundColor Yellow
-        if ($mod.DetectedName -ne "Unknown") {
-            Write-Host "  ║ Detected as: $($mod.DetectedName)" -ForegroundColor Gray
-        }
-        Write-Host "  ║ Modrinth: $($mod.ModrinthUrl)" -ForegroundColor Blue
-        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host ""
-    }
-} else {
-    Write-Host "  [✓] No disallowed mods detected" -ForegroundColor Green
-}
-Write-Host ""
-
 function Get-Minecraft-Version-From-Mods($modsFolder) {
     $minecraftVersions = @{}
     $jarFiles = Get-ChildItem -Path $modsFolder -Filter *.jar
@@ -1153,6 +932,227 @@ function Check-Strings($filePath) {
     } catch {}
     return $stringsFound
 }
+
+# ==================== DISALLOWED MODS DETECTOR ====================
+Write-Host "══════════════════════════════════════════" -ForegroundColor Red
+Write-Host "DISALLOWED MODS DETECTOR" -ForegroundColor Red
+Write-Host "══════════════════════════════════════════" -ForegroundColor Red
+Write-Host ""
+
+# List of disallowed mods with their Modrinth slugs
+$disallowedMods = @{
+    "clickcrystals" = @{
+        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod", "ClickCrystals")
+        Reason = "PvP macro/automation mod"
+    }
+    "xeros-minimap" = @{
+        Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod")
+        Reason = "Disallowed minimap mod"
+    }
+    "mousetweaks" = @{
+        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks", "Mouse Tweaks Mod")
+        Reason = "Disallowed mouse utility mod"
+    }
+    "wurst" = @{
+        Names = @("Wurst", "wurst", "Wurst Client", "Wurst Mod")
+        Reason = "Cheat client"
+    }
+    "meteor-client" = @{
+        Names = @("Meteor Client", "meteor-client", "Meteor")
+        Reason = "Cheat client"
+    }
+    "aristois" = @{
+        Names = @("Aristois", "aristois", "Aristois Client")
+        Reason = "Cheat client"
+    }
+    "impact" = @{
+        Names = @("Impact", "impact", "Impact Client")
+        Reason = "Cheat client"
+    }
+    "future" = @{
+        Names = @("Future", "future", "Future Client")
+        Reason = "Cheat client"
+    }
+    "forgehax" = @{
+        Names = @("ForgeHax", "forgehax", "ForgeHax Client")
+        Reason = "Cheat client"
+    }
+    "labymod" = @{
+        Names = @("LabyMod", "labymod", "LabyMod Client")
+        Reason = "Disallowed client modification"
+    }
+    "badlion" = @{
+        Names = @("Badlion", "badlion", "Badlion Client")
+        Reason = "Disallowed client modification"
+    }
+    "optifine" = @{
+        Names = @("OptiFine", "optifine", "Optifine")
+        Reason = "Disallowed optimization mod"
+    }
+    "sodium" = @{
+        Names = @("Sodium", "sodium", "Sodium Mod")
+        Reason = "Disallowed optimization mod"
+    }
+    "lithium" = @{
+        Names = @("Lithium", "lithium", "Lithium Mod")
+        Reason = "Disallowed optimization mod"
+    }
+    "phosphor" = @{
+        Names = @("Phosphor", "phosphor", "Phosphor Mod")
+        Reason = "Disallowed optimization mod"
+    }
+    "starlight" = @{
+        Names = @("Starlight", "starlight", "Starlight Mod")
+        Reason = "Disallowed optimization mod"
+    }
+    "caffeine" = @{
+        Names = @("Caffeine", "caffeine", "Caffeine Mod")
+        Reason = "Disallowed performance mod"
+    }
+    "ferritecore" = @{
+        Names = @("FerriteCore", "ferritecore", "FerriteCore Mod")
+        Reason = "Disallowed performance mod"
+    }
+    "krypton" = @{
+        Names = @("Krypton", "krypton", "Krypton Mod")
+        Reason = "Disallowed performance mod"
+    }
+    "entityculling" = @{
+        Names = @("EntityCulling", "entityculling", "Entity Culling")
+        Reason = "Disallowed performance mod"
+    }
+    "reeses-sodium-options" = @{
+        Names = @("Reese's Sodium Options", "reeses-sodium-options", "Reese's Sodium Options Mod")
+        Reason = "Disallowed Sodium addon"
+    }
+    "sodium-extra" = @{
+        Names = @("Sodium Extra", "sodium-extra", "Sodium Extra Mod")
+        Reason = "Disallowed Sodium addon"
+    }
+    "iris" = @{
+        Names = @("Iris", "iris", "Iris Shaders")
+        Reason = "Disallowed shader mod"
+    }
+    "canvas" = @{
+        Names = @("Canvas", "canvas", "Canvas Renderer")
+        Reason = "Disallowed renderer mod"
+    }
+    "fabric-api" = @{
+        Names = @("Fabric API", "fabric-api", "FabricAPI")
+        Reason = "Disallowed mod API"
+    }
+    "fabricloader" = @{
+        Names = @("Fabric Loader", "fabricloader", "FabricLoader")
+        Reason = "Disallowed mod loader"
+    }
+    "forge" = @{
+        Names = @("Forge", "forge", "Forge Mod Loader")
+        Reason = "Disallowed mod loader"
+    }
+    "neoforge" = @{
+        Names = @("NeoForge", "neoforge", "NeoForge Mod Loader")
+        Reason = "Disallowed mod loader"
+    }
+}
+
+# Scan for disallowed mods
+$disallowedModsFound = @()
+$jarFiles = Get-ChildItem -Path $mods -Filter *.jar
+
+Write-Host "Scanning for disallowed mods..." -ForegroundColor White
+
+foreach ($file in $jarFiles) {
+    $fileName = $file.Name.ToLower()
+    $modInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
+    
+    # Check each disallowed mod
+    foreach ($modSlug in $disallowedMods.Keys) {
+        $modData = $disallowedMods[$modSlug]
+        $isDisallowed = $false
+        $matchType = ""
+        
+        # Check filename
+        foreach ($name in $modData.Names) {
+            if ($fileName -match [regex]::Escape($name.ToLower()) -or 
+                $fileName -match [regex]::Escape($modSlug.ToLower()) -or
+                $fileName -match [regex]::Escape(($name -replace ' ', '').ToLower())) {
+                $isDisallowed = $true
+                $matchType = "Filename match"
+                break
+            }
+        }
+        
+        # Check mod info from jar
+        if (-not $isDisallowed) {
+            if ($modInfo.ModId -and $modInfo.ModId.ToLower() -match $modSlug.ToLower()) {
+                $isDisallowed = $true
+                $matchType = "ModID match"
+            }
+            elseif ($modInfo.Name -and $modInfo.Name.ToLower() -match $modSlug.ToLower()) {
+                $isDisallowed = $true
+                $matchType = "ModName match"
+            }
+        }
+        
+        # Query Modrinth API to verify if it's the actual mod
+        if ($isDisallowed) {
+            try {
+                $modrinthCheck = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$modSlug" -Method Get -UseBasicParsing -ErrorAction SilentlyContinue
+                if ($modrinthCheck.id) {
+                    $disallowedModsFound += [PSCustomObject]@{
+                        FileName = $file.Name
+                        ModName = $modData.Names[0]
+                        ModSlug = $modSlug
+                        Reason = $modData.Reason
+                        MatchType = $matchType
+                        FilePath = $file.FullName
+                        ModrinthUrl = "https://modrinth.com/mod/$modSlug"
+                        DetectedName = if ($modInfo.Name) { $modInfo.Name } else { "Unknown" }
+                        DetectedModId = if ($modInfo.ModId) { $modInfo.ModId } else { "Unknown" }
+                    }
+                    break
+                }
+            } catch {
+                # If API fails, still flag it based on local detection
+                $disallowedModsFound += [PSCustomObject]@{
+                    FileName = $file.Name
+                    ModName = $modData.Names[0]
+                    ModSlug = $modSlug
+                    Reason = $modData.Reason
+                    MatchType = "$matchType (API unavailable)"
+                    FilePath = $file.FullName
+                    ModrinthUrl = "https://modrinth.com/mod/$modSlug"
+                    DetectedName = if ($modInfo.Name) { $modInfo.Name } else { "Unknown" }
+                    DetectedModId = if ($modInfo.ModId) { $modInfo.ModId } else { "Unknown" }
+                }
+            }
+        }
+    }
+}
+
+# Display disallowed mods
+if ($disallowedModsFound.Count -gt 0) {
+    Write-Host "  [!] Found $($disallowedModsFound.Count) disallowed mod(s):" -ForegroundColor Red
+    Write-Host ""
+    foreach ($mod in $disallowedModsFound) {
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host "  ║ DISALLOWED MOD DETECTED" -ForegroundColor Red
+        Write-Host "  ╠══" -ForegroundColor Red
+        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
+        Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
+        Write-Host "  ║ Reason: $($mod.Reason)" -ForegroundColor Yellow
+        Write-Host "  ║ Match Type: $($mod.MatchType)" -ForegroundColor Yellow
+        if ($mod.DetectedName -ne "Unknown") {
+            Write-Host "  ║ Detected as: $($mod.DetectedName)" -ForegroundColor Gray
+        }
+        Write-Host "  ║ Modrinth: $($mod.ModrinthUrl)" -ForegroundColor Blue
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
+    }
+} else {
+    Write-Host "  [✓] No disallowed mods detected" -ForegroundColor Green
+}
+Write-Host ""
 
 # Collections for results
 $verifiedMods = @(); $unknownMods = @(); $cheatMods = @(); $sizeMismatchMods = @(); $tamperedMods = @(); $allModsInfo = @()
