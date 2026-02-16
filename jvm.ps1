@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`neDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 # ASCII Art Title - Using block characters
 $asciiTitle = @"
