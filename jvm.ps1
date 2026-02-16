@@ -1211,10 +1211,10 @@ if ($unknownMods.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Yellow
         Write-Host "  ║ UNKNOWN MOD" -ForegroundColor Yellow
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Yellow
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor Yellow
-        Write-Host "  ║ Size: $($mod.FileSizeKB) KB" -ForegroundColor Yellow
+        Write-Host ("  ║ File: " + $mod.FileName) -ForegroundColor Yellow
+        Write-Host ("  ║ Size: " + $mod.FileSizeKB + " KB") -ForegroundColor Yellow
         if ($mod.ModName) {
-            Write-Host "  ║ Identified as: $($mod.ModName)" -ForegroundColor Cyan
+            Write-Host ("  ║ Identified as: " + $mod.ModName) -ForegroundColor Cyan
         }
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Yellow
         if ($i -lt $unknownMods.Count - 1) {
@@ -1238,12 +1238,12 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkYellow
         Write-Host "  ║ TAMPERED MOD" -ForegroundColor DarkYellow
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor DarkYellow
+        Write-Host ("  ║ File: " + $mod.FileName) -ForegroundColor DarkYellow
         if ($mod.ModName) {
-            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Magenta
+            Write-Host ("  ║ Mod: " + $mod.ModName) -ForegroundColor Magenta
         }
-        Write-Host "  ║ Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
-        Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        Write-Host ("  ║ Size: " + $mod.ActualSizeKB + " KB (Expected: " + $mod.ExpectedSizeKB + " KB)") -ForegroundColor Magenta
+        Write-Host ("  ║ Difference: " + $sign + $mod.SizeDiffKB + " KB") -ForegroundColor Red
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkYellow
         if ($i -lt $tamperedMods.Count - 1) {
             Write-Host ""
@@ -1265,10 +1265,10 @@ if ($cheatMods.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
         Write-Host "  ║ CHEAT MOD DETECTED" -ForegroundColor Red
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor Red
+        Write-Host ("  ║ File: " + $mod.FileName) -ForegroundColor Red
         
         if ($mod.ModName) {
-            Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
+            Write-Host ("  ║ Mod: " + $mod.ModName) -ForegroundColor White
         }
         
         # Show cheat strings as a list using • bullets
@@ -1276,17 +1276,17 @@ if ($cheatMods.Count -gt 0) {
             Write-Host "  ║ Detected Cheat Strings:" -ForegroundColor Yellow
             $cheatList = @($mod.StringsFound) | Sort-Object
             foreach ($cheatString in $cheatList) {
-                Write-Host "  ║   • $cheatString" -ForegroundColor Magenta
+                Write-Host ("  ║   • " + $cheatString) -ForegroundColor Magenta
             }
         }
         
         if ($mod.ExpectedSizeKB -gt 0) {
             $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
             if ($mod.SizeDiffKB -eq 0) {
-                Write-Host "  ║ Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor Red
+                Write-Host ("  ║ Size matches Modrinth: " + $mod.ExpectedSizeKB + " KB ✓") -ForegroundColor Red
             } else {
-                Write-Host "  ║ Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Red
-                Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+                Write-Host ("  ║ Size: " + $mod.FileSizeKB + " KB (Expected: " + $mod.ExpectedSizeKB + " KB)") -ForegroundColor Red
+                Write-Host ("  ║ Difference: " + $sign + $mod.SizeDiffKB + " KB") -ForegroundColor Red
             }
         }
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
@@ -1310,8 +1310,8 @@ if ($disallowedModsFound.Count -gt 0) {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
         Write-Host "  ║ DISALLOWED MOD DETECTED" -ForegroundColor Red
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ File: $($mod.FileName)" -ForegroundColor White
-        Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor White
+        Write-Host ("  ║ File: " + $mod.FileName) -ForegroundColor White
+        Write-Host ("  ║ Mod: " + $mod.ModName) -ForegroundColor White
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
         if ($i -lt $disallowedModsFound.Count - 1) {
             Write-Host ""
