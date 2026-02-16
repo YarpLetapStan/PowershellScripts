@@ -1109,9 +1109,9 @@ $cheatStrings = @(
     "pingspoof", "ping spoof",
     "webmacro", "web macro",
     "selfdestruct", "self destruct",
-    "hitboxes", "lvstrng"
-    "swapBackToOriginalSlot"
-    "attackRegisteredThisClick"
+    "hitboxes", "lvstrng",
+    "swapBackToOriginalSlot",
+    "attackRegisteredThisClick",
     "findKnockbackSword" 
 )
 
