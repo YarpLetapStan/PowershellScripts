@@ -1200,7 +1200,7 @@ if ($verifiedMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Unknown Mods Section with Box
+# Unknown Mods Section with Box - All Yellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
 Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
@@ -1226,7 +1226,7 @@ if ($unknownMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Tampered Mods Section with Box
+# Tampered Mods Section with Box - All Dark Yellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor DarkYellow
 Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor DarkYellow
@@ -1242,7 +1242,7 @@ if ($tamperedMods.Count -gt 0) {
         if ($mod.ModName) {
             Write-Host "  ║ Mod: $($mod.ModName)" -ForegroundColor Magenta
         }
-        Write-Host "  ║ Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor DarkYellow
+        Write-Host "  ║ Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
         Write-Host "  ║ Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkYellow
         if ($i -lt $tamperedMods.Count - 1) {
@@ -1254,7 +1254,7 @@ if ($tamperedMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Cheat Mods Section with Box
+# Cheat Mods Section with Box - All Red
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
 Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
@@ -1299,7 +1299,7 @@ if ($cheatMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Disallowed Mods Section - All White Text
+# Disallowed Mods Section - All White Text with Red Box
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
 Write-Host "DISALLOWED MODS: $($disallowedModsFound.Count) ⚠" -ForegroundColor Red
 Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
