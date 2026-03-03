@@ -868,32 +868,27 @@ function Fetch-Megabase($hash) {
     return $null
 }
 
-# Enhanced cheat strings list
 $cheatStrings = @(
-    "AimAssist", "AutoAnchor", "AutoArmor", "AutoClicker", "AutoCrystal", "AutoDoubleHand", 
-    "AutoHitCrystal", "AutoPot", "AutoTotem", 
-    "Donut", "DoubleAnchor", "FakeInv", "FakeLag", 
-    "Friends", "HoverTotem", "InventoryTotem", "JumpReset",
-    "autocrystal", "auto crystal", "cw crystal", "autohitcrystal",
-    "autoanchor", "auto anchor", "anchortweaks", "anchor macro",
-    "autototem", "auto totem", "legittotem", "inventorytotem", "hover totem",
-    "autopot", "auto pot", "velocity",
-    "autodoublehand", "auto double hand",
-    "autoarmor", "auto armor",
-    "automace",
-    "aimassist", "aim assist",
+    "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal"
+    "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", 
+    "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", 
+    "anchortweaks", "anchor macro", "safe anchor", "safeanchor",
+    "AutoTotem", "autototem", "auto totem", "InventoryTotem", 
+    "inventorytotem", "HoverTotem", "hover totem", "legittotem",
+    "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot",
+    "AutoArmor", "autoarmor", "auto armor",
+    "AutoDoubleHand", "autodoublehand", "auto double hand",
+    "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe..." 
+    "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker",
+    "findKnockbackSword", "attackRegisteredThisClick",
+    "AimAssist", "aimassist", "aim assist",
     "triggerbot", "trigger bot",
-    "shieldbreaker", "shield breaker",
-    "axespam", "axe spam",
-    "pingspoof", "ping spoof",
+    "FakeInv", "Friends", "hoveredSlot", "swapBackToOriginalSlot",
+    "FakeLag", "pingspoof", "ping spoof", "velocity",
     "webmacro", "web macro",
-    "selfdestruct", "self destruct",
-    "hitboxes", "lvstrng",
-    "swapBackToOriginalSlot",
-    "attackRegisteredThisClick",
-    "findKnockbackSword" 
+    "Hitboxes", "lvstrng", "dqrkis", "selfdestruct", "self destruct",
+    "AutoMace"
 )
-
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
     
