@@ -879,7 +879,7 @@ $cheatStrings = @(
     "AutoArmor", "autoarmor", "auto armor",
     "AutoDoubleHand", "autodoublehand", "auto double hand",
     "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe..." 
-    "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker",
+    "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin"
     "findKnockbackSword", "attackRegisteredThisClick",
     "AimAssist", "aimassist", "aim assist",
     "triggerbot", "trigger bot",
