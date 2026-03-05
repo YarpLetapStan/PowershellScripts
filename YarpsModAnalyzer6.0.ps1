@@ -870,23 +870,23 @@ function Fetch-Megabase($hash) {
 
 $cheatStrings = @(
     "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal"
-    "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", 
-    "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", 
+    "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", "healPotSlot", 
+    "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", "HasAnchor"
     "anchortweaks", "anchor macro", "safe anchor", "safeanchor",
     "AutoTotem", "autototem", "auto totem", "InventoryTotem", 
     "inventorytotem", "HoverTotem", "hover totem", "legittotem",
-    "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot",
-    "AutoArmor", "autoarmor", "auto armor",
+    "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot"
+    "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack"
     "AutoDoubleHand", "autodoublehand", "auto double hand",
     "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe..." 
     "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin"
     "findKnockbackSword", "attackRegisteredThisClick",
     "AimAssist", "aimassist", "aim assist",
     "triggerbot", "trigger bot",
-    "FakeInv", "Friends", "hoveredSlot", "swapBackToOriginalSlot",
+    "FakeInv", "Friends", "swapBackToOriginalSlot",
     "FakeLag", "pingspoof", "ping spoof", "velocity",
     "webmacro", "web macro",
-    "Hitboxes", "lvstrng", "dqrkis", "selfdestruct", "self destruct",
+    "lvstrng", "dqrkis", "selfdestruct", "self destruct",
     "AutoMace"
 )
 function Check-Strings($filePath) {
@@ -913,6 +913,7 @@ function Check-Strings($filePath) {
                 }
             }
         } else {
+            # Check main file content
             $content = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
             foreach ($string in $cheatStrings) {
                 if ($string -eq "velocity") {
@@ -923,6 +924,29 @@ function Check-Strings($filePath) {
                     $stringsFound.Add($string) | Out-Null
                 }
             }
+            
+            # Also check .class files inside the JAR
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
+            $classEntries = $zip.Entries | Where-Object { $_.Name -like '*.class' }
+            
+            foreach ($entry in $classEntries) {
+                $reader = New-Object System.IO.StreamReader($entry.Open())
+                $classContent = $reader.ReadToEnd()
+                $reader.Close()
+                
+                $classContentLower = $classContent.ToLower()
+                foreach ($string in $cheatStrings) {
+                    if ($string -eq "velocity") {
+                        if ($classContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                            $stringsFound.Add($string) | Out-Null
+                        }
+                    } elseif ($classContentLower -match $string.ToLower()) {
+                        $stringsFound.Add($string) | Out-Null
+                    }
+                }
+            }
+            $zip.Dispose()
         }
     } catch {}
     return $stringsFound
