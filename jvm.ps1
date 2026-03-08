@@ -887,7 +887,7 @@ $cheatStrings = @(
     "FakeLag", "pingspoof", "ping spoof", "velocity",
     "webmacro", "web macro", "arrayOfString", "itemUseCooldown"
     "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown" 
-    "AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing()"
+    "AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing()", "isGlowing" 
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
