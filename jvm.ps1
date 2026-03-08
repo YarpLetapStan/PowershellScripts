@@ -960,43 +960,28 @@ function Check-Strings($filePath) {
                     if ($isNestedJar) {
     Scan-JarContent -jarPath $extractedPath -depth ($depth + 1) -rootJarName $rootJarName
 }
-                    }
-                    elseif ($isTextFile) {
-                        # Read text file content
-                        try {
-                            $content = Get-Content $extractedPath -Raw -ErrorAction Stop
-                            $contentLower = $content.ToLower()
-                            
-                            foreach ($string in $cheatStrings) {
-                                # Special handling for "velocity" to avoid false positives
-                                if ($string -eq "velocity") {
-                                    if ($contentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-                                        $stringsFound.Add($string) | Out-Null
-                                    }
-                                }
-                                elseif ($contentLower -match [regex]::Escape($string.ToLower())) {
-                                    $stringsFound.Add($string) | Out-Null
-                                }
-                            }
-                        } catch {
-                            # If can't read as text, try strings approach
-                            if ($stringsPath) {
-                                $tempStringFile = Join-Path $env:TEMP "temp_nested_$(Get-Random).txt"
-                                & $stringsPath $extractedPath 2>$null | Out-File $tempStringFile -Encoding utf8
-                                if (Test-Path $tempStringFile) {
-                                    $binaryContent = Get-Content $tempStringFile -Raw
-                                    Remove-Item $tempStringFile -Force
-                                    
-                                    foreach ($string in $cheatStrings) {
-                                        if ($binaryContent -match [regex]::Escape($string)) {
-                                            $stringsFound.Add($string) | Out-Null
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                   elseif ($entryName -like '*.class') {
+
+elseif ($isTextFile) {
+
+    try {
+        $content = Get-Content $extractedPath -Raw -ErrorAction Stop
+        $contentLower = $content.ToLower()
+
+        foreach ($string in $cheatStrings) {
+            if ($string -eq "velocity") {
+                if ($contentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                    $stringsFound.Add($string) | Out-Null
+                }
+            }
+            elseif ($contentLower -match [regex]::Escape($string.ToLower())) {
+                $stringsFound.Add($string) | Out-Null
+            }
+        }
+    } catch {}
+
+}
+
+elseif ($entryName -like '*.class') {
 
     try {
         $stream = $entry.Open()
@@ -1015,36 +1000,39 @@ function Check-Strings($filePath) {
 
     } catch {}
 }
-                                
-                                $classContentLower = $classContent.ToLower()
-                                foreach ($string in $cheatStrings) {
-                                    if ($string -eq "velocity") {
-                                        if ($classContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                            # If can't read as text, try strings approach
+                            if ($stringsPath) {
+                                $tempStringFile = Join-Path $env:TEMP "temp_nested_$(Get-Random).txt"
+                                & $stringsPath $extractedPath 2>$null | Out-File $tempStringFile -Encoding utf8
+                                if (Test-Path $tempStringFile) {
+                                    $binaryContent = Get-Content $tempStringFile -Raw
+                                    Remove-Item $tempStringFile -Force
+                                    
+                                    foreach ($string in $cheatStrings) {
+                                        if ($binaryContent -match [regex]::Escape($string)) {
                                             $stringsFound.Add($string) | Out-Null
                                         }
-                                    } elseif ($classContentLower -match [regex]::Escape($string.ToLower())) {
-                                        $stringsFound.Add($string) | Out-Null
                                     }
-                                }
-                            }
-                        } else {
-                            # Fallback to direct binary read with pattern matching
-                            $bytes = [System.IO.File]::ReadAllBytes($extractedPath)
-                            $content = [System.Text.Encoding]::ASCII.GetString($bytes)
-                            $contentLower = $content.ToLower()
-                            
-                            foreach ($string in $cheatStrings) {
-                                if ($string -eq "velocity") {
-                                    if ($contentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-                                        $stringsFound.Add($string) | Out-Null
-                                    }
-                                } elseif ($contentLower -match [regex]::Escape($string.ToLower())) {
-                                    $stringsFound.Add($string) | Out-Null
                                 }
                             }
                         }
                     }
-                    
+                  
+                           else {
+
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($extractedPath)
+        $content = [System.Text.Encoding]::ASCII.GetString($bytes).ToLower()
+
+        foreach ($string in $cheatStrings) {
+            if ($content -match [regex]::Escape($string.ToLower())) {
+                $stringsFound.Add($string) | Out-Null
+            }
+        }
+
+    } catch {}
+}
+                       
                     # Clean up extracted file
                     if (Test-Path $extractedPath) {
                         Remove-Item $extractedPath -Force -ErrorAction SilentlyContinue
