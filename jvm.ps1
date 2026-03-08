@@ -984,28 +984,7 @@ foreach ($entry in $entries) {
 
     } catch {}
 }
-    # Normal class/json scanning
-    try {
-        $reader = New-Object System.IO.StreamReader($entry.Open())
-        $entryContent = $reader.ReadToEnd()
-        $reader.Close()
-
-        $entryContentLower = $entryContent.ToLower()
-
-        foreach ($string in $cheatStrings) {
-            if ($string -eq "velocity") {
-                if ($entryContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-                    $stringsFound.Add($string) | Out-Null
-                }
-            }
-            elseif ($entryContentLower -match $string.ToLower()) {
-                $stringsFound.Add($string) | Out-Null
-            }
-        }
-
-    } catch {}
-}
-            $zip.Dispose()
+$zip.Dispose()
         }
     } catch {}
     return $stringsFound
