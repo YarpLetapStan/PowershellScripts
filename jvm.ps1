@@ -880,11 +880,11 @@ $cheatStrings = @(
 "AutoDoubleHand", "autodoublehand", "auto double hand",
 "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe...",
 "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin",
-"findKnockbackSword", "attackRegisteredThisClick",
+"findKnockbackSword", "attackRegisteredThisClick", "autoCrystalPlaceClock",
 "AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
 "triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown",
 "FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", 
-"FakeLag", "pingspoof", "ping spoof", "velocity", "onTickMovement", "invokeDoItemUse",
+"FakeLag", "pingspoof", "ping spoof", "velocity", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", 
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
 "AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "isGlowing", "invokeDoAttack"
