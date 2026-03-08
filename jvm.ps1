@@ -881,11 +881,11 @@ $cheatStrings = @(
 "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe...",
 "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin",
 "findKnockbackSword", "attackRegisteredThisClick",
-"AimAssist", "aimassist", "aim assist",
-"triggerbot", "trigger bot",
+"AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
+"triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown",
 "FakeInv", "swapBackToOriginalSlot","setSelectedSlot",
-"FakeLag", "pingspoof", "ping spoof", "velocity",
-"webmacro", "web macro", "arrayOfString", "invokeDoItemUse",
+"FakeLag", "pingspoof", "ping spoof", "velocity", "onTickMovement", "org.spongepowered.asm.mixin.injection",
+"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
 "AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "isGlowing", "invokeDoAttack"
 )
