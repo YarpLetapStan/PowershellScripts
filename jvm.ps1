@@ -887,7 +887,7 @@ $cheatStrings = @(
 "FakeLag", "pingspoof", "ping spoof", "velocity", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", 
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
-"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "isGlowing", "invokeDoAttack"
+"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
