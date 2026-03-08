@@ -928,7 +928,7 @@ function Check-Strings($filePath) {
             # Also check .class files and .json files inside the JAR
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-            $entries = $zip.Entries | Where-Object { $_.Name -like '*.class' -or $_.Name -like '*.json' }
+            $entries = $zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' }
             
             foreach ($entry in $entries) {
                 $reader = New-Object System.IO.StreamReader($entry.Open())
