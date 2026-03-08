@@ -869,25 +869,25 @@ function Fetch-Megabase($hash) {
 }
 
 $cheatStrings = @(
-    "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal"
-    "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", "healPotSlot", 
-    "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", "HasAnchor"
-    "anchortweaks", "anchor macro", "safe anchor", "safeanchor",
-    "AutoTotem", "autototem", "auto totem", "InventoryTotem", 
-    "inventorytotem", "HoverTotem", "hover totem", "legittotem",
-    "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot"
-    "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack"
-    "AutoDoubleHand", "autodoublehand", "auto double hand",
-    "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe..." 
-    "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin"
-    "findKnockbackSword", "attackRegisteredThisClick",
-    "AimAssist", "aimassist", "aim assist",
-    "triggerbot", "trigger bot",
-    "FakeInv", "Friends", "swapBackToOriginalSlot",
-    "FakeLag", "pingspoof", "ping spoof", "velocity",
-    "webmacro", "web macro",
-    "lvstrng", "dqrkis", "selfdestruct", "self destruct",
-    "AutoMace"
+    "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal",
+"AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", "healPotSlot",
+"AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", "HasAnchor",
+"anchortweaks", "anchor macro", "safe anchor", "safeanchor",
+"AutoTotem", "autototem", "auto totem", "InventoryTotem",
+"inventorytotem", "HoverTotem", "hover totem", "legittotem",
+"AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot",
+"AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack",
+"AutoDoubleHand", "autodoublehand", "auto double hand",
+"AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe...",
+"Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin",
+"findKnockbackSword", "attackRegisteredThisClick", "autoCrystalPlaceClock",
+"AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
+"triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown",
+"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", 
+"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", 
+"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
+"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
+"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
@@ -925,30 +925,70 @@ function Check-Strings($filePath) {
                 }
             }
             
-            # Also check .class files inside the JAR
+            # Also check .class files and .json files inside the JAR
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-            $classEntries = $zip.Entries | Where-Object { $_.Name -like '*.class' }
-            
-            foreach ($entry in $classEntries) {
-                $reader = New-Object System.IO.StreamReader($entry.Open())
-                $classContent = $reader.ReadToEnd()
-                $reader.Close()
-                
-                $classContentLower = $classContent.ToLower()
-                foreach ($string in $cheatStrings) {
-                    if ($string -eq "velocity") {
-                        if ($classContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+           $entries = $zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' }
+
+foreach ($entry in $entries) {
+
+    # ===== Nested JAR scanning =====
+    if ($entry.Name -like "*.jar") {
+        try {
+
+            $ms = New-Object System.IO.MemoryStream
+            $entry.Open().CopyTo($ms)
+            $ms.Position = 0
+
+            $nestedZip = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
+
+            foreach ($nestedEntry in $nestedZip.Entries) {
+
+                if ($nestedEntry.Name -match '\.(class|json)$') {
+
+                    $reader = New-Object System.IO.StreamReader($nestedEntry.Open())
+                    $nestedContent = $reader.ReadToEnd().ToLower()
+                    $reader.Close()
+
+                    foreach ($string in $cheatStrings) {
+                        if ($nestedContent -match [regex]::Escape($string.ToLower())) {
                             $stringsFound.Add($string) | Out-Null
                         }
-                    } elseif ($classContentLower -match $string.ToLower()) {
-                        $stringsFound.Add($string) | Out-Null
                     }
+
+                }
+
+            }
+
+        } catch {}
+
+        continue
+    }
+
+    # ===== Normal class/json scanning =====
+    try {
+        $reader = New-Object System.IO.StreamReader($entry.Open())
+        $entryContent = $reader.ReadToEnd().ToLower()
+        $reader.Close()
+
+        foreach ($string in $cheatStrings) {
+            if ($string -eq "velocity") {
+                if ($entryContent -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                    $stringsFound.Add($string) | Out-Null
                 }
             }
-            $zip.Dispose()
+            elseif ($entryContent -match $string.ToLower()) {
+                $stringsFound.Add($string) | Out-Null
+            }
         }
+
     } catch {}
+}
+$zip.Dispose()
+        }
+    }
+    catch {}
+    
     return $stringsFound
 }
 
@@ -1097,6 +1137,32 @@ try {
     foreach ($mod in $allModsInfo) {
         $counter++
         Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
+        
+        # Check for single-letter class files
+        $singleLetterClassCount = 0
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+            $classEntries = $zip.Entries | Where-Object { $_.Name -like '*.class' }
+            foreach ($entry in $classEntries) {
+                $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+                if ($className.Length -le 2) {
+                    $singleLetterClassCount++
+                }
+            }
+            $zip.Dispose()
+        } catch {}
+        
+        if ($singleLetterClassCount -gt 15) {
+            # Flag as tampered
+            $tamperedMods += [PSCustomObject]@{ 
+                FileName = $mod.FileName; ModName = $mod.ModName; ActualSizeKB = $mod.FileSizeKB
+                ExpectedSizeKB = $mod.ExpectedSizeKB; SizeDiffKB = $mod.SizeDiffKB
+                TamperReason = "Multiple single-letter class files ($singleLetterClassCount found)"
+            }
+            # Remove from verified mods
+            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
+        }
         
         if ($modStrings = Check-Strings $mod.FilePath) {
             $cheatMods += [PSCustomObject]@{ 
@@ -1267,6 +1333,10 @@ if ($tamperedMods.Count -gt 0) {
         if ($mod.ModName) {
             Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
             Write-Host "Mod: $($mod.ModName)" -ForegroundColor Magenta
+        }
+        if ($mod.TamperReason) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
+            Write-Host "Reason: $($mod.TamperReason)" -ForegroundColor Red
         }
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
         Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
