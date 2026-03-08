@@ -927,7 +927,7 @@ function Check-Strings($filePath) {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         
         # Function to recursively scan JAR contents
-        function Scan-JarContent($jarPath, $depth = 0) {
+        function Scan-JarContent($jarPath, $depth = 0, $rootJarName = "") {
             try {
                 $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
                 
@@ -959,8 +959,8 @@ function Check-Strings($filePath) {
                     
                     if ($isNestedJar) {
                         # Recursively scan nested JAR
-                        Write-Host "`n  [i] $entryName" -ForegroundColor DarkGray
-                        Scan-JarContent -jarPath $extractedPath -depth ($depth + 1)
+                        Write-Host "`n  [i] $rootJarName" -ForegroundColor DarkGray
+                        Scan-JarContent -jarPath $extractedPath -depth ($depth + 1) -rootJarName $rootJarName
                     }
                     elseif ($isTextFile) {
                         # Read text file content
@@ -1048,7 +1048,7 @@ function Check-Strings($filePath) {
         }
         
         # Start recursive scanning from the main JAR
-        Scan-JarContent -jarPath $filePath
+        Scan-JarContent -jarPath $filePath -rootJarName ([System.IO.Path]::GetFileName($filePath))
         
         # Also scan the main JAR file itself with strings.exe if available
         if ($stringsPath) {
