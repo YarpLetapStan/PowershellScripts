@@ -869,25 +869,25 @@ function Fetch-Megabase($hash) {
 }
 
 $cheatStrings = @(
-    "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal"
-    "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", "healPotSlot", 
-    "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", "HasAnchor"
-    "anchortweaks", "anchor macro", "safe anchor", "safeanchor",
-    "AutoTotem", "autototem", "auto totem", "InventoryTotem", 
-    "inventorytotem", "HoverTotem", "hover totem", "legittotem",
-    "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot"
-    "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack"
-    "AutoDoubleHand", "autodoublehand", "auto double hand",
-    "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe..." 
-    "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin"
-    "findKnockbackSword", "attackRegisteredThisClick",
-    "AimAssist", "aimassist", "aim assist",
-    "triggerbot", "trigger bot",
-    "FakeInv", "Friends", "swapBackToOriginalSlot",
-    "FakeLag", "pingspoof", "ping spoof", "velocity",
-    "webmacro", "web macro",
-    "lvstrng", "dqrkis", "selfdestruct", "self destruct",
-    "AutoMace"
+    "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal",
+"AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", "healPotSlot",
+"AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", "HasAnchor",
+"anchortweaks", "anchor macro", "safe anchor", "safeanchor",
+"AutoTotem", "autototem", "auto totem", "InventoryTotem",
+"inventorytotem", "HoverTotem", "hover totem", "legittotem",
+"AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot",
+"AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack",
+"AutoDoubleHand", "autodoublehand", "auto double hand",
+"AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe...",
+"Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin",
+"findKnockbackSword", "attackRegisteredThisClick",
+"AimAssist", "aimassist", "aim assist",
+"triggerbot", "trigger bot",
+"FakeInv", "swapBackToOriginalSlot","setSelectedSlot",
+"FakeLag", "pingspoof", "ping spoof", "velocity",
+"webmacro", "web macro", "arrayOfString", "invokeDoItemUse",
+"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
+"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "isGlowing", "invokeDoAttack"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
