@@ -942,7 +942,7 @@ foreach ($entry in $entries) {
         $ms.Position = 0
 
         # Open nested jar directly from memory
-        $nestedZip = New-Object System.IO.Compression.ZipArchive($ms)
+        $nestedZip = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
 
         foreach ($nestedEntry in $nestedZip.Entries) {
 
@@ -967,11 +967,6 @@ foreach ($entry in $entries) {
 
     continue
 }
-            foreach ($result in $nestedResults) {
-                $stringsFound.Add($result) | Out-Null
-            }
-
-            Remove-Item $tempNestedJar -Force -ErrorAction SilentlyContinue
         } catch {}
         continue
     }
@@ -991,7 +986,7 @@ foreach ($entry in $entries) {
                 }
             }
             elseif ($entryContentLower -match $string.ToLower()) {
-                $stringsFound.Add($string) | OutNull
+                $stringsFound.Add($string) | Out-Null
             }
         }
 
