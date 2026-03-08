@@ -932,45 +932,58 @@ function Check-Strings($filePath) {
 
 foreach ($entry in $entries) {
 
-    # Handle nested jar files
-  if ($entry.Name -like "*.jar") {
-    try {
+    # ===== Nested JAR scanning =====
+    if ($entry.Name -like "*.jar") {
+        try {
 
-        # Load nested jar into memory
-        $ms = New-Object System.IO.MemoryStream
-        $entry.Open().CopyTo($ms)
-        $ms.Position = 0
+            $ms = New-Object System.IO.MemoryStream
+            $entry.Open().CopyTo($ms)
+            $ms.Position = 0
 
-        # Open nested jar directly from memory
-        $nestedZip = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
+            $nestedZip = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
 
-        foreach ($nestedEntry in $nestedZip.Entries) {
+            foreach ($nestedEntry in $nestedZip.Entries) {
 
-            if ($nestedEntry.Name -match '\.(class|json)$') {
+                if ($nestedEntry.Name -match '\.(class|json)$') {
 
-                $stream = $nestedEntry.Open()
-                $reader = New-Object System.IO.StreamReader($stream)
-                $content = $reader.ReadToEnd().ToLower()
-                $reader.Close()
+                    $reader = New-Object System.IO.StreamReader($nestedEntry.Open())
+                    $nestedContent = $reader.ReadToEnd().ToLower()
+                    $reader.Close()
 
-                foreach ($string in $cheatStrings) {
-                    if ($content -match [regex]::Escape($string.ToLower())) {
-                        $stringsFound.Add($string) | Out-Null
+                    foreach ($string in $cheatStrings) {
+                        if ($nestedContent -match [regex]::Escape($string.ToLower())) {
+                            $stringsFound.Add($string) | Out-Null
+                        }
                     }
+
                 }
 
             }
 
-        }
-
-    } catch {}
-
-    continue
-}
         } catch {}
+
         continue
     }
 
+    # ===== Normal class/json scanning =====
+    try {
+        $reader = New-Object System.IO.StreamReader($entry.Open())
+        $entryContent = $reader.ReadToEnd().ToLower()
+        $reader.Close()
+
+        foreach ($string in $cheatStrings) {
+            if ($string -eq "velocity") {
+                if ($entryContent -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                    $stringsFound.Add($string) | Out-Null
+                }
+            }
+            elseif ($entryContent -match $string.ToLower()) {
+                $stringsFound.Add($string) | Out-Null
+            }
+        }
+
+    } catch {}
+}
     # Normal class/json scanning
     try {
         $reader = New-Object System.IO.StreamReader($entry.Open())
