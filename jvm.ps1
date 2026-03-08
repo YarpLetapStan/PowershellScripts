@@ -958,9 +958,8 @@ function Check-Strings($filePath) {
                     $isNestedJar = ($entryName -like '*.jar' -or $entryName -like '*.zip')
                     
                     if ($isNestedJar) {
-                        # Recursively scan nested JAR
-                        Write-Host "`n  [i] $rootJarName" -ForegroundColor DarkGray
-                        Scan-JarContent -jarPath $extractedPath -depth ($depth + 1) -rootJarName $rootJarName
+    Scan-JarContent -jarPath $extractedPath -depth ($depth + 1) -rootJarName $rootJarName
+}
                     }
                     elseif ($isTextFile) {
                         # Read text file content
@@ -997,14 +996,25 @@ function Check-Strings($filePath) {
                             }
                         }
                     }
-                    elseif ($entryName -like '*.class') {
-                        # For class files, use strings.exe or binary search
-                        if ($stringsPath) {
-                            $tempStringFile = Join-Path $env:TEMP "temp_class_$(Get-Random).txt"
-                            & $stringsPath $extractedPath 2>$null | Out-File $tempStringFile -Encoding utf8
-                            if (Test-Path $tempStringFile) {
-                                $classContent = Get-Content $tempStringFile -Raw
-                                Remove-Item $tempStringFile -Force
+                   elseif ($entryName -like '*.class') {
+
+    try {
+        $stream = $entry.Open()
+        $reader = New-Object System.IO.BinaryReader($stream)
+        $bytes = $reader.ReadBytes($entry.Length)
+        $reader.Close()
+        $stream.Close()
+
+        $content = [System.Text.Encoding]::ASCII.GetString($bytes).ToLower()
+
+        foreach ($string in $cheatStrings) {
+            if ($content -match [regex]::Escape($string.ToLower())) {
+                $stringsFound.Add($string) | Out-Null
+            }
+        }
+
+    } catch {}
+}
                                 
                                 $classContentLower = $classContent.ToLower()
                                 foreach ($string in $cheatStrings) {
