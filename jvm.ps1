@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 # ASCII Art Title - Using block characters
 $asciiTitle = @"
@@ -870,29 +870,34 @@ function Fetch-Megabase($hash) {
 
 $cheatStrings = @(
     "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal"
-    "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", 
-    "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", 
+    "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", "healPotSlot", 
+    "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", "HasAnchor"
     "anchortweaks", "anchor macro", "safe anchor", "safeanchor",
     "AutoTotem", "autototem", "auto totem", "InventoryTotem", 
     "inventorytotem", "HoverTotem", "hover totem", "legittotem",
-    "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot",
-    "AutoArmor", "autoarmor", "auto armor",
+    "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot"
+    "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack"
     "AutoDoubleHand", "autodoublehand", "auto double hand",
     "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe..." 
     "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin"
     "findKnockbackSword", "attackRegisteredThisClick",
     "AimAssist", "aimassist", "aim assist",
     "triggerbot", "trigger bot",
-    "FakeInv", "Friends", "hoveredSlot", "swapBackToOriginalSlot",
+    "FakeInv", "Friends", "swapBackToOriginalSlot",
     "FakeLag", "pingspoof", "ping spoof", "velocity",
     "webmacro", "web macro",
-    "Hitboxes", "lvstrng", "dqrkis", "selfdestruct", "self destruct",
-    "AutoMace"
+    "lvstrng", "dqrkis", "selfdestruct", "self destruct",
+    "AutoMace", "StringBuilder" 
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
+    $tempDir = Join-Path $env:TEMP "jar_scan_$(Get-Random)"
     
     try {
+        # Create temp directory for extraction
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        
+        # Try using external strings.exe first (faster for binary files)
         $possiblePaths = @(
             "C:\Program Files\Git\usr\bin\strings.exe",
             "C:\Program Files\Git\mingw64\bin\strings.exe",
@@ -901,54 +906,180 @@ function Check-Strings($filePath) {
             "C:\cygwin64\bin\strings.exe"
         )
         
-        if ($stringsPath = $possiblePaths | Where-Object { Test-Path $_ } | Select-Object -First 1) {
+        $stringsPath = $possiblePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+        
+        if ($stringsPath) {
             $tempFile = Join-Path $env:TEMP "temp_strings_$(Get-Random).txt"
-            & $stringsPath $filePath 2>$null | Out-File $tempFile
+            & $stringsPath $filePath 2>$null | Out-File $tempFile -Encoding utf8
             if (Test-Path $tempFile) {
                 $extractedContent = Get-Content $tempFile -Raw
                 Remove-Item $tempFile -Force
                 
                 foreach ($string in $cheatStrings) {
-                    if ($extractedContent -match $string) { $stringsFound.Add($string) | Out-Null }
-                }
-            }
-        } else {
-            # Check main file content
-            $content = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
-            foreach ($string in $cheatStrings) {
-                if ($string -eq "velocity") {
-                    if ($content -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-                        $stringsFound.Add($string) | Out-Null
+                    if ($extractedContent -match [regex]::Escape($string)) { 
+                        $stringsFound.Add($string) | Out-Null 
                     }
-                } elseif ($content -match $string.ToLower()) {
-                    $stringsFound.Add($string) | Out-Null
                 }
             }
-            
-            # Also check .class files inside the JAR
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-            $classEntries = $zip.Entries | Where-Object { $_.Name -like '*.class' }
-            
-            foreach ($entry in $classEntries) {
-                $reader = New-Object System.IO.StreamReader($entry.Open())
-                $classContent = $reader.ReadToEnd()
-                $reader.Close()
+        }
+        
+        # Always do deep JAR scanning for embedded files
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        
+        # Function to recursively scan JAR contents
+        function Scan-JarContent($jarPath, $depth = 0) {
+            try {
+                $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
                 
-                $classContentLower = $classContent.ToLower()
+                foreach ($entry in $zip.Entries) {
+                    $entryName = $entry.Name
+                    $entryFullName = $entry.FullName
+                    
+                    # Skip directories
+                    if ($entryFullName.EndsWith('/')) { continue }
+                    
+                    # Extract to temp directory for scanning
+                    $extractedPath = Join-Path $tempDir "extract_$([System.IO.Path]::GetRandomFileName())"
+                    
+                    # Create directory if needed
+                    $extractedDir = Split-Path $extractedPath -Parent
+                    if (-not (Test-Path $extractedDir)) {
+                        New-Item -ItemType Directory -Path $extractedDir -Force | Out-Null
+                    }
+                    
+                    # Extract file
+                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $extractedPath, $true)
+                    
+                    # Check file extension for text-based files
+                    $textExtensions = @('.json', '.txt', '.properties', '.cfg', '.toml', '.xml', '.yml', '.yaml', '.mf', '.rc', '.html', '.htm', '.css', '.js', '.lang')
+                    $isTextFile = ($textExtensions -contains [System.IO.Path]::GetExtension($entryName).ToLower())
+                    
+                    # Check if it's another JAR file (nested JAR)
+                    $isNestedJar = ($entryName -like '*.jar' -or $entryName -like '*.zip')
+                    
+                    if ($isNestedJar) {
+                        # Recursively scan nested JAR
+                        Write-Host "`n  [i] Scanning nested JAR: $entryName (depth: $depth)" -ForegroundColor DarkGray
+                        Scan-JarContent -jarPath $extractedPath -depth ($depth + 1)
+                    }
+                    elseif ($isTextFile) {
+                        # Read text file content
+                        try {
+                            $content = Get-Content $extractedPath -Raw -ErrorAction Stop
+                            $contentLower = $content.ToLower()
+                            
+                            foreach ($string in $cheatStrings) {
+                                # Special handling for "velocity" to avoid false positives
+                                if ($string -eq "velocity") {
+                                    if ($contentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                                        $stringsFound.Add($string) | Out-Null
+                                    }
+                                }
+                                elseif ($contentLower -match [regex]::Escape($string.ToLower())) {
+                                    $stringsFound.Add($string) | Out-Null
+                                }
+                            }
+                        } catch {
+                            # If can't read as text, try strings approach
+                            if ($stringsPath) {
+                                $tempStringFile = Join-Path $env:TEMP "temp_nested_$(Get-Random).txt"
+                                & $stringsPath $extractedPath 2>$null | Out-File $tempStringFile -Encoding utf8
+                                if (Test-Path $tempStringFile) {
+                                    $binaryContent = Get-Content $tempStringFile -Raw
+                                    Remove-Item $tempStringFile -Force
+                                    
+                                    foreach ($string in $cheatStrings) {
+                                        if ($binaryContent -match [regex]::Escape($string)) {
+                                            $stringsFound.Add($string) | Out-Null
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    elseif ($entryName -like '*.class') {
+                        # For class files, use strings.exe or binary search
+                        if ($stringsPath) {
+                            $tempStringFile = Join-Path $env:TEMP "temp_class_$(Get-Random).txt"
+                            & $stringsPath $extractedPath 2>$null | Out-File $tempStringFile -Encoding utf8
+                            if (Test-Path $tempStringFile) {
+                                $classContent = Get-Content $tempStringFile -Raw
+                                Remove-Item $tempStringFile -Force
+                                
+                                $classContentLower = $classContent.ToLower()
+                                foreach ($string in $cheatStrings) {
+                                    if ($string -eq "velocity") {
+                                        if ($classContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                                            $stringsFound.Add($string) | Out-Null
+                                        }
+                                    } elseif ($classContentLower -match [regex]::Escape($string.ToLower())) {
+                                        $stringsFound.Add($string) | Out-Null
+                                    }
+                                }
+                            }
+                        } else {
+                            # Fallback to direct binary read with pattern matching
+                            $bytes = [System.IO.File]::ReadAllBytes($extractedPath)
+                            $content = [System.Text.Encoding]::ASCII.GetString($bytes)
+                            $contentLower = $content.ToLower()
+                            
+                            foreach ($string in $cheatStrings) {
+                                if ($string -eq "velocity") {
+                                    if ($contentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                                        $stringsFound.Add($string) | Out-Null
+                                    }
+                                } elseif ($contentLower -match [regex]::Escape($string.ToLower())) {
+                                    $stringsFound.Add($string) | Out-Null
+                                }
+                            }
+                        }
+                    }
+                    
+                    # Clean up extracted file
+                    if (Test-Path $extractedPath) {
+                        Remove-Item $extractedPath -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                
+                $zip.Dispose()
+            } catch {
+                Write-Host "  [!] Error scanning JAR content: $_" -ForegroundColor DarkYellow
+            }
+        }
+        
+        # Start recursive scanning from the main JAR
+        Scan-JarContent -jarPath $filePath
+        
+        # Also scan the main JAR file itself with strings.exe if available
+        if ($stringsPath) {
+            $tempMainFile = Join-Path $env:TEMP "temp_main_$(Get-Random).txt"
+            & $stringsPath $filePath 2>$null | Out-File $tempMainFile -Encoding utf8
+            if (Test-Path $tempMainFile) {
+                $mainContent = Get-Content $tempMainFile -Raw
+                Remove-Item $tempMainFile -Force
+                
+                $mainContentLower = $mainContent.ToLower()
                 foreach ($string in $cheatStrings) {
                     if ($string -eq "velocity") {
-                        if ($classContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                        if ($mainContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
                             $stringsFound.Add($string) | Out-Null
                         }
-                    } elseif ($classContentLower -match $string.ToLower()) {
+                    } elseif ($mainContentLower -match [regex]::Escape($string.ToLower())) {
                         $stringsFound.Add($string) | Out-Null
                     }
                 }
             }
-            $zip.Dispose()
         }
-    } catch {}
+        
+    } catch {
+        Write-Host "`nError in string detection: $($_.Exception.Message)" -ForegroundColor Red
+    } finally {
+        # Clean up temp directory
+        if (Test-Path $tempDir) {
+            Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
+        }
+    }
+    
     return $stringsFound
 }
 
