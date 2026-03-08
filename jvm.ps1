@@ -959,7 +959,7 @@ function Check-Strings($filePath) {
                     
                     if ($isNestedJar) {
                         # Recursively scan nested JAR
-                        Write-Host "`n  [i] Scanning nested JAR: $entryName (depth: $depth)" -ForegroundColor DarkGray
+                        Write-Host "`n  [i] $entryName" -ForegroundColor DarkGray
                         Scan-JarContent -jarPath $extractedPath -depth ($depth + 1)
                     }
                     elseif ($isTextFile) {
