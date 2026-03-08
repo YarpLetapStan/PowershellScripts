@@ -1,7 +1,6 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nD YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
-# ASCII Art Title - Using block characters
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
 ╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║     ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╔╝██╔════╝
@@ -933,23 +932,40 @@ function Check-Strings($filePath) {
    foreach ($entry in $entries) {
 
     if ($entry.Name -match '\.jar$') {
-        $nestedTemp = Join-Path $env:TEMP ("nested_" + [guid]::NewGuid().ToString() + ".jar")
 
-        $stream = $entry.Open()
-        $fileStream = [System.IO.File]::Create($nestedTemp)
-        $stream.CopyTo($fileStream)
-        $fileStream.Close()
-        $stream.Close()
+    $memStream = New-Object System.IO.MemoryStream
+    $entry.Open().CopyTo($memStream)
+    $memStream.Position = 0
 
-        $nestedStrings = Check-Strings $nestedTemp
+    $nestedZip = New-Object System.IO.Compression.ZipArchive($memStream)
 
-        foreach ($s in $nestedStrings) {
-            $stringsFound.Add($s) | Out-Null
+    foreach ($nestedEntry in $nestedZip.Entries) {
+
+        if ($nestedEntry.Name -match '\.(class|json|cfg|properties|toml|yml|yaml|txt)$') {
+
+            $reader = New-Object System.IO.StreamReader($nestedEntry.Open())
+            $nestedContentLower = $reader.ReadToEnd().ToLower()
+            $reader.Close()
+
+            foreach ($string in $cheatStrings) {
+                if ($string -eq "velocity") {
+                    if ($nestedContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                        $stringsFound.Add($string) | Out-Null
+                    }
+                }
+                elseif ($nestedContentLower -match $string.ToLower()) {
+                    $stringsFound.Add($string) | Out-Null
+                }
+            }
+
         }
 
-        Remove-Item $nestedTemp -Force -ErrorAction SilentlyContinue
-        continue
     }
+
+    $nestedZip.Dispose()
+    $memStream.Dispose()
+    continue
+}
 
     $reader = New-Object System.IO.StreamReader($entry.Open())
     $entryContentLower = $reader.ReadToEnd().ToLower()
