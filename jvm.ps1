@@ -986,7 +986,9 @@ foreach ($entry in $entries) {
 }
 $zip.Dispose()
         }
-    } catch {}
+    }
+    catch {}
+    
     return $stringsFound
 }
 
