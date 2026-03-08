@@ -928,24 +928,44 @@ function Check-Strings($filePath) {
             # Also check .class files and .json files inside the JAR
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-            $entries = $zip.Entries | Where-Object { $_.Name -like '*.class' -or $_.Name -like '*.json' }
+            $entries = $zip.Entries | Where-Object { $_.Name -match '\.(class|json|cfg|properties|toml|yml|yaml|txt|jar)$' }
             
-            foreach ($entry in $entries) {
-                $reader = New-Object System.IO.StreamReader($entry.Open())
-                $entryContent = $reader.ReadToEnd()
-                $reader.Close()
-                
-                $entryContentLower = $entryContent.ToLower()
-                foreach ($string in $cheatStrings) {
-                    if ($string -eq "velocity") {
-                        if ($entryContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-                            $stringsFound.Add($string) | Out-Null
-                        }
-                    } elseif ($entryContentLower -match $string.ToLower()) {
-                        $stringsFound.Add($string) | Out-Null
-                    }
-                }
+   foreach ($entry in $entries) {
+
+    if ($entry.Name -match '\.jar$') {
+        $nestedTemp = Join-Path $env:TEMP ("nested_" + [guid]::NewGuid().ToString() + ".jar")
+
+        $stream = $entry.Open()
+        $fileStream = [System.IO.File]::Create($nestedTemp)
+        $stream.CopyTo($fileStream)
+        $fileStream.Close()
+        $stream.Close()
+
+        $nestedStrings = Check-Strings $nestedTemp
+
+        foreach ($s in $nestedStrings) {
+            $stringsFound.Add($s) | Out-Null
+        }
+
+        Remove-Item $nestedTemp -Force -ErrorAction SilentlyContinue
+        continue
+    }
+
+    $reader = New-Object System.IO.StreamReader($entry.Open())
+    $entryContentLower = $reader.ReadToEnd().ToLower()
+    $reader.Close()
+
+    foreach ($string in $cheatStrings) {
+        if ($string -eq "velocity") {
+            if ($entryContentLower -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+                $stringsFound.Add($string) | Out-Null
             }
+        }
+        elseif ($entryContentLower -match $string.ToLower()) {
+            $stringsFound.Add($string) | Out-Null
+        }
+    }
+}
             $zip.Dispose()
         }
     } catch {}
