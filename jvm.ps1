@@ -882,12 +882,12 @@ $cheatStrings = @(
     "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin"
     "findKnockbackSword", "attackRegisteredThisClick",
     "AimAssist", "aimassist", "aim assist",
-    "triggerbot", "trigger bot",
-    "FakeInv", "Friends", "swapBackToOriginalSlot",
+    "triggerbot", "trigger bot", "focusedSlot", 
+    "FakeInv", "Friends", "swapBackToOriginalSlot", "selectedSlot", "setSelectedSlot"
     "FakeLag", "pingspoof", "ping spoof", "velocity",
-    "webmacro", "web macro",
-    "lvstrng", "dqrkis", "selfdestruct", "self destruct",
-    "AutoMace", "StringBuilder" 
+    "webmacro", "web macro", "arrayList", "arrayOfString", "onMouseButton", "itemUseCooldown"
+    "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown" 
+    "AutoMace", "StringBuilder", "getFocusedSlot", "getBlockBreakingCooldown", "Dqrkis Client", 
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
