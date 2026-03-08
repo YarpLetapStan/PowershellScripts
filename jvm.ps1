@@ -933,17 +933,40 @@ function Check-Strings($filePath) {
 foreach ($entry in $entries) {
 
     # Handle nested jar files
-    if ($entry.Name -like "*.jar") {
-        try {
-            $tempNestedJar = Join-Path $env:TEMP ("nested_" + [guid]::NewGuid().ToString() + ".jar")
+  if ($entry.Name -like "*.jar") {
+    try {
 
-            $stream = $entry.Open()
-            $fileStream = [System.IO.File]::Create($tempNestedJar)
-            $stream.CopyTo($fileStream)
-            $fileStream.Close()
-            $stream.Close()
+        # Load nested jar into memory
+        $ms = New-Object System.IO.MemoryStream
+        $entry.Open().CopyTo($ms)
+        $ms.Position = 0
 
-            $nestedResults = Check-Strings $tempNestedJar
+        # Open nested jar directly from memory
+        $nestedZip = New-Object System.IO.Compression.ZipArchive($ms)
+
+        foreach ($nestedEntry in $nestedZip.Entries) {
+
+            if ($nestedEntry.Name -match '\.(class|json)$') {
+
+                $stream = $nestedEntry.Open()
+                $reader = New-Object System.IO.StreamReader($stream)
+                $content = $reader.ReadToEnd().ToLower()
+                $reader.Close()
+
+                foreach ($string in $cheatStrings) {
+                    if ($content -match [regex]::Escape($string.ToLower())) {
+                        $stringsFound.Add($string) | Out-Null
+                    }
+                }
+
+            }
+
+        }
+
+    } catch {}
+
+    continue
+}
             foreach ($result in $nestedResults) {
                 $stringsFound.Add($result) | Out-Null
             }
