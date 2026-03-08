@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nD YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 # ASCII Art Title - Using block characters
 $asciiTitle = @"
@@ -876,18 +876,18 @@ $cheatStrings = @(
     "AutoTotem", "autototem", "auto totem", "InventoryTotem", 
     "inventorytotem", "HoverTotem", "hover totem", "legittotem",
     "AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot"
-    "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack"
+    "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack",
     "AutoDoubleHand", "autodoublehand", "auto double hand",
-    "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe..." 
-    "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin"
+    "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe...",
+    "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin",
     "findKnockbackSword", "attackRegisteredThisClick",
     "AimAssist", "aimassist", "aim assist",
-    "triggerbot", "trigger bot"
-    "FakeInv", "Friends", "swapBackToOriginalSlot", "selectedSlot", "setSelectedSlot"
+    "triggerbot", "trigger bot",
+    "FakeInv", "Friends", "swapBackToOriginalSlot", "selectedSlot", "setSelectedSlot",
     "FakeLag", "pingspoof", "ping spoof", "velocity",
-    "webmacro", "web macro", "arrayOfString", "itemUseCooldown"
-    "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown" 
-    "AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing()", "isGlowing" 
+    "webmacro", "web macro", "arrayOfString", "itemUseCooldown", "invokeDoItemUse",
+    "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
+    "AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing()", "isGlowing", "invokeDoAttack"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
