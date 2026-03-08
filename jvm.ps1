@@ -883,8 +883,8 @@ $cheatStrings = @(
 "findKnockbackSword", "attackRegisteredThisClick",
 "AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
 "triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown",
-"FakeInv", "swapBackToOriginalSlot","setSelectedSlot",
-"FakeLag", "pingspoof", "ping spoof", "velocity", "onTickMovement", "org.spongepowered.asm.mixin.injection",
+"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", 
+"FakeLag", "pingspoof", "ping spoof", "velocity", "onTickMovement", "invokeDoItemUse",
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
 "AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "isGlowing", "invokeDoAttack"
