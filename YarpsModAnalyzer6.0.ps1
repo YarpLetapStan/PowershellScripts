@@ -989,7 +989,12 @@ $zip.Dispose()
 }
 
 # Collections for results
-$verifiedMods = @(); $unknownMods = @(); $cheatMods = @(); $sizeMismatchMods = @(); $tamperedMods = @(); $allModsInfo = @()
+$verifiedMods = [System.Collections.Generic.List[object]]::new()
+$unknownMods = [System.Collections.Generic.List[object]]::new()
+$cheatMods = [System.Collections.Generic.List[object]]::new()
+$sizeMismatchMods = [System.Collections.Generic.List[object]]::new()
+$tamperedMods = [System.Collections.Generic.List[object]]::new()
+$allModsInfo = [System.Collections.Generic.List[object]]::new()
 
 # Process all mods
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
