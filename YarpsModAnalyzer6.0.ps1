@@ -1048,9 +1048,9 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
         $allModsInfo.Add($modEntry)
         
         if ($modData.ExpectedSize -gt 0 -and $actualSize -ne $modData.ExpectedSize) {
-            $sizeMismatchMods += $modEntry
+               $sizeMismatchMods.Add($modEntry)
             if ([math]::Abs($sizeDiff) -gt 1024) { 
-                $tamperedMods += $modEntry
+                $tamperedMods.Add($modEntry)
                 # Remove from verified mods if tampered
                 $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $file.Name }
             }
