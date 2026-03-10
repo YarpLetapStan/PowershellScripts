@@ -1065,8 +1065,8 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             JarModLoader = $jarModInfo.ModLoader
         }
         
-        $verifiedMods += $modEntry
-        $allModsInfo += $modEntry
+        $verifiedMods.Add($modEntry)
+        $allModsInfo.Add($modEntry)
     } else {
         $unknownModEntry = [PSCustomObject]@{ 
             FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneInfo.URL; DownloadSource = $zoneInfo.Source
@@ -1076,8 +1076,8 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
         }
         
-        $unknownMods += $unknownModEntry
-        $allModsInfo += $unknownModEntry
+       $unknownMods.Add($unknownModEntry)
+       $allModsInfo.Add($unknownModEntry)
     }
 }
 
@@ -1116,7 +1116,7 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
                         JarVersion = $mod.JarVersion; JarModLoader = $mod.JarModLoader
                     }
                     
-                    $verifiedMods += $newVerifiedEntry
+                    $verifiedMods.Add($newVerifiedEntry)
                     $unknownMods = $unknownMods | Where-Object { $_.FileName -ne $mod.FileName }
                 }
                 break
@@ -1166,7 +1166,7 @@ try {
         }
         
         if ($modStrings = Check-Strings $mod.FilePath) {
-            $cheatMods += [PSCustomObject]@{ 
+           $cheatMods.Add([PSCustomObject]@{
                 FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
                 DownloadSource = $mod.DownloadSource; SourceURL = $mod.ZoneId; ExpectedSizeKB = $mod.ExpectedSizeKB
                 SizeDiffKB = $mod.SizeDiffKB; IsVerifiedMod = ($mod.IsVerified -eq $true); ModName = $mod.ModName
