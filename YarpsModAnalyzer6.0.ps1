@@ -1175,7 +1175,7 @@ try {
                 JarModId = $mod.JarModId; JarName = $mod.JarName; JarVersion = $mod.JarVersion
                 MatchType = $mod.MatchType; ExactMatch = $mod.ExactMatch; IsLatestVersion = $mod.IsLatestVersion
                 LoaderType = $mod.LoaderType
-            }
+            })
             
             # Remove from verified mods if cheat detected
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
