@@ -1,5 +1,6 @@
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "-ViaFabricPlus will false flag."
 
 # ASCII Art Title - Using block characters
 $asciiTitle = @"
@@ -1255,15 +1256,15 @@ foreach ($file in $jarFiles) {
 }
 
 # ==================== RESULTS SECTION ====================
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 Write-Host ""
 
 # Verified Mods Section
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
 Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
 
 if ($verifiedMods.Count -gt 0) {
     foreach ($mod in $verifiedMods) {
@@ -1283,9 +1284,9 @@ if ($verifiedMods.Count -gt 0) {
 Write-Host ""
 
 # Unknown Mods Section with Box - Yellow borders, White/Cyan text
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 
 if ($unknownMods.Count -gt 0) {
     for ($i = 0; $i -lt $unknownMods.Count; $i++) {
@@ -1313,9 +1314,9 @@ if ($unknownMods.Count -gt 0) {
 Write-Host ""
 
 # Tampered Mods Section with Box - DarkYellow borders, White/Magenta/Red text
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor DarkYellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkYellow
 Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor DarkYellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkYellow
 
 if ($tamperedMods.Count -gt 0) {
     for ($i = 0; $i -lt $tamperedMods.Count; $i++) {
@@ -1350,9 +1351,9 @@ if ($tamperedMods.Count -gt 0) {
 Write-Host ""
 
 # Cheat Mods Section with Box - Red borders, White/Yellow/Magenta text
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
 Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
 
 if ($cheatMods.Count -gt 0) {
     for ($i = 0; $i -lt $cheatMods.Count; $i++) {
@@ -1403,9 +1404,9 @@ if ($cheatMods.Count -gt 0) {
 Write-Host ""
 
 # Disallowed Mods Section - Red borders, White text
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
 Write-Host "DISALLOWED MODS: $($disallowedModsFound.Count) ⚠" -ForegroundColor Red
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Red
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
 
 if ($disallowedModsFound.Count -gt 0) {
     for ($i = 0; $i -lt $disallowedModsFound.Count; $i++) {
@@ -1428,7 +1429,7 @@ if ($disallowedModsFound.Count -gt 0) {
 }
 Write-Host ""
 
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
