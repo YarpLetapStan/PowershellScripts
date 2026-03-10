@@ -24,12 +24,9 @@ Write-Host ""
 # Create subtitle line style with double solid lines
 $subtitleText = "YarpLetapStan's Mod Analyzer V6.0"
 $lineWidth = 100
-$line = "─" * $lineWidth
+$line = "━" * $lineWidth
 
-Write-Host $line -ForegroundColor cyan
-Write-Host $line -ForegroundColor cyan
 Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
-Write-Host $line -ForegroundColor cyan
 Write-Host $line -ForegroundColor cyan
 Write-Host ""
 
@@ -61,9 +58,9 @@ if ($process) {
 }
 
 # ==================== Enhanced Fabric/JVM Arguments Injection Detector ====================
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 Write-Host "JVM ARGUMENTS INJECTION SCANNER" -ForegroundColor Yellow
-Write-Host "════════════════════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Yellow
+Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 Write-Host ""
 
 # Find all javaw.exe processes
