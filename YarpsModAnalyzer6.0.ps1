@@ -1039,8 +1039,8 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
         
         # Only add to verified mods if it's not tampered or a cheat mod
         $modEntry.IsVerified = $true
-        $verifiedMods += $modEntry
-        $allModsInfo += $modEntry
+        $verifiedMods.Add($modEntry)
+        $allModsInfo.Add($modEntry)
         
         if ($modData.ExpectedSize -gt 0 -and $actualSize -ne $modData.ExpectedSize) {
             $sizeMismatchMods += $modEntry
