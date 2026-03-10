@@ -1052,7 +1052,7 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             if ([math]::Abs($sizeDiff) -gt 1024) { 
                 $tamperedMods.Add($modEntry)
                 # Remove from verified mods if tampered
-                $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $file.Name }
+                $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $file.Name })
             }
         }
     } elseif ($megabaseData = Fetch-Megabase -hash $hash) {
@@ -1117,7 +1117,7 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
                     }
                     
                     $verifiedMods.Add($newVerifiedEntry)
-                    $unknownMods = $unknownMods | Where-Object { $_.FileName -ne $mod.FileName }
+                    $null = $unknownMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $mod.FileName })
                 }
                 break
             }
