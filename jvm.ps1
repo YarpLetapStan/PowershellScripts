@@ -1016,21 +1016,29 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
 $modIdFilenameMismatch = $false
 $modIdMismatchReason = ""
 
-if ($jarModInfo.ModId -and $jarModInfo.ModId -ne "") {
+$modIdentifier = ""
 
-    # normalize mod id
-    $modId = $jarModInfo.ModId.ToLower() -replace '[^a-z0-9]', ''
+# Prefer jar ModID
+if ($jarModInfo.ModId) {
+    $modIdentifier = $jarModInfo.ModId
+}
+# fallback to jar Name
+elseif ($jarModInfo.Name) {
+    $modIdentifier = $jarModInfo.Name
+}
 
-    # normalize filename
-    $fileBase = [System.IO.Path]::GetFileNameWithoutExtension($file.Name).ToLower() -replace '[^a-z0-9]', ''
+if ($modIdentifier) {
 
-    # remove version numbers
+    $modId = $modIdentifier.ToLower() -replace '[^a-z0-9]', ''
+
+    $fileBase = [System.IO.Path]::GetFileNameWithoutExtension($file.Name).ToLower()
+    $fileBase = $fileBase -replace '[^a-z0-9]', ''
     $fileBase = $fileBase -replace '\d+', ''
 
-    if (-not $fileBase.Contains($modId)) {
+    if (-not ($fileBase.Contains($modId) -or $modId.Contains($fileBase))) {
 
         $modIdFilenameMismatch = $true
-        $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - ID '$($jarModInfo.ModId)' vs FILE '$($file.Name)'"
+        $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - ID '$modIdentifier' vs FILE '$($file.Name)'"
 
     }
 }
