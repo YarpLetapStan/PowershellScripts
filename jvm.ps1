@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1019,14 +1019,18 @@ $modIdMismatchReason = ""
 $modIdentifier = ""
 
 # Prefer jar ModID
+$modIdentifier = ""
+
 if ($jarModInfo.ModId) {
     $modIdentifier = $jarModInfo.ModId
 }
-# fallback to jar Name
 elseif ($jarModInfo.Name) {
     $modIdentifier = $jarModInfo.Name
 }
-
+else {
+    # fallback to filename guess
+    $modIdentifier = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+}
 if ($modIdentifier) {
 
     $modId = $modIdentifier.ToLower() -replace '[^a-z0-9]', ''
@@ -1035,7 +1039,9 @@ if ($modIdentifier) {
     $fileBase = $fileBase -replace '[^a-z0-9]', ''
     $fileBase = $fileBase -replace '\d+', ''
 
-    if (-not ($fileBase.Contains($modId) -or $modId.Contains($fileBase))) {
+   if ($fileBase -ne $modId -and
+    -not $fileBase.StartsWith($modId) -and
+    -not $fileBase.Contains($modId)) {
 
         $modIdFilenameMismatch = $true
         $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - ID '$modIdentifier' vs FILE '$($file.Name)'"
