@@ -1,8 +1,6 @@
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
-Write-Host "-ViaFabricPlus will false flag."
 
-# ASCII Art Title - Using block characters
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
 ╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║     ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╔╝██╔════╝
@@ -885,7 +883,7 @@ $cheatStrings = @(
 "FakeLag", "pingspoof", "ping spoof", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", 
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
-"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack"
+"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack", "runtime.exec()"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
@@ -991,7 +989,12 @@ $zip.Dispose()
 }
 
 # Collections for results
-$verifiedMods = @(); $unknownMods = @(); $cheatMods = @(); $sizeMismatchMods = @(); $tamperedMods = @(); $allModsInfo = @()
+$verifiedMods = [System.Collections.Generic.List[object]]::new()
+$unknownMods = [System.Collections.Generic.List[object]]::new()
+$cheatMods = [System.Collections.Generic.List[object]]::new()
+$sizeMismatchMods = [System.Collections.Generic.List[object]]::new()
+$tamperedMods = [System.Collections.Generic.List[object]]::new()
+$allModsInfo = [System.Collections.Generic.List[object]]::new()
 
 # Process all mods
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
@@ -1009,12 +1012,163 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $zoneInfo = Get-ZoneIdentifier $file.FullName
     $jarModInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
     
+    # ===== CHECK IF MOD ID MATCHES FILENAME =====
+    $modIdFilenameMismatch = $false
+    $modIdMismatchReason = ""
+
+    if ($jarModInfo.ModId -and $jarModInfo.ModId -ne "") {
+        # Clean up the mod ID and filename for comparison
+        $cleanModId = $jarModInfo.ModId.ToLower() -replace '[^a-z0-9]', ''
+        $fileNameBase = [System.IO.Path]::GetFileNameWithoutExtension($file.Name).ToLower()
+        $cleanFileName = $fileNameBase -replace '[^a-z0-9]', ''
+        
+        # Common words to ignore in comparison
+        $commonWords = @('fabric', 'forge', 'neoforge', 'mod', 'client', 'server', 'universal', 'api', 'lib', 'library', 'loader', 'core', 'impl', 'common')
+        
+        # Split into words for better comparison
+        $modIdWords = $jarModInfo.ModId.ToLower() -split '[^a-z0-9]+'
+        $fileNameWords = $fileNameBase -split '[^a-z0-9]+'
+        
+        # Remove common words from filename for comparison
+        $fileNameWords = $fileNameWords | Where-Object { $_ -notin $commonWords }
+        
+        # Check if any meaningful part of mod ID appears in filename
+        $meaningfulMatch = $false
+        foreach ($modWord in $modIdWords) {
+            if ($modWord.Length -gt 3) {
+                # Check if this word appears in filename words or as part of a word
+                foreach ($fileWord in $fileNameWords) {
+                    if ($fileWord.Contains($modWord) -or $modWord.Contains($fileWord)) {
+                        $meaningfulMatch = $true
+                        break
+                    }
+                }
+            }
+            if ($meaningfulMatch) { break }
+        }
+        
+        # Also check if filename contains the mod name as fallback
+        $nameMatch = $false
+        if ($jarModInfo.Name -and -not $meaningfulMatch) {
+            $cleanModName = $jarModInfo.Name.ToLower() -replace '[^a-z0-9]', ''
+            if ($cleanFileName.Contains($cleanModName) -or $cleanModName.Contains($cleanFileName)) {
+                $nameMatch = $true
+            }
+            
+            # Check mod name words
+            $modNameWords = $jarModInfo.Name.ToLower() -split '[^a-z0-9]+'
+            foreach ($nameWord in $modNameWords) {
+                if ($nameWord.Length -gt 3) {
+                    foreach ($fileWord in $fileNameWords) {
+                        if ($fileWord.Contains($nameWord) -or $nameWord.Contains($fileWord)) {
+                            $nameMatch = $true
+                            break
+                        }
+                    }
+                }
+                if ($nameMatch) { break }
+            }
+        }
+        
+        # If mod ID is substantial and not found in filename or name, flag as tampered
+        if ($jarModInfo.ModId.Length -gt 3 -and 
+            -not $fileNameBase.Contains($jarModInfo.ModId.ToLower()) -and 
+            -not $meaningfulMatch -and 
+            -not $nameMatch) {
+            
+            $modIdFilenameMismatch = $true
+            $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - ID: '$($jarModInfo.ModId)'"
+        }
+        
+        # Special case: Check if filename is completely unrelated (like "poop.jar")
+        if ($modIdFilenameMismatch) {
+            # Check if filename contains ANY recognizable part of mod ID or name
+            $foundAnyPart = $false
+            
+            # Check mod ID parts
+            foreach ($part in $modIdWords) {
+                if ($part.Length -gt 3 -and $fileNameBase.Contains($part)) {
+                    $foundAnyPart = $true
+                    break
+                }
+            }
+            
+            # Check mod name parts if not found
+            if (-not $foundAnyPart -and $jarModInfo.Name) {
+                $modNameWords = $jarModInfo.Name.ToLower() -split '[^a-z0-9]+'
+                foreach ($part in $modNameWords) {
+                    if ($part.Length -gt 3 -and $fileNameBase.Contains($part)) {
+                        $foundAnyPart = $true
+                        break
+                    }
+                }
+            }
+            
+            # If still no match, definitely tampered
+            if (-not $foundAnyPart) {
+                $modIdFilenameMismatch = $true
+                $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - Filename '$($file.Name)' unrelated to mod ID '$($jarModInfo.ModId)'"
+            } else {
+                $modIdFilenameMismatch = $false  # Found a match, so it's okay
+            }
+        }
+    }
+    
     # Determine preferred loader
     $preferredLoader = "Fabric"
     if ($file.Name -match '(?i)fabric') { $preferredLoader = "Fabric" }
     elseif ($file.Name -match '(?i)forge') { $preferredLoader = "Forge" }
     elseif ($jarModInfo.ModLoader -eq "Fabric") { $preferredLoader = "Fabric" }
     elseif ($jarModInfo.ModLoader -eq "Forge/NeoForge") { $preferredLoader = "Forge" }
+    
+    # Check if mod ID mismatch should flag as tampered FIRST
+    if ($modIdFilenameMismatch) {
+        # Create tampered mod entry
+        $tamperedEntry = [PSCustomObject]@{ 
+            FileName = $file.Name
+            ModName = if ($jarModInfo.Name) { $jarModInfo.Name } else { "Unknown" }
+            ActualSizeKB = $actualSizeKB
+            ExpectedSizeKB = 0
+            SizeDiffKB = 0
+            TamperReason = $modIdMismatchReason
+            ModId = $jarModInfo.ModId
+            JarVersion = $jarModInfo.Version
+            FilePath = $file.FullName
+        }
+        $tamperedMods.Add($tamperedEntry)
+        
+        # Create a basic entry for allModsInfo but don't add to verified
+        $modEntry = [PSCustomObject]@{ 
+            ModName = if ($jarModInfo.Name) { $jarModInfo.Name } else { "Unknown" }
+            FileName = $file.Name
+            Version = $jarModInfo.Version
+            ExpectedSize = 0
+            ExpectedSizeKB = 0
+            ActualSize = $actualSize
+            ActualSizeKB = $actualSizeKB
+            SizeDiff = 0
+            SizeDiffKB = 0
+            DownloadSource = $zoneInfo.Source
+            SourceURL = $zoneInfo.URL
+            IsModrinthDownload = $zoneInfo.IsModrinth
+            ModrinthUrl = ""
+            IsVerified = $false
+            MatchType = "TAMPERED - ID/Filename Mismatch"
+            ExactMatch = $false
+            IsLatestVersion = $false
+            LoaderType = "Unknown"
+            PreferredLoader = $preferredLoader
+            FilePath = $file.FullName
+            JarModId = $jarModInfo.ModId
+            JarName = $jarModInfo.Name
+            JarVersion = $jarModInfo.Version
+            JarModLoader = $jarModInfo.ModLoader
+        }
+        $allModsInfo.Add($modEntry)
+        
+        # Skip the rest of the processing for this mod
+        continue
+    }
     
     # Try to find mod info
     $modData = Fetch-Modrinth-By-Hash -hash $hash
@@ -1041,15 +1195,15 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
         
         # Only add to verified mods if it's not tampered or a cheat mod
         $modEntry.IsVerified = $true
-        $verifiedMods += $modEntry
-        $allModsInfo += $modEntry
+        $verifiedMods.Add($modEntry)
+        $allModsInfo.Add($modEntry)
         
         if ($modData.ExpectedSize -gt 0 -and $actualSize -ne $modData.ExpectedSize) {
-            $sizeMismatchMods += $modEntry
+               $sizeMismatchMods.Add($modEntry)
             if ([math]::Abs($sizeDiff) -gt 1024) { 
-                $tamperedMods += $modEntry
+                $tamperedMods.Add($modEntry)
                 # Remove from verified mods if tampered
-                $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $file.Name }
+                $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $file.Name })
             }
         }
     } elseif ($megabaseData = Fetch-Megabase -hash $hash) {
@@ -1062,8 +1216,8 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             JarModLoader = $jarModInfo.ModLoader
         }
         
-        $verifiedMods += $modEntry
-        $allModsInfo += $modEntry
+        $verifiedMods.Add($modEntry)
+        $allModsInfo.Add($modEntry)
     } else {
         $unknownModEntry = [PSCustomObject]@{ 
             FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneInfo.URL; DownloadSource = $zoneInfo.Source
@@ -1073,8 +1227,8 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
             JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
         }
         
-        $unknownMods += $unknownModEntry
-        $allModsInfo += $unknownModEntry
+       $unknownMods.Add($unknownModEntry)
+       $allModsInfo.Add($unknownModEntry)
     }
 }
 
@@ -1113,8 +1267,8 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
                         JarVersion = $mod.JarVersion; JarModLoader = $mod.JarModLoader
                     }
                     
-                    $verifiedMods += $newVerifiedEntry
-                    $unknownMods = $unknownMods | Where-Object { $_.FileName -ne $mod.FileName }
+                    $verifiedMods.Add($newVerifiedEntry)
+                    $null = $unknownMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $mod.FileName })
                 }
                 break
             }
@@ -1163,7 +1317,7 @@ try {
         }
         
         if ($modStrings = Check-Strings $mod.FilePath) {
-            $cheatMods += [PSCustomObject]@{ 
+           $cheatMods.Add([PSCustomObject]@{
                 FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
                 DownloadSource = $mod.DownloadSource; SourceURL = $mod.ZoneId; ExpectedSizeKB = $mod.ExpectedSizeKB
                 SizeDiffKB = $mod.SizeDiffKB; IsVerifiedMod = ($mod.IsVerified -eq $true); ModName = $mod.ModName
@@ -1172,7 +1326,7 @@ try {
                 JarModId = $mod.JarModId; JarName = $mod.JarName; JarVersion = $mod.JarVersion
                 MatchType = $mod.MatchType; ExactMatch = $mod.ExactMatch; IsLatestVersion = $mod.IsLatestVersion
                 LoaderType = $mod.LoaderType
-            }
+            })
             
             # Remove from verified mods if cheat detected
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
