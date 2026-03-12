@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1011,108 +1011,76 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $actualSize = $file.Length; $actualSizeKB = [math]::Round($actualSize/1KB, 2)
     $zoneInfo = Get-ZoneIdentifier $file.FullName
     $jarModInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
-    
     # ===== CHECK IF MOD ID MATCHES FILENAME =====
-    $modIdFilenameMismatch = $false
-    $modIdMismatchReason = ""
+$modIdFilenameMismatch = $false
+$modIdMismatchReason = ""
 
-    if ($jarModInfo.ModId -and $jarModInfo.ModId -ne "") {
-        # Clean up the mod ID and filename for comparison
-        $cleanModId = $jarModInfo.ModId.ToLower() -replace '[^a-z0-9]', ''
-        $fileNameBase = [System.IO.Path]::GetFileNameWithoutExtension($file.Name).ToLower()
-        $cleanFileName = $fileNameBase -replace '[^a-z0-9]', ''
-        
-        # Common words to ignore in comparison
-        $commonWords = @('fabric', 'forge', 'neoforge', 'mod', 'client', 'server', 'universal', 'api', 'lib', 'library', 'loader', 'core', 'impl', 'common')
-        
-        # Split into words for better comparison
-        $modIdWords = $jarModInfo.ModId.ToLower() -split '[^a-z0-9]+'
-        $fileNameWords = $fileNameBase -split '[^a-z0-9]+'
-        
-        # Remove common words from filename for comparison
-        $fileNameWords = $fileNameWords | Where-Object { $_ -notin $commonWords }
-        
-        # Check if any meaningful part of mod ID appears in filename
-        $meaningfulMatch = $false
-        foreach ($modWord in $modIdWords) {
-            if ($modWord.Length -gt 3) {
-                # Check if this word appears in filename words or as part of a word
-                foreach ($fileWord in $fileNameWords) {
-                    if ($fileWord.Contains($modWord) -or $modWord.Contains($fileWord)) {
-                        $meaningfulMatch = $true
-                        break
-                    }
-                }
-            }
-            if ($meaningfulMatch) { break }
+if ($jarModInfo.ModId -and $jarModInfo.ModId -ne "") {
+    # Get the base filename without version numbers and extensions
+    $fileNameBase = [System.IO.Path]::GetFileNameWithoutExtension($file.Name).ToLower()
+    
+    # Remove common version patterns from filename
+    $fileNameBase = $fileNameBase -replace '[-_]?\d+\.\d+\.\d+.*$', ''
+    $fileNameBase = $fileNameBase -replace '[-_]?\d+\.\d+.*$', ''
+    $fileNameBase = $fileNameBase -replace '[-_]?v\d+.*$', ''
+    
+    # Clean up mod ID and filename for comparison
+    $cleanModId = $jarModInfo.ModId.ToLower() -replace '[^a-z0-9]', ''
+    $cleanFileName = $fileNameBase -replace '[^a-z0-9]', ''
+    
+    # Also check mod name if available
+    $cleanModName = ""
+    if ($jarModInfo.Name -and $jarModInfo.Name -ne "") {
+        $cleanModName = $jarModInfo.Name.ToLower() -replace '[^a-z0-9]', ''
+    }
+    
+    # Check if either mod ID or mod name is contained in the filename
+    $idFoundInFilename = $false
+    $nameFoundInFilename = $false
+    
+    # Check if mod ID (or significant part of it) is in filename
+    if ($cleanModId.Length -gt 3) {
+        if ($cleanFileName.Contains($cleanModId) -or $cleanModId.Contains($cleanFileName)) {
+            $idFoundInFilename = $true
         }
         
-        # Also check if filename contains the mod name as fallback
-        $nameMatch = $false
-        if ($jarModInfo.Name -and -not $meaningfulMatch) {
-            $cleanModName = $jarModInfo.Name.ToLower() -replace '[^a-z0-9]', ''
-            if ($cleanFileName.Contains($cleanModName) -or $cleanModName.Contains($cleanFileName)) {
-                $nameMatch = $true
-            }
-            
-            # Check mod name words
-            $modNameWords = $jarModInfo.Name.ToLower() -split '[^a-z0-9]+'
-            foreach ($nameWord in $modNameWords) {
-                if ($nameWord.Length -gt 3) {
-                    foreach ($fileWord in $fileNameWords) {
-                        if ($fileWord.Contains($nameWord) -or $nameWord.Contains($fileWord)) {
-                            $nameMatch = $true
-                            break
-                        }
-                    }
-                }
-                if ($nameMatch) { break }
-            }
-        }
-        
-        # If mod ID is substantial and not found in filename or name, flag as tampered
-        if ($jarModInfo.ModId.Length -gt 3 -and 
-            -not $fileNameBase.Contains($jarModInfo.ModId.ToLower()) -and 
-            -not $meaningfulMatch -and 
-            -not $nameMatch) {
-            
-            $modIdFilenameMismatch = $true
-            $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - ID: '$($jarModInfo.ModId)'"
-        }
-        
-        # Special case: Check if filename is completely unrelated (like "poop.jar")
-        if ($modIdFilenameMismatch) {
-            # Check if filename contains ANY recognizable part of mod ID or name
-            $foundAnyPart = $false
-            
-            # Check mod ID parts
-            foreach ($part in $modIdWords) {
-                if ($part.Length -gt 3 -and $fileNameBase.Contains($part)) {
-                    $foundAnyPart = $true
-                    break
-                }
-            }
-            
-            # Check mod name parts if not found
-            if (-not $foundAnyPart -and $jarModInfo.Name) {
-                $modNameWords = $jarModInfo.Name.ToLower() -split '[^a-z0-9]+'
-                foreach ($part in $modNameWords) {
-                    if ($part.Length -gt 3 -and $fileNameBase.Contains($part)) {
-                        $foundAnyPart = $true
-                        break
-                    }
-                }
-            }
-            
-            # If still no match, definitely tampered
-            if (-not $foundAnyPart) {
-                $modIdFilenameMismatch = $true
-                $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - Filename '$($file.Name)' unrelated to mod ID '$($jarModInfo.ModId)'"
-            } else {
-                $modIdFilenameMismatch = $false  # Found a match, so it's okay
+        # Check for partial matches (if mod ID is multiple words)
+        $modIdParts = $jarModInfo.ModId.ToLower() -split '[^a-z0-9]+'
+        foreach ($part in $modIdParts) {
+            if ($part.Length -gt 3 -and $fileNameBase.Contains($part)) {
+                $idFoundInFilename = $true
+                break
             }
         }
     }
+    
+    # Check mod name if available
+    if ($cleanModName -and $cleanModName.Length -gt 3 -and -not $idFoundInFilename) {
+        if ($cleanFileName.Contains($cleanModName) -or $cleanModName.Contains($cleanFileName)) {
+            $nameFoundInFilename = $true
+        }
+        
+        # Check for partial matches in mod name
+        $modNameParts = $jarModInfo.Name.ToLower() -split '[^a-z0-9]+'
+        foreach ($part in $modNameParts) {
+            if ($part.Length -gt 3 -and $fileNameBase.Contains($part)) {
+                $nameFoundInFilename = $true
+                break
+            }
+        }
+    }
+    
+    # If neither mod ID nor mod name is found in filename, flag as tampered
+    if (-not $idFoundInFilename -and -not $nameFoundInFilename) {
+        $modIdFilenameMismatch = $true
+        $modIdMismatchReason = "MOD ID DOES NOT MATCH FILE NAME - ID: '$($jarModInfo.ModId)'"
+        
+        # Add specific info if we have mod name
+        if ($jarModInfo.Name -and $jarModInfo.Name -ne "") {
+            $modIdMismatchReason += " (Mod Name: '$($jarModInfo.Name)')"
+        }
+    }
+}
     
     # Determine preferred loader
     $preferredLoader = "Fabric"
