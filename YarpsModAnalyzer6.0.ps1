@@ -878,12 +878,12 @@ $cheatStrings = @(
 "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin",
 "findKnockbackSword", "attackRegisteredThisClick", "autoCrystalPlaceClock",
 "AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
-"triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown",
-"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", 
-"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", 
-"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
-"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
-"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack", "runtime.exec()"
+"triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown", "freecam", "Freecam",
+"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks", "doItemUse"
+"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", "selectedSlot",
+"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "IsGlowing", "getSelectedSlot",
+"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", 
+"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack", "doAttack", "handleBlockBreaking", "onHandleInputEvents"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
