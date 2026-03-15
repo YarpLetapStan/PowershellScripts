@@ -871,7 +871,7 @@ $cheatStrings = @(
 "anchortweaks", "anchor macro", "safe anchor", "safeanchor",
 "AutoTotem", "autototem", "auto totem", "InventoryTotem",
 "inventorytotem", "HoverTotem", "hover totem", "legittotem",
-"AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot",
+"AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot",
 "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack",
 "AutoDoubleHand", "autodoublehand", "auto double hand",
 "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe...",
@@ -879,11 +879,11 @@ $cheatStrings = @(
 "findKnockbackSword", "attackRegisteredThisClick", "autoCrystalPlaceClock",
 "AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
 "triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown", "freecam", "Freecam",
-"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks", "doItemUse"
-"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", "selectedSlot",
+"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks", "doItemUse",
+"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem", "selectedSlot",
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "IsGlowing", "getSelectedSlot",
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", 
-"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack", "doAttack", "handleBlockBreaking", "onHandleInputEvents"
+"AutoMace", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack", "onHandleInputEvents"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
