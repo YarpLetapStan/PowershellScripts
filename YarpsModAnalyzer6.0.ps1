@@ -880,8 +880,8 @@ $cheatStrings = @(
 "AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
 "triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown", "freecam", "Freecam",
 "FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks", "doItemUse",
-"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem", "selectedSlot",
-"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "IsGlowing", "getSelectedSlot",
+"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem",
+"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "getSelectedSlot",
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS"
 )
 function Check-Strings($filePath) {
