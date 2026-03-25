@@ -879,11 +879,11 @@ $cheatStrings = @(
 "findKnockbackSword", "attackRegisteredThisClick", "autoCrystalPlaceClock",
 "AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
 "triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown", "freecam", "Freecam",
-"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks", "doItemUse",
+"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks",
 "FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem",
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "getSelectedSlot",
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", "onSwapLastAttackedTicksReset",
-"getVisualAttackCooldownProgressPerTick", "getHandSwingDuration", "onBeginRenderTick", "setVelocity", "PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "onSwapLastAttackedTicksReset", "hookCancelBlockBreaking", "endcrystalitemmixin"
+"getVisualAttackCooldownProgressPerTick", "getHandSwingDuration", "onBeginRenderTick", "PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "onSwapLastAttackedTicksReset", "hookCancelBlockBreaking", "endcrystalitemmixin"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
