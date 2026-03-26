@@ -1193,9 +1193,9 @@ if (
     ($totalClassCount -ge 10 -and $obfPercent -ge 25)
 ) {
     $reason = if ($obfPercent -ge 25) {
-        "Multiple single-lettered/obfuscation class patterns detected"
+        "Multiple single-letter/obfuscation class patterns detected"
     } else {
-        "Multiple single-lettered/obfuscation class patterns detected"
+        "Multiple single-letter/obfuscation class patterns detected"
     }
 
     $tamperedMods += [PSCustomObject]@{
