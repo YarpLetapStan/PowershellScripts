@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nD YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1209,11 +1209,7 @@ if (
 
     # Remove from verified mods
     $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-}
-            # Remove from verified mods
-            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-        }
-        
+}     
         if ($modStrings = Check-Strings $mod.FilePath) {
            $cheatMods.Add([PSCustomObject]@{
                 FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
