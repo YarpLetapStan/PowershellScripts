@@ -1,5 +1,5 @@
 Clear-Host
-Write-Host "Made by YarpLetapStan`nD YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1193,9 +1193,9 @@ if (
     ($totalClassCount -ge 10 -and $obfPercent -ge 25)
 ) {
     $reason = if ($obfPercent -ge 25) {
-        "Multiple single-letter class files found ($singleLetterClassCount found)"
+        "Multiple single-lettered/obfuscation class patterns detected"
     } else {
-        "Multiple single-letter class files found ($singleLetterClassCount found)"
+        "Multiple single-lettered/obfuscation class patterns detected"
     }
 
     $tamperedMods += [PSCustomObject]@{
