@@ -865,25 +865,25 @@ function Fetch-Megabase($hash) {
 }
 
 $cheatStrings = @(
-    "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal",
+   "AutoCrystal", "autocrystal", "auto crystal", "cw crystal", "dontPlaceCrystal", "dontBreakCrystal",
 "AutoHitCrystal", "autohitcrystal", "canPlaceCrystalServer", "healPotSlot",
 "AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "hasGlowstone", "HasAnchor",
 "anchortweaks", "anchor macro", "safe anchor", "safeanchor",
 "AutoTotem", "autototem", "auto totem", "InventoryTotem",
 "inventorytotem", "HoverTotem", "hover totem", "legittotem",
-"AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot", "healPotSlot",
+"AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot",
 "AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack",
 "AutoDoubleHand", "autodoublehand", "auto double hand",
 "AutoClicker", "Failed to switch to mace after axe!", "Breaking shield with axe...",
 "Donut", "JumpReset", "axespam", "axe spam", "shieldbreaker", "shield breaker", "EndCrystalItemMixin",
 "findKnockbackSword", "attackRegisteredThisClick", "autoCrystalPlaceClock",
 "AimAssist", "aimassist", "aim assist", "setBlockBreakingCooldown", "getBlockBreakingCooldown",
-"triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown",
-"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", 
-"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "invokeDoItemUse", "Automatically switches to sword when hitting with totem", 
-"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", 
-"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS",
-"AutoMace", "getBlockBreakingCooldown", "Dqrkis Client", "Entity.isGlowing", "invokeDoAttack", "runtime.exec()"
+"triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown", "freecam", "Freecam",
+"FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks",
+"FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem",
+"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "getSelectedSlot",
+"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", "onSwapLastAttackedTicksReset",
+"getVisualAttackCooldownProgressPerTick", "getHandSwingDuration", "onBeginRenderTick", "PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "onSwapLastAttackedTicksReset", "hookCancelBlockBreaking", "endcrystalitemmixin"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
@@ -1140,27 +1140,76 @@ try {
         Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
         
         # Check for single-letter class files
-        $singleLetterClassCount = 0
-        try {
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
-            $classEntries = $zip.Entries | Where-Object { $_.Name -like '*.class' }
-            foreach ($entry in $classEntries) {
-                $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
-                if ($className.Length -le 2) {
-                    $singleLetterClassCount++
+$singleLetterClassCount = 0
+$totalClassCount = 0
+$obfuscatedPathCount = 0
+
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+    $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
+
+    foreach ($entry in $classEntries) {
+        $totalClassCount++
+
+        $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+        if ($className.Length -le 2) {
+            $singleLetterClassCount++
+        }
+
+        # Detect single-letter package chains like a/b/c/Class.class
+        $pathWithoutClass = $entry.FullName -replace '\.class$',''
+        $segments = $pathWithoutClass -split '/'
+
+        $consecutiveSingle = 0
+        $maxConsecutive = 0
+
+        foreach ($segment in $segments) {
+            if ($segment.Length -eq 1) {
+                $consecutiveSingle++
+                if ($consecutiveSingle -gt $maxConsecutive) {
+                    $maxConsecutive = $consecutiveSingle
                 }
+            } else {
+                $consecutiveSingle = 0
             }
-            $zip.Dispose()
-        } catch {}
-        
-        if ($singleLetterClassCount -gt 15) {
-            # Flag as tampered
-            $tamperedMods += [PSCustomObject]@{ 
-                FileName = $mod.FileName; ModName = $mod.ModName; ActualSizeKB = $mod.FileSizeKB
-                ExpectedSizeKB = $mod.ExpectedSizeKB; SizeDiffKB = $mod.SizeDiffKB
-                TamperReason = "Multiple single-letter class files ($singleLetterClassCount found)"
-            }
+        }
+
+        if ($maxConsecutive -ge 3) {
+            $obfuscatedPathCount++
+        }
+    }
+
+    $zip.Dispose()
+} catch {}
+
+$obfPercent = 0
+if ($totalClassCount -ge 10) {
+    $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
+}
+
+if (
+    $singleLetterClassCount -gt 15 -or
+    ($totalClassCount -ge 10 -and $obfPercent -ge 25)
+) {
+    $reason = if ($obfPercent -ge 25) {
+        "Multiple single-letter class files found ($singleLetterClassCount found)"
+    } else {
+        "Multiple single-letter class files found ($singleLetterClassCount found)"
+    }
+
+    $tamperedMods += [PSCustomObject]@{
+        FileName = $mod.FileName
+        ModName = $mod.ModName
+        ActualSizeKB = $mod.FileSizeKB
+        ExpectedSizeKB = $mod.ExpectedSizeKB
+        SizeDiffKB = $mod.SizeDiffKB
+        TamperReason = $reason
+    }
+
+    # Remove from verified mods
+    $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
+}
             # Remove from verified mods
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
@@ -1213,10 +1262,6 @@ $disallowedMods = @{
     "tweakeroo" = @{
         Names = @("Tweakeroo", "tweakeroo", "Tweakeroo")
     }
-    "fireworkcounter" = @{
-        Names = @("FireworkCounter", "fireworkcounter", "Firework Counter", "firework counter", "Firework-Counter")
-        WarningMessage = "Maybe Dqrkis Client"
-    }
 }
 
 # Scan for disallowed mods
@@ -1256,7 +1301,6 @@ foreach ($file in $jarFiles) {
             $disallowedModsFound += [PSCustomObject]@{
                 FileName = $file.Name
                 ModName = $modData.Names[0]
-                WarningMessage = $modData.WarningMessage
             }
             break
         }
@@ -1427,10 +1471,6 @@ if ($disallowedModsFound.Count -gt 0) {
         Write-Host "File: $($mod.FileName)" -ForegroundColor White
         Write-Host "  ║ " -NoNewline -ForegroundColor Red
         Write-Host "Mod: $($mod.ModName)" -ForegroundColor White
-        if ($mod.WarningMessage) {
-            Write-Host "  ║ " -NoNewline -ForegroundColor Red
-            Write-Host "Warning: $($mod.WarningMessage)" -ForegroundColor Yellow
-        }
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
         if ($i -lt $disallowedModsFound.Count - 1) {
             Write-Host ""
