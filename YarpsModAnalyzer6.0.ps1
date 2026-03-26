@@ -1,5 +1,6 @@
+
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDM YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1140,31 +1141,76 @@ try {
         Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
         
         # Check for single-letter class files
-        $singleLetterClassCount = 0
-        try {
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
-            $classEntries = $zip.Entries | Where-Object { $_.Name -like '*.class' }
-            foreach ($entry in $classEntries) {
-                $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
-                if ($className.Length -le 2) {
-                    $singleLetterClassCount++
-                }
-            }
-            $zip.Dispose()
-        } catch {}
-        
-        if ($singleLetterClassCount -gt 15) {
-            # Flag as tampered
-            $tamperedMods += [PSCustomObject]@{ 
-                FileName = $mod.FileName; ModName = $mod.ModName; ActualSizeKB = $mod.FileSizeKB
-                ExpectedSizeKB = $mod.ExpectedSizeKB; SizeDiffKB = $mod.SizeDiffKB
-                TamperReason = "Multiple single-letter class files ($singleLetterClassCount found)"
-            }
-            # Remove from verified mods
-            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
+$singleLetterClassCount = 0
+$totalClassCount = 0
+$obfuscatedPathCount = 0
+
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+    $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
+
+    foreach ($entry in $classEntries) {
+        $totalClassCount++
+
+        $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+        if ($className.Length -le 2) {
+            $singleLetterClassCount++
         }
-        
+
+        # Detect single-letter package chains like a/b/c/Class.class
+        $pathWithoutClass = $entry.FullName -replace '\.class$',''
+        $segments = $pathWithoutClass -split '/'
+
+        $consecutiveSingle = 0
+        $maxConsecutive = 0
+
+        foreach ($segment in $segments) {
+            if ($segment.Length -eq 1) {
+                $consecutiveSingle++
+                if ($consecutiveSingle -gt $maxConsecutive) {
+                    $maxConsecutive = $consecutiveSingle
+                }
+            } else {
+                $consecutiveSingle = 0
+            }
+        }
+
+        if ($maxConsecutive -ge 3) {
+            $obfuscatedPathCount++
+        }
+    }
+
+    $zip.Dispose()
+} catch {}
+
+$obfPercent = 0
+if ($totalClassCount -ge 10) {
+    $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
+}
+
+if (
+    $singleLetterClassCount -gt 15 -or
+    ($totalClassCount -ge 10 -and $obfPercent -ge 25)
+) {
+    $reason = if ($obfPercent -ge 25) {
+        "Multiple single-letter/obfuscation class patterns detected"
+    } else {
+        "Multiple single-letter/obfuscation class patterns detected"
+    }
+
+    $tamperedMods += [PSCustomObject]@{
+        FileName = $mod.FileName
+        ModName = $mod.ModName
+        ActualSizeKB = $mod.FileSizeKB
+        ExpectedSizeKB = $mod.ExpectedSizeKB
+        SizeDiffKB = $mod.SizeDiffKB
+        TamperReason = $reason
+    }
+
+    # Remove from verified mods
+    $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
+}     
         if ($modStrings = Check-Strings $mod.FilePath) {
            $cheatMods.Add([PSCustomObject]@{
                 FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
