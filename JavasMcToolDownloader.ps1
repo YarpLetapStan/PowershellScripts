@@ -56,6 +56,7 @@ $urls = @(
     'https://github.com/spokwn/JournalTrace/releases/download/1.2/JournalTrace.exe',
     'https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.3/PrefetchView++.exe',
     'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.1/MeowDoomsdayFucker.exe',
+    'https://www.nirsoft.net/utils/winprefetchview-x64.zip',
     'https://github.com/winsiderss/si-builds/releases/download/3.2.25275.112/systeminformer-build-canary-setup.exe'
 )
 
