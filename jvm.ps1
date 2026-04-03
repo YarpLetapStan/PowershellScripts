@@ -1504,5 +1504,6 @@ Write-Host ""
 
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
+Write-Host "Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor DarkGray
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
