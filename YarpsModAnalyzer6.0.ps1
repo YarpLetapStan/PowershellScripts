@@ -885,7 +885,7 @@ $cheatStrings = @(
 "FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks",
 "FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem",
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "getSelectedSlot", "WalksyCrystalOptimizerMod", 
-"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", "onSwapLastAttackedTicksReset", "StringObfuscator", 
+"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "onSwapLastAttackedTicksReset", "StringObfuscator", 
 "getVisualAttackCooldownProgressPerTick", "getHandSwingDuration", "onBeginRenderTick", "PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "onSwapLastAttackedTicksReset", "hookCancelBlockBreaking", "endcrystalitemmixin",
 "ＡｕｔｏＣｒｙｓｔａｌ", "Ａｕｔｏ Ｃｒｙｓｔａｌ",
 "ＡｕｔｏＨｉｔＣｒｙｓｔａｌ",
