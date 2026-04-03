@@ -1,3 +1,4 @@
+
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
@@ -881,8 +882,8 @@ $cheatStrings = @(
 "triggerbot", "trigger bot", "onBlockBreaking", "setItemUseCooldown", "freecam", "Freecam",
 "FakeInv", "swapBackToOriginalSlot", "setSelectedSlot", "invokeDoAttack", "pushOutOfBlocks",
 "FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem",
-"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "getSelectedSlot",
-"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", "onSwapLastAttackedTicksReset",
+"webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "getSelectedSlot", "WalksyCrystalOptimizerMod", 
+"lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", "onSwapLastAttackedTicksReset", "StringObfuscator", 
 "getVisualAttackCooldownProgressPerTick", "getHandSwingDuration", "onBeginRenderTick", "PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "onSwapLastAttackedTicksReset", "hookCancelBlockBreaking", "endcrystalitemmixin"
 )
 function Check-Strings($filePath) {
@@ -1179,7 +1180,42 @@ try {
             $obfuscatedPathCount++
         }
     }
+# ================= CLASS NAME STRING CHECKER =================
+$classNameFlags = 0
 
+$suspiciousClassPatterns = @(
+    "PackB",
+    "BindA",
+    "RenderE",
+    "SortC",
+    "CacheD",
+    "ConfigA",
+    "DataB",
+    "EventC",
+    "LoadE",
+    "SyncF"
+)
+
+foreach ($entry in $classEntries) {
+    $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+
+    foreach ($pattern in $suspiciousClassPatterns) {
+        if ($className -match "(?i)^$pattern$") {
+            $classNameFlags++
+            break
+        }
+    }
+}
+
+# If 10+ exact matches → flag as disallowed
+if ($classNameFlags -ge 10) {
+    $disallowedModsFound += [PSCustomObject]@{
+        FileName = $mod.FileName
+        ModName  = if ($mod.ModName) { $mod.ModName } else { "Unknown" }
+    }
+
+    $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
+}
     $zip.Dispose()
 } catch {}
 
