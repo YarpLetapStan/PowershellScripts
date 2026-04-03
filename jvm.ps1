@@ -1,3 +1,5 @@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 Clear-Host
 Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
@@ -489,7 +491,7 @@ function Get-Mod-Info-From-Jar($jarPath) {
         
         # Check for fabric.mod.json
         if ($entry = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1) {
-            $reader = New-Object System.IO.StreamReader($entry.Open())
+            $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
             $fabricData = $reader.ReadToEnd() | ConvertFrom-Json
             $reader.Close()
             
@@ -507,7 +509,7 @@ function Get-Mod-Info-From-Jar($jarPath) {
         
         # Check for mods.toml (Forge/NeoForge)
         if ($entry = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1) {
-            $reader = New-Object System.IO.StreamReader($entry.Open())
+            $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
             $tomlContent = $reader.ReadToEnd()
             $reader.Close()
             
@@ -524,7 +526,7 @@ function Get-Mod-Info-From-Jar($jarPath) {
         
         # Check for mixin configs
         if ($entry = $zip.Entries | Where-Object { $_.Name -match '\.mixins\.json$' } | Select-Object -First 1) {
-            $reader = New-Object System.IO.StreamReader($entry.Open())
+           $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
             $mixinData = $reader.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue
             $reader.Close()
             if ($mixinData.package -and -not $modInfo.ModId) {
@@ -535,7 +537,7 @@ function Get-Mod-Info-From-Jar($jarPath) {
         
         # Check for manifest
         if ($entry = $zip.Entries | Where-Object { $_.Name -eq 'MANIFEST.MF' } | Select-Object -First 1) {
-            $reader = New-Object System.IO.StreamReader($entry.Open())
+           $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
             $manifestContent = $reader.ReadToEnd()
             $reader.Close()
             
@@ -884,7 +886,29 @@ $cheatStrings = @(
 "FakeLag", "pingspoof", "ping spoof", "onTickMovement", "Automatically switches to sword when hitting with totem",
 "webmacro", "web macro", "arrayOfString", "invokeDoItemUse", "onPushOutOfBlocks", "onIsGlowing", "getSelectedSlot", "WalksyCrystalOptimizerMod", 
 "lvstrng", "dqrkis", "selfdestruct", "self destruct", "blockBreakingCooldown", "setItemUseCooldown", "invokeOnMouseButton", "POT_CHEATS", "BATAS", "onSwapLastAttackedTicksReset", "StringObfuscator", 
-"getVisualAttackCooldownProgressPerTick", "getHandSwingDuration", "onBeginRenderTick", "PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "onSwapLastAttackedTicksReset", "hookCancelBlockBreaking", "endcrystalitemmixin"
+"getVisualAttackCooldownProgressPerTick", "getHandSwingDuration", "onBeginRenderTick", "PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "onSwapLastAttackedTicksReset", "hookCancelBlockBreaking", "endcrystalitemmixin",
+"ＡｕｔｏＣｒｙｓｔａｌ", "Ａｕｔｏ Ｃｒｙｓｔａｌ",
+"ＡｕｔｏＨｉｔＣｒｙｓｔａｌ",
+"ＡｕｔｏＡｎｃｈｏｒ", "Ａｕｔｏ Ａｎｃｈｏｒ",
+"ＤｏｕｂｌｅＡｎｃｈｏｒ", "Ｄｏｕｂｌｅ Ａｎｃｈｏｒ",
+"ＳａｆｅＡｎｃｈｏｒ", "Ｓａｆｅ Ａｎｃｈｏｒ",
+"Ａｎｃｈｏｒ Ｍａｃｒｏ",
+"ＡｕｔｏＴｏｔｅｍ", "Ａｕｔｏ Ｔｏｔｅｍ",
+"ＨｏｖｅｒＴｏｔｅｍ", "Ｈｏｖｅｒ Ｔｏｔｅｍ",
+"ＩｎｖｅｎｔｏｒｙＴｏｔｅｍ",
+"ＡｕｔｏＰｏｔ", "Ａｕｔｏ Ｐｏｔ",
+"ＡｕｔｏＡｒｍｏｒ", "Ａｕｔｏ Ａｒｍｏｒ",
+"ＳｈｉｅｌｄＤｉｓａｂｌｅｒ", "Ｓｈｉｅｌｄ Ｄｉｓａｂｌｅｒ",
+"ＡｕｔｏＤｏｕｂｌｅＨａｎｄ", "Ａｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ",
+"ＡｕｔｏＣｌｉｃｋｅｒ",
+"ＡｉｍＡｓｓｉｓｔ", "Ａｉｍ Ａｓｓｉｓｔ",
+"ＴｒｉｇｇｅｒＢｏｔ", "Ｔｒｉｇｇｅｒ ＴｒｉｇｇｅｒＢｏｔ",
+"ＦａｋｅＬａｇ", "Ｆａｋｅ Ｌａｇ",
+"Ｆｒｅｅｃａｍ", "Ｎｏ Ｃｌｉｐ",
+"Ｆａｓｔ Ｐｌａｃｅ",
+"Ｌｏｏｔ Ｙｅｅｔｅｒ",
+"Ｗａｌｋｓｙ Ｏｐｔｉｍｉｚｅｒ",
+"ＥｌｙｔｒａＳｗａｐ", "Ｅｌｙｔｒａ Ｓｗａｐ"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
@@ -900,7 +924,7 @@ function Check-Strings($filePath) {
         
         if ($stringsPath = $possiblePaths | Where-Object { Test-Path $_ } | Select-Object -First 1) {
             $tempFile = Join-Path $env:TEMP "temp_strings_$(Get-Random).txt"
-            & $stringsPath $filePath 2>$null | Out-File $tempFile
+           & $stringsPath $filePath 2>$null | Out-File $tempFile -Encoding UTF8
             if (Test-Path $tempFile) {
                 $extractedContent = Get-Content $tempFile -Raw
                 Remove-Item $tempFile -Force
@@ -911,16 +935,16 @@ function Check-Strings($filePath) {
             }
         } else {
             # Check main file content
-            $content = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
-            foreach ($string in $cheatStrings) {
-                if ($string -eq "velocity") {
-                    if ($content -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-                        $stringsFound.Add($string) | Out-Null
-                    }
-                } elseif ($content -match $string.ToLower()) {
-                    $stringsFound.Add($string) | Out-Null
-                }
-            }
+           $content = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
+foreach ($string in $cheatStrings) {
+    if ($string -eq "velocity") {
+        if ($content -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
+            $stringsFound.Add($string) | Out-Null
+        }
+    } elseif ($content -match [regex]::Escape($string.ToLower())) {
+        $stringsFound.Add($string) | Out-Null
+    }
+}
             
             # Also check .class files and .json files inside the JAR
             Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -943,7 +967,7 @@ foreach ($entry in $entries) {
 
                 if ($nestedEntry.Name -match '\.(class|json)$') {
 
-                    $reader = New-Object System.IO.StreamReader($nestedEntry.Open())
+                    $reader = New-Object System.IO.StreamReader($nestedEntry.Open(), [System.Text.Encoding]::UTF8)
                     $nestedContent = $reader.ReadToEnd().ToLower()
                     $reader.Close()
 
@@ -964,7 +988,7 @@ foreach ($entry in $entries) {
 
     # ===== Normal class/json scanning =====
     try {
-        $reader = New-Object System.IO.StreamReader($entry.Open())
+        $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
         $entryContent = $reader.ReadToEnd().ToLower()
         $reader.Close()
 
@@ -1180,42 +1204,7 @@ try {
             $obfuscatedPathCount++
         }
     }
-# ================= CLASS NAME STRING CHECKER =================
-$classNameFlags = 0
 
-$suspiciousClassPatterns = @(
-    "PackB",
-    "BindA",
-    "RenderE",
-    "SortC",
-    "CacheD",
-    "ConfigA",
-    "DataB",
-    "EventC",
-    "LoadE",
-    "SyncF"
-)
-
-foreach ($entry in $classEntries) {
-    $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
-
-    foreach ($pattern in $suspiciousClassPatterns) {
-        if ($className -match "(?i)^$pattern$") {
-            $classNameFlags++
-            break
-        }
-    }
-}
-
-# If 10+ exact matches → flag as disallowed
-if ($classNameFlags -ge 10) {
-    $disallowedModsFound += [PSCustomObject]@{
-        FileName = $mod.FileName
-        ModName  = if ($mod.ModName) { $mod.ModName } else { "Unknown" }
-    }
-
-    $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-}
     $zip.Dispose()
 } catch {}
 
