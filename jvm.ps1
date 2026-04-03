@@ -998,7 +998,7 @@ foreach ($entry in $entries) {
                     $stringsFound.Add($string) | Out-Null
                 }
             }
-            elseif ($entryContent -match $string.ToLower()) {
+           elseif ($entryContent -match [regex]::Escape($string.ToLower())) {
                 $stringsFound.Add($string) | Out-Null
             }
         }
