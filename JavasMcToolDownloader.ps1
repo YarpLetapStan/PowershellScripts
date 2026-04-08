@@ -31,6 +31,15 @@ New-Item -Path $folder -ItemType Directory -Force | Out-Null
 Set-Location $folder
 Write-Host "[+] Created folder: $folder" -ForegroundColor Cyan
 
+try {
+    Add-MpPreference -ExclusionPath $folder -ErrorAction Stop
+    Write-Host "[✓] Added Windows Defender exclusion for: $folder" -ForegroundColor Green
+}
+catch {
+    Write-Host "[!] Could not add Defender exclusion: $_" -ForegroundColor Yellow
+    Write-Host "    (You may need to add it manually if Defender blocks the tools)" -ForegroundColor Yellow
+}
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Download-File {
@@ -48,9 +57,6 @@ function Download-File {
     }
 }
 
-# -----------------------
-# ONLY YOUR URLS
-# -----------------------
 $urls = @(
     'https://github.com/spokwn/BAM-parser/releases/download/v1.2.9/BAMParser.exe',
     'https://github.com/spokwn/JournalTrace/releases/download/1.2/JournalTrace.exe',
