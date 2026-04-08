@@ -75,8 +75,5 @@ foreach ($url in $urls) {
     Download-File $url
 }
 
-Write-Host "`n[+] Windows Defender exclusions currently configured:" -ForegroundColor Cyan
-Get-MpPreference | Select-Object -ExpandProperty ExclusionPath | ForEach-Object { Write-Host "    - $_" -ForegroundColor Gray }
-
 Start-Process explorer.exe $folder
 Write-Host "`n[✓] Finished" -ForegroundColor Green
