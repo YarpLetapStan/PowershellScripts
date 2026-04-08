@@ -57,7 +57,7 @@ $urls = @(
     'https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.3/PrefetchView++.exe',
     'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.1/MeowDoomsdayFucker.exe',
     'https://www.nirsoft.net/utils/winprefetchview-x64.zip',
-    'https://github.com/winsiderss/si-builds/releases/download/3.2.25275.112/systeminformer-build-canary-setup.exe'
+    'https://github.com/winsiderss/si-builds/releases/download/4.0.26092.337/systeminformer-build-canary-setup.exe'
 )
 
 $counter = 0
