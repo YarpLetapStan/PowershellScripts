@@ -885,7 +885,7 @@ $cheatStrings = @(
 "findKnockbackSword", "attackRegisteredThisClick",
 
 "FakeLag", "pingspoof", "ping spoof", "freecam", "Freecam", "FakeInv",
-"pushOutOfBlocks", "onPushOutOfBlocks", "onTickMovement",
+"pushOutOfBlocks", "onPushOutOfBlocks",
 "webmacro", "web macro", "JumpReset", "Donut",
 
 "setBlockBreakingCooldown", "getBlockBreakingCooldown", "setItemUseCooldown",
