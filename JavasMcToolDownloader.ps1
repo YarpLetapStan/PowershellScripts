@@ -65,7 +65,7 @@ $urls = @(
     'https://www.nirsoft.net/utils/winprefetchview-x64.zip',
     'https://github.com/winsiderss/si-builds/releases/download/4.0.26115.206/systeminformer-build-canary-setup.exe'
     'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Standalone/PjCheatScannerLite.exe'
-    'https://aka.ms/dotnet-core-applaunch?framework=Microsoft.NETCore.App&framework_version=6.0.0&arch=x64&rid=win-x64&os=win10'
+    'https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/sdk-8.0.420-windows-x64-installer'
 )
 
 $counter = 0
