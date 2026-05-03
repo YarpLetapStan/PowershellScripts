@@ -64,8 +64,7 @@ $urls = @(
     'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.1/MeowDoomsdayFucker.exe',
     'https://www.nirsoft.net/utils/winprefetchview-x64.zip',
     'https://github.com/winsiderss/si-builds/releases/download/4.0.26115.206/systeminformer-build-canary-setup.exe'
-    'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Standalone/PjCheatScannerLite.exe'
-    'https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/sdk-8.0.420-windows-x64-installer'
+    'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/PjCheatScannerLite.exe'
     'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/cheat_strings.txt'
 )
 
