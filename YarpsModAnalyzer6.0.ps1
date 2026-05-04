@@ -3,7 +3,7 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Clear-Host
-Write-Host "Made by YarpLetapStan`nm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1464,20 +1464,18 @@ if ($cheatMods.Count -gt 0) {
         }
         
         if ($mod.StringsFound.Count -gt 0) {
-            Write-Host "  ║ " -NoNewline -ForegroundColor Red
-            Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
             $cheatList = @($mod.StringsFound) | Sort-Object
             $dqrkisStrings = @("CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA")
             $hasDqrkis = ($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0
             if ($hasDqrkis) {
-                Write-Host "  ║   " -NoNewline -ForegroundColor Red
-                Write-Host "• Dqrkis Client Strings" -ForegroundColor Magenta
+                Write-Host "  ║ " -NoNewline -ForegroundColor Red
+                Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red
             }
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red
+            Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
             foreach ($cheatString in $cheatList) {
-                if ($dqrkisStrings -notcontains $cheatString) {
-                    Write-Host "  ║   " -NoNewline -ForegroundColor Red
-                    Write-Host "• $cheatString" -ForegroundColor Magenta
-                }
+                Write-Host "  ║   " -NoNewline -ForegroundColor Red
+                Write-Host "• $cheatString" -ForegroundColor Magenta
             }
         }
         
