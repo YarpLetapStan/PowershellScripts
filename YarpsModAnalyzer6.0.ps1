@@ -1463,14 +1463,21 @@ if ($cheatMods.Count -gt 0) {
             Write-Host "Mod: $($mod.ModName)" -ForegroundColor White
         }
         
-        # Show cheat strings as a list using • bullets
         if ($mod.StringsFound.Count -gt 0) {
             Write-Host "  ║ " -NoNewline -ForegroundColor Red
             Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
             $cheatList = @($mod.StringsFound) | Sort-Object
-            foreach ($cheatString in $cheatList) {
+            $dqrkisStrings = @("CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA")
+            $hasDqrkis = ($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0
+            if ($hasDqrkis) {
                 Write-Host "  ║   " -NoNewline -ForegroundColor Red
-                Write-Host "• $cheatString" -ForegroundColor Magenta
+                Write-Host "• Dqrkis Client Strings" -ForegroundColor Magenta
+            }
+            foreach ($cheatString in $cheatList) {
+                if ($dqrkisStrings -notcontains $cheatString) {
+                    Write-Host "  ║   " -NoNewline -ForegroundColor Red
+                    Write-Host "• $cheatString" -ForegroundColor Magenta
+                }
             }
         }
         
