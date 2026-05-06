@@ -2,7 +2,7 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Clear-Host
-Write-Host "Made by YarpLetapStan`nm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1154,7 +1154,7 @@ if (
     ($numPercent -ge 20 -and $totalClassCount -ge 5)  -or
     ($uniPercent -ge 10 -and $totalClassCount -ge 5)  -or
     ($novPercent -ge  8 -and $totalClassCount -ge 5)  -or
-    ($gibPercent -ge  5 -and $totalClassCount -ge 5)  -or
+    ($gibPercent -ge 15 -and $totalClassCount -ge 100) -or
     ($singleCharPkgCount -ge 6)                       -or
     ($obfPercent -ge 25 -and $totalClassCount -ge 10)
 ) {
