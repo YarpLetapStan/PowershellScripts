@@ -3,7 +3,7 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Clear-Host
-Write-Host "Made by YarpLetapStan`nm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -917,17 +917,18 @@ $cheatStrings = @(
 "Automatically switches to sword when hitting with totem",
 "Failed to switch to mace after axe!",
 "Breaking shield with axe...", "TrilliumSolutions",
-"selfdestruct", "self destruct",
+"selfdestruct", "self destruct", "CwskKkUfHQYB", "HgsCDQ49KkUfHQYB", "DhsnbQ0LDg0MDA", "OhYHBQcOHw", "EgQKDiUqRR8WChk",
+"KjoFWRcEAx0M", "Hx0GAVkcChwdDA", "HSw7RQQIAQQ", "BR0sFBcOGg4a", "Oh0yWR0MCA",
 
 "ＡｕｔｏＣｒｙｓｔａｌ", "Ａｕｔｏ Ｃｒｙｓｔａｌ", "ＡｕｔｏＨｉｔＣｒｙｓｔａｌ", "Ａ．ｕｔｏ Ｃｒｙｓｔａｌ", "Ａ．ｕｔｏＣｒｙｓｔａｌＬＶ２", "Ａ．ｕｔｏ Ｈｉｔ Ｃｒｙｓｔａｌ",
 "ＡｕｔｏＡｎｃｈｏｒ", "Ａｕｔｏ Ａｎｃｈｏｒ", "ＤｏｕｂｌｅＡｎｃｈｏｒ", "Ｄｏｕｂｌｅ Ａｎｃｈｏｒ", "ＳａｆｅＡｎｃｈｏｒ", "Ｓａｆｅ Ａｎｃｈｏｒ",
 "Ａｎｃｈｏｒ Ｍａｃｒｏ", "Ａ．ｎｃｈｏｒ Ｍａｃｒｏ", "Ａ．ｎｃｈｏｒ Ｍａｃｒｏ Ｖ２", "Ｄ．ｏｕｂｌｅ Ａｎｃｈｏｒ", "Ｓ．ａｆｅＡｎｃｈｏｒ",
 "ＡｕｔｏＴｏｔｅｍ", "Ａｕｔｏ Ｔｏｔｅｍ", "Ａｕｔｏ Ｔｏｔｅｍ Ｈｉｔ", "Ａ．ｕｔｏ Ｔｏｔｅｍ Ｈｉｔ", "ＨｏｖｅｒＴｏｔｅｍ", "Ｈｏｖｅｒ Ｔｏｔｅｍ",
 "ＩｎｖｅｎｔｏｒｙＴｏｔｅｍ", "Ｈ．ｏｖｅｒ Ｔｏｔｅｍ", "Ａ．ｕｔｏ Ｉｎｖｅｎｔｏｒｙ Ｔｏｔｅｍ", "Ｆ．ｏｒｃｅ Ｔｏｔｅｍ", "Ｔ．ｏｔｅｍ Ｆｉｒｓｔ",
-"Ｔ．ｏｔｅｍ Ｏｆｆｈａｎｄ", "Ｔ．ｏｔｅｍ Ｓｌｏｔ", "Ｈ．ｏｖｅｒ", "Ｗ．ｏｒｋ Ｗｉｔｈ Ｔｏｔｅｍ", "ＡｕｔｏＤｏｕｂｌｅＨａｎｄ", "Ａｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ", "Ａ．ｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ",
+"Ｔ．ｏｔｅｍ Ｏｆｆｈａｎｄ", "Ｔ．ｏｔｅｍ Ｓｌｏｔ", "Ｈ．ｏｖｅｒ", "Ｗ．ｏｒｋ Ｗｉｔｈ Ｔｏｔｅｍ", "ＡｕｔｏＤｏｕｂｌｅＨａｎｄ", "Ａｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ", "Ａ．ｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ", 
 "Ａ．ｃｔｉｖａｔｅ Ｋｅｙ", "Ｗ．ｈｉｌｅ Ｕｓｅ", "Ｓ．ｔｏｐ ｏｎ Ｋｉｌｌ", "Ｃ．ｌｉｃｋ Ｓｉｍｕｌａｔｉｏｎ", "Ｓ．ｗｉｔｃｈ Ｄｅｌａｙ",
 "Ｓ．ｗｔｃｈ Ｃｈａｎｃｅ", "Ｐ．ｌａｃｅ Ｃｈａｎｃｅ", "Ｇ．ｌｏｗｓｔｏｎｅ Ｄｅｌａｙ", "Ｇ．ｌｏｗｓｔｏｎｅ Ｃｈａｎｃｅ", "Ｅ．ｘｐｌｏｄｅ Ｄｅｌａｙ",
-"Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ", "Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ", "Ｏ．ｎｌｙ Ｏｗｎ", "Ｏ．ｎｌｙ Ｃｈａｒｇｅ", "Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ", "Ｒ．ａｎｄ Ｇｌｏｗ Ｍｉｎ", "Ｒ．ａｎｄ Ｇｌｏｗ Ｍａｘ"
+"Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ", "Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ", "Ｏ．ｎｌｙ Ｏｗｎ", "Ｏ．ｎｌｙ Ｃｈａｒｇｅ", "Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ"
 )
 function Check-Strings($filePath) {
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
@@ -1201,7 +1202,26 @@ try {
             $singleLetterClassCount++
         }
 
-        # Detect single-letter package chains like a/b/c/Class.class
+        # Enhanced obfuscation detection
+$singleLetterClassCount = 0
+$totalClassCount = 0
+$obfuscatedPathCount = 0
+$numericClassCount = 0
+$unicodeClassCount = 0
+
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+    $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
+
+    foreach ($entry in $classEntries) {
+        $totalClassCount++
+        $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+        
+        if ($className.Length -le 2) { $singleLetterClassCount++ }
+        if ($className -match '^\d+$') { $numericClassCount++ }
+        if ($className -match '[^\x00-\x7F]') { $unicodeClassCount++ }
+
         $pathWithoutClass = $entry.FullName -replace '\.class$',''
         $segments = $pathWithoutClass -split '/'
 
@@ -1228,32 +1248,33 @@ try {
 } catch {}
 
 $obfPercent = 0
+$numPercent = 0
+$uniPercent = 0
+
 if ($totalClassCount -ge 10) {
     $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
+    $numPercent = [math]::Round(($numericClassCount / $totalClassCount) * 100)
+    $uniPercent = [math]::Round(($unicodeClassCount / $totalClassCount) * 100)
 }
 
 if (
     $singleLetterClassCount -gt 15 -or
+    $numPercent -ge 20 -or
+    $uniPercent -ge 10 -or
     ($totalClassCount -ge 10 -and $obfPercent -ge 25)
 ) {
-    $reason = if ($obfPercent -ge 25) {
-        "Multiple single-letter/obfuscation class patterns detected"
-    } else {
-        "Multiple single-letter/obfuscation class patterns detected"
-    }
-
     $tamperedMods += [PSCustomObject]@{
         FileName = $mod.FileName
         ModName = $mod.ModName
         ActualSizeKB = $mod.FileSizeKB
         ExpectedSizeKB = $mod.ExpectedSizeKB
         SizeDiffKB = $mod.SizeDiffKB
-        TamperReason = $reason
+        TamperReason = "Multiple single-letter/obfuscation class patterns detected"
     }
 
     # Remove from verified mods
     $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-}     
+}   
         if ($modStrings = Check-Strings $mod.FilePath) {
            $cheatMods.Add([PSCustomObject]@{
                 FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
@@ -1462,11 +1483,16 @@ if ($cheatMods.Count -gt 0) {
             Write-Host "Mod: $($mod.ModName)" -ForegroundColor White
         }
         
-        # Show cheat strings as a list using • bullets
         if ($mod.StringsFound.Count -gt 0) {
+            $cheatList = @($mod.StringsFound) | Sort-Object
+            $dqrkisStrings = @("CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA")
+            $hasDqrkis = ($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0
+            if ($hasDqrkis) {
+                Write-Host "  ║ " -NoNewline -ForegroundColor Red
+                Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red
+            }
             Write-Host "  ║ " -NoNewline -ForegroundColor Red
             Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
-            $cheatList = @($mod.StringsFound) | Sort-Object
             foreach ($cheatString in $cheatList) {
                 Write-Host "  ║   " -NoNewline -ForegroundColor Red
                 Write-Host "• $cheatString" -ForegroundColor Magenta
