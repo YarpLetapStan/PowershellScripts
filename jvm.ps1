@@ -2,7 +2,7 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -23,7 +23,6 @@ $asciiTitle = @"
 Write-Host $asciiTitle -ForegroundColor Blue
 Write-Host ""
 
-# Create subtitle line style with double solid lines
 $subtitleText = "YarpLetapStan's Mod Analyzer V6.0"
 $lineWidth = 100
 $line = "━" * $lineWidth
@@ -32,7 +31,6 @@ Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -Foreg
 Write-Host $line -ForegroundColor cyan
 Write-Host ""
 
-# Get mods folder path
 Write-Host "Enter path to the mods folder: " -NoNewline
 Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
 $mods = Read-Host "PATH"
@@ -48,7 +46,6 @@ if (-not (Test-Path $mods -PathType Container)) {
     exit 1
 }
 
-# Check Minecraft uptime - KEPT ORIGINAL FORMAT
 $process = Get-Process javaw -ErrorAction SilentlyContinue
 if (-not $process) { $process = Get-Process java -ErrorAction SilentlyContinue }
 
@@ -59,13 +56,11 @@ if ($process) {
     } catch {}
 }
 
-# ==================== Enhanced Fabric/JVM Arguments Injection Detector ====================
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 Write-Host "JVM ARGUMENTS INJECTION SCANNER" -ForegroundColor Yellow
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 Write-Host ""
 
-# Find all javaw.exe processes
 $javaProcesses = Get-Process -Name javaw -ErrorAction SilentlyContinue
 
 if ($javaProcesses.Count -eq 0) {
@@ -79,7 +74,6 @@ if ($javaProcesses.Count -eq 0) {
     $foundInjection = $false
     $injectionCount = 0
 
-    # Comprehensive Fabric/JVM injection patterns
     $fabricPatterns = @{
         "fabric.addMods" = '-Dfabric\.addMods='
         "fabric.loadMods" = '-Dfabric\.loadMods='
@@ -396,12 +390,10 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
     return if ($mcVersion -eq '') { $null } else { $mcVersion }
 }
 
-# Detect Minecraft version
 if ($minecraftVersion = Get-Minecraft-Version-From-Mods -modsFolder $mods) {
     Write-Host "Using Minecraft version: $minecraftVersion for filtering`n" -ForegroundColor Green
 }
 
-# Helper functions
 function Get-SHA1($filePath) { return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
 
 function Get-ZoneIdentifier($filePath) {
@@ -943,7 +935,6 @@ function Check-Strings($filePath) {
     return $stringsFound
 }
 
-# Collections for results
 $verifiedMods = [System.Collections.Generic.List[object]]::new()
 $unknownMods = [System.Collections.Generic.List[object]]::new()
 $cheatMods = [System.Collections.Generic.List[object]]::new()
@@ -951,7 +942,6 @@ $sizeMismatchMods = [System.Collections.Generic.List[object]]::new()
 $tamperedMods = [System.Collections.Generic.List[object]]::new()
 $allModsInfo = [System.Collections.Generic.List[object]]::new()
 
-# Process all mods
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 $spinner = @("|", "/", "-", "\"); $totalMods = $jarFiles.Count
 
@@ -1031,7 +1021,6 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     }
 }
 
-# Try to identify unknown mods
 for ($i = 0; $i -lt $unknownMods.Count; $i++) {
     $mod = $unknownMods[$i]
     $modrinthInfo = if ($mod.JarModId) { Fetch-Modrinth-By-ModId -modId $mod.JarModId -version $mod.JarVersion -preferredLoader $mod.PreferredLoader }
@@ -1074,7 +1063,6 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
     }
 }
 
-# Scan for cheat strings and obfuscation
 $counter = 0
 $tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
 
@@ -1088,12 +1076,15 @@ try {
         $counter++
         Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
         
-        # Enhanced obfuscation detection
+        # Enhanced obfuscation detection (full Tony's metrics)
         $singleLetterClassCount = 0
         $totalClassCount = 0
         $obfuscatedPathCount = 0
         $numericClassCount = 0
         $unicodeClassCount = 0
+        $noVowelClassCount = 0
+        $gibberishClassCount = 0
+        $singleCharPkgCount = 0
 
         try {
             Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -1103,19 +1094,26 @@ try {
             foreach ($entry in $classEntries) {
                 $totalClassCount++
                 $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+                $fullPath = $entry.FullName -replace '\.class$',''
+                $segments = $fullPath -split '/'
                 
                 if ($className.Length -le 2) { $singleLetterClassCount++ }
                 if ($className -match '^\d+$') { $numericClassCount++ }
                 if ($className -match '[^\x00-\x7F]') { $unicodeClassCount++ }
-
-                $pathWithoutClass = $entry.FullName -replace '\.class$',''
-                $segments = $pathWithoutClass -split '/'
+                
+                if ($className.Length -ge 3 -and $className -match '^[a-zA-Z]+$') {
+                    $vowels = ($className.ToCharArray() | Where-Object { $_ -match '[aeiouAEIOU]' }).Count
+                    if ($vowels -eq 0) { $noVowelClassCount++ }
+                    $hasCluster = $className -match '[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{3,}'
+                    if ($hasCluster -and ($vowels / $className.Length) -lt 0.3) { $gibberishClassCount++ }
+                }
 
                 $consecutiveSingle = 0
                 $maxConsecutive = 0
 
-                foreach ($segment in $segments) {
-                    if ($segment.Length -eq 1) {
+                foreach ($segment in $segments[0..($segments.Count - 2)]) {
+                    if ($segment.Length -eq 1) { 
+                        $singleCharPkgCount++
                         $consecutiveSingle++
                         if ($consecutiveSingle -gt $maxConsecutive) {
                             $maxConsecutive = $consecutiveSingle
@@ -1136,17 +1134,27 @@ try {
         $obfPercent = 0
         $numPercent = 0
         $uniPercent = 0
+        $novPercent = 0
+        $gibPercent = 0
 
-        if ($totalClassCount -ge 10) {
-            $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
+        if ($totalClassCount -ge 5) {
             $numPercent = [math]::Round(($numericClassCount / $totalClassCount) * 100)
             $uniPercent = [math]::Round(($unicodeClassCount / $totalClassCount) * 100)
+            $novPercent = [math]::Round(($noVowelClassCount / $totalClassCount) * 100)
+            $gibPercent = [math]::Round(($gibberishClassCount / $totalClassCount) * 100)
+        }
+        
+        if ($totalClassCount -ge 10) {
+            $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
         }
 
         if (
             $singleLetterClassCount -gt 15 -or
+            $singleCharPkgCount -ge 6 -or
             $numPercent -ge 20 -or
             $uniPercent -ge 10 -or
+            $novPercent -ge 8 -or
+            $gibPercent -ge 5 -or
             ($totalClassCount -ge 10 -and $obfPercent -ge 25)
         ) {
             $tamperedMods += [PSCustomObject]@{
@@ -1184,29 +1192,14 @@ try {
 
 Write-Host "`nScanning complete!`n" -ForegroundColor Green
 
-# ==================== DISALLOWED MODS DETECTOR ====================
 $disallowedMods = @{
-    "xeros-minimap" = @{
-        Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod")
-    }
-    "freecam" = @{
-        Names = @("Freecam", "freecam", "FreeCam", "Free Cam")
-    }
-    "health-indicators" = @{
-        Names = @("Health Indicators", "health indicators", "HealthIndicators", "Health Indicators Mod")
-    }
-    "clickcrystals" = @{
-        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod")
-    }
-    "mousetweaks" = @{
-        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks")
-    }
-    "itemscroller" = @{
-        Names = @("Item Scroller", "itemscroller", "ItemScroller")
-    }
-    "tweakeroo" = @{
-        Names = @("Tweakeroo", "tweakeroo", "Tweakeroo")
-    }
+    "xeros-minimap" = @{ Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod") }
+    "freecam" = @{ Names = @("Freecam", "freecam", "FreeCam", "Free Cam") }
+    "health-indicators" = @{ Names = @("Health Indicators", "health indicators", "HealthIndicators", "Health Indicators Mod") }
+    "clickcrystals" = @{ Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod") }
+    "mousetweaks" = @{ Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks") }
+    "itemscroller" = @{ Names = @("Item Scroller", "itemscroller", "ItemScroller") }
+    "tweakeroo" = @{ Names = @("Tweakeroo", "tweakeroo", "Tweakeroo") }
 }
 
 $disallowedModsFound = @()
@@ -1239,22 +1232,17 @@ foreach ($file in $jarFiles) {
         }
         
         if ($isDisallowed) {
-            $disallowedModsFound += [PSCustomObject]@{
-                FileName = $file.Name
-                ModName = $modData.Names[0]
-            }
+            $disallowedModsFound += [PSCustomObject]@{ FileName = $file.Name; ModName = $modData.Names[0] }
             break
         }
     }
 }
 
-# ==================== RESULTS SECTION ====================
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
 Write-Host ""
 
-# Verified Mods Section
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
 Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
@@ -1276,7 +1264,6 @@ if ($verifiedMods.Count -gt 0) {
 }
 Write-Host ""
 
-# Unknown Mods Section
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
 Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
@@ -1297,16 +1284,13 @@ if ($unknownMods.Count -gt 0) {
             Write-Host "Identified as: $($mod.ModName)" -ForegroundColor Cyan
         }
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Yellow
-        if ($i -lt $unknownMods.Count - 1) {
-            Write-Host ""
-        }
+        if ($i -lt $unknownMods.Count - 1) { Write-Host "" }
     }
 } else {
     Write-Host "  No unknown mods found" -ForegroundColor Gray
 }
 Write-Host ""
 
-# Tampered Mods Section
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkYellow
 Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkYellow
@@ -1334,16 +1318,13 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
         Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkYellow
-        if ($i -lt $tamperedMods.Count - 1) {
-            Write-Host ""
-        }
+        if ($i -lt $tamperedMods.Count - 1) { Write-Host "" }
     }
 } else {
     Write-Host "  No tampered mods found" -ForegroundColor Gray
 }
 Write-Host ""
 
-# Cheat Mods Section
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
 Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
@@ -1392,16 +1373,13 @@ if ($cheatMods.Count -gt 0) {
             }
         }
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
-        if ($i -lt $cheatMods.Count - 1) {
-            Write-Host ""
-        }
+        if ($i -lt $cheatMods.Count - 1) { Write-Host "" }
     }
 } else {
     Write-Host "  No cheat mods detected ✓" -ForegroundColor Green
 }
 Write-Host ""
 
-# Disallowed Mods Section
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
 Write-Host "DISALLOWED MODS: $($disallowedModsFound.Count) ⚠" -ForegroundColor Red
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
@@ -1418,9 +1396,7 @@ if ($disallowedModsFound.Count -gt 0) {
         Write-Host "  ║ " -NoNewline -ForegroundColor Red
         Write-Host "Mod: $($mod.ModName)" -ForegroundColor White
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
-        if ($i -lt $disallowedModsFound.Count - 1) {
-            Write-Host ""
-        }
+        if ($i -lt $disallowedModsFound.Count - 1) { Write-Host "" }
     }
 } else {
     Write-Host "  No disallowed mods detected ✓" -ForegroundColor Green
