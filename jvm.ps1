@@ -1076,113 +1076,98 @@ try {
         $counter++
         Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
         
-               # Enhanced obfuscation detection (exact Tony's logic)
-        $singleLetterClassCount = 0
-        $totalClassCount = 0
-        $obfuscatedPathCount = 0
-        $numericClassCount = 0
-        $unicodeClassCount = 0
-        $noVowelClassCount = 0
-        $gibberishClassCount = 0
-        $singleCharPkgCount = 0
+        # Replace your obfuscation detection block with this:
+$singleLetterClassCount = 0
+$twoLetterClassCount = 0
+$totalClassCount = 0
+$obfuscatedPathCount = 0
+$numericClassCount = 0
+$unicodeClassCount = 0
+$noVowelClassCount = 0
+$gibberishClassCount = 0
+$singleCharPkgCount = 0
 
-        try {
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
-            $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
-            $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+    $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
 
-            foreach ($entry in $classEntries) {
-                $totalClassCount++
-                $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
-                $fullPath = $entry.FullName -replace '\.class$',''
-                $segments = $fullPath -split '/'
-                
-                if ($className.Length -le 2) { $singleLetterClassCount++ }
-                if ($className -match '^\d+$') { $numericClassCount++ }
-                if ($className -match '[^\x00-\x7F]') { $unicodeClassCount++ }
-                
-                if ($className.Length -ge 3 -and $className -match '^[a-zA-Z]+$') {
-                    $vowels = ($className.ToCharArray() | Where-Object { $_ -match '[aeiouAEIOU]' }).Count
-                    if ($vowels -eq 0) { $noVowelClassCount++ }
-                    $hasCluster = $className -match '[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{3,}'
-                    if ($hasCluster -and ($vowels / $className.Length) -lt 0.3) { $gibberishClassCount++ }
-                }
+    foreach ($entry in $classEntries) {
+        $totalClassCount++
+        $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+        $fullPath = $entry.FullName -replace '\.class$',''
+        $segments = $fullPath -split '/'
 
+        # Match Tony's exact checks
+        if ($className -match '^[a-zA-Z]$')   { $singleLetterClassCount++ }
+        if ($className -match '^[a-zA-Z]{2}$') { $twoLetterClassCount++ }
+        if ($className -match '^\d+$')          { $numericClassCount++ }
+        if ($className -match '[^\x00-\x7F]')   { $unicodeClassCount++ }
+
+        if ($className.Length -ge 3 -and $className -match '^[a-zA-Z]+$') {
+            $vowels = ($className.ToCharArray() | Where-Object { $_ -match '[aeiouAEIOU]' }).Count
+            if ($vowels -eq 0) { $noVowelClassCount++ }
+            $hasCluster = $className -match '[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{3,}'
+            if ($hasCluster -and ($vowels / $className.Length) -lt 0.3) { $gibberishClassCount++ }
+        }
+
+        # Count single-char package segments (for total tally)
+        foreach ($seg in $segments[0..($segments.Count - 2)]) {
+            if ($seg.Length -eq 1) { $singleCharPkgCount++ }
+        }
+
+        # Tony's consecutive single-char path check
+        $consecutiveSingle = 0
+        $maxConsecutive = 0
+        foreach ($seg in $segments[0..($segments.Count - 2)]) {
+            if ($seg.Length -eq 1) {
+                $consecutiveSingle++
+                if ($consecutiveSingle -gt $maxConsecutive) { $maxConsecutive = $consecutiveSingle }
+            } else {
                 $consecutiveSingle = 0
-                $maxConsecutive = 0
-
-                foreach ($segment in $segments[0..($segments.Count - 2)]) {
-                    if ($segment.Length -eq 1) { 
-                        $singleCharPkgCount++
-                        $consecutiveSingle++
-                        if ($consecutiveSingle -gt $maxConsecutive) {
-                            $maxConsecutive = $consecutiveSingle
-                        }
-                    } else {
-                        $consecutiveSingle = 0
-                    }
-                }
-
-                if ($maxConsecutive -ge 3) {
-                    $obfuscatedPathCount++
-                }
             }
-
-            $zip.Dispose()
-        } catch {}
-
-        $obfPercent = 0
-        $numPercent = 0
-        $uniPercent = 0
-        $novPercent = 0
-        $gibPercent = 0
-
-        if ($totalClassCount -ge 5) {
-            $numPercent = [math]::Round(($numericClassCount / $totalClassCount) * 100)
-            $uniPercent = [math]::Round(($unicodeClassCount / $totalClassCount) * 100)
-            $novPercent = [math]::Round(($noVowelClassCount / $totalClassCount) * 100)
-            $gibPercent = [math]::Round(($gibberishClassCount / $totalClassCount) * 100)
         }
-        
-        if ($totalClassCount -ge 10) {
-            $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
-        }
+        if ($maxConsecutive -ge 3) { $obfuscatedPathCount++ }
+    }
 
-        if (
-            ($singleLetterClassCount -gt 25 -and $totalClassCount -gt 30) -or
-            ($singleCharPkgCount -ge 500 -and $totalClassCount -ge 50) -or
-            ($numPercent -ge 40 -and $totalClassCount -ge 50) -or
-            ($uniPercent -ge 30 -and $totalClassCount -ge 30) -or
-            ($novPercent -ge 10 -and $totalClassCount -ge 100) -or
-            ($gibPercent -ge 5 -and $totalClassCount -ge 100) -or
-            ($totalClassCount -ge 100 -and $obfPercent -ge 50)
-        ) {
-            $tamperedMods += [PSCustomObject]@{
-                FileName = $mod.FileName
-                ModName = $mod.ModName
-                ActualSizeKB = $mod.FileSizeKB
-                ExpectedSizeKB = $mod.ExpectedSizeKB
-                SizeDiffKB = $mod.SizeDiffKB
-                TamperReason = "Multiple single-letter/obfuscation class patterns detected"
-            }
+    $zip.Dispose()
+} catch {}
 
-            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-        }
-        
-        if ($modStrings = Check-Strings $mod.FilePath) {
-            $cheatMods.Add([PSCustomObject]@{
-                FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
-                DownloadSource = $mod.DownloadSource; SourceURL = $mod.ZoneId; ExpectedSizeKB = $mod.ExpectedSizeKB
-                SizeDiffKB = $mod.SizeDiffKB; IsVerifiedMod = ($mod.IsVerified -eq $true); ModName = $mod.ModName
-                ModrinthUrl = $mod.ModrinthUrl; FilePath = $mod.FilePath
-                HasSizeMismatch = ($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1)
-                JarModId = $mod.JarModId; JarName = $mod.JarName; JarVersion = $mod.JarVersion
-                MatchType = $mod.MatchType; ExactMatch = $mod.ExactMatch; IsLatestVersion = $mod.IsLatestVersion
-                LoaderType = $mod.LoaderType
-            })
-            
-            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-        }
+$obfPercent = 0; $numPercent = 0; $uniPercent = 0
+$novPercent = 0; $gibPercent = 0; $s1Percent = 0; $s2Percent = 0
+
+if ($totalClassCount -ge 5) {
+    $s1Percent  = [math]::Round(($singleLetterClassCount / $totalClassCount) * 100)
+    $s2Percent  = [math]::Round(($twoLetterClassCount    / $totalClassCount) * 100)
+    $numPercent = [math]::Round(($numericClassCount      / $totalClassCount) * 100)
+    $uniPercent = [math]::Round(($unicodeClassCount      / $totalClassCount) * 100)
+    $novPercent = [math]::Round(($noVowelClassCount      / $totalClassCount) * 100)
+    $gibPercent = [math]::Round(($gibberishClassCount    / $totalClassCount) * 100)
+}
+if ($totalClassCount -ge 10) {
+    $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
+}
+
+if (
+    ($s1Percent  -ge 15 -and $totalClassCount -ge 5)  -or
+    ($s2Percent  -ge 20 -and $totalClassCount -ge 5)  -or
+    ($numPercent -ge 20 -and $totalClassCount -ge 5)  -or
+    ($uniPercent -ge 10 -and $totalClassCount -ge 5)  -or
+    ($novPercent -ge  8 -and $totalClassCount -ge 5)  -or
+    ($gibPercent -ge  5 -and $totalClassCount -ge 5)  -or
+    ($singleCharPkgCount -ge 6)                       -or
+    ($obfPercent -ge 25 -and $totalClassCount -ge 10)
+) {
+    $tamperedMods += [PSCustomObject]@{
+        FileName      = $mod.FileName
+        ModName       = $mod.ModName
+        ActualSizeKB  = $mod.FileSizeKB
+        ExpectedSizeKB= $mod.ExpectedSizeKB
+        SizeDiffKB    = $mod.SizeDiffKB
+        TamperReason  = "Obfuscation patterns detected"
+    }
+    $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
+}
     }
 } catch {
     Write-Host "`nError occurred while scanning: $($_.Exception.Message)" -ForegroundColor Red
