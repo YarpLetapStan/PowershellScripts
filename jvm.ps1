@@ -3,7 +3,7 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1184,97 +1184,79 @@ try {
         $counter++
         Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
         
-        # Check for single-letter class files
-$singleLetterClassCount = 0
-$totalClassCount = 0
-$obfuscatedPathCount = 0
+                # Enhanced obfuscation detection
+        $singleLetterClassCount = 0
+        $totalClassCount = 0
+        $obfuscatedPathCount = 0
+        $numericClassCount = 0
+        $unicodeClassCount = 0
 
-try {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
-    $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+            $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
 
-    foreach ($entry in $classEntries) {
-        $totalClassCount++
+            foreach ($entry in $classEntries) {
+                $totalClassCount++
+                $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+                
+                if ($className.Length -le 2) { $singleLetterClassCount++ }
+                if ($className -match '^\d+$') { $numericClassCount++ }
+                if ($className -match '[^\x00-\x7F]') { $unicodeClassCount++ }
 
-        $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
-        if ($className.Length -le 2) {
-            $singleLetterClassCount++
-        }
+                $pathWithoutClass = $entry.FullName -replace '\.class$',''
+                $segments = $pathWithoutClass -split '/'
 
-        # Enhanced obfuscation detection
-$singleLetterClassCount = 0
-$totalClassCount = 0
-$obfuscatedPathCount = 0
-$numericClassCount = 0
-$unicodeClassCount = 0
-
-try {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
-    $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
-
-    foreach ($entry in $classEntries) {
-        $totalClassCount++
-        $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
-        
-        if ($className.Length -le 2) { $singleLetterClassCount++ }
-        if ($className -match '^\d+$') { $numericClassCount++ }
-        if ($className -match '[^\x00-\x7F]') { $unicodeClassCount++ }
-
-        $pathWithoutClass = $entry.FullName -replace '\.class$',''
-        $segments = $pathWithoutClass -split '/'
-
-        $consecutiveSingle = 0
-        $maxConsecutive = 0
-
-        foreach ($segment in $segments) {
-            if ($segment.Length -eq 1) {
-                $consecutiveSingle++
-                if ($consecutiveSingle -gt $maxConsecutive) {
-                    $maxConsecutive = $consecutiveSingle
-                }
-            } else {
                 $consecutiveSingle = 0
+                $maxConsecutive = 0
+
+                foreach ($segment in $segments) {
+                    if ($segment.Length -eq 1) {
+                        $consecutiveSingle++
+                        if ($consecutiveSingle -gt $maxConsecutive) {
+                            $maxConsecutive = $consecutiveSingle
+                        }
+                    } else {
+                        $consecutiveSingle = 0
+                    }
+                }
+
+                if ($maxConsecutive -ge 3) {
+                    $obfuscatedPathCount++
+                }
             }
+
+            $zip.Dispose()
+        } catch {}
+
+        $obfPercent = 0
+        $numPercent = 0
+        $uniPercent = 0
+
+        if ($totalClassCount -ge 10) {
+            $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
+            $numPercent = [math]::Round(($numericClassCount / $totalClassCount) * 100)
+            $uniPercent = [math]::Round(($unicodeClassCount / $totalClassCount) * 100)
         }
 
-        if ($maxConsecutive -ge 3) {
-            $obfuscatedPathCount++
+        if (
+            $singleLetterClassCount -gt 15 -or
+            $numPercent -ge 20 -or
+            $uniPercent -ge 10 -or
+            ($totalClassCount -ge 10 -and $obfPercent -ge 25)
+        ) {
+            $tamperedMods += [PSCustomObject]@{
+                FileName = $mod.FileName
+                ModName = $mod.ModName
+                ActualSizeKB = $mod.FileSizeKB
+                ExpectedSizeKB = $mod.ExpectedSizeKB
+                SizeDiffKB = $mod.SizeDiffKB
+                TamperReason = "Multiple single-letter/obfuscation class patterns detected"
+            }
+
+            # Remove from verified mods
+            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
-    }
-
-    $zip.Dispose()
-} catch {}
-
-$obfPercent = 0
-$numPercent = 0
-$uniPercent = 0
-
-if ($totalClassCount -ge 10) {
-    $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
-    $numPercent = [math]::Round(($numericClassCount / $totalClassCount) * 100)
-    $uniPercent = [math]::Round(($unicodeClassCount / $totalClassCount) * 100)
-}
-
-if (
-    $singleLetterClassCount -gt 15 -or
-    $numPercent -ge 20 -or
-    $uniPercent -ge 10 -or
-    ($totalClassCount -ge 10 -and $obfPercent -ge 25)
-) {
-    $tamperedMods += [PSCustomObject]@{
-        FileName = $mod.FileName
-        ModName = $mod.ModName
-        ActualSizeKB = $mod.FileSizeKB
-        ExpectedSizeKB = $mod.ExpectedSizeKB
-        SizeDiffKB = $mod.SizeDiffKB
-        TamperReason = "Multiple single-letter/obfuscation class patterns detected"
-    }
-
-    # Remove from verified mods
-    $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-}   
         if ($modStrings = Check-Strings $mod.FilePath) {
            $cheatMods.Add([PSCustomObject]@{
                 FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
