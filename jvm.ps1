@@ -2,7 +2,7 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
 Clear-Host
-Write-Host "Made by YarpLetapStan`nm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
 $asciiTitle = @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
@@ -1076,7 +1076,7 @@ try {
         $counter++
         Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
         
-        # Enhanced obfuscation detection (full Tony's metrics)
+               # Enhanced obfuscation detection (exact Tony's logic)
         $singleLetterClassCount = 0
         $totalClassCount = 0
         $obfuscatedPathCount = 0
@@ -1149,13 +1149,13 @@ try {
         }
 
         if (
-            $singleLetterClassCount -gt 15 -or
-            $singleCharPkgCount -ge 6 -or
-            $numPercent -ge 20 -or
-            $uniPercent -ge 10 -or
-            $novPercent -ge 8 -or
-            $gibPercent -ge 5 -or
-            ($totalClassCount -ge 10 -and $obfPercent -ge 25)
+            ($singleLetterClassCount -gt 25 -and $totalClassCount -gt 30) -or
+            ($singleCharPkgCount -ge 500 -and $totalClassCount -ge 50) -or
+            ($numPercent -ge 40 -and $totalClassCount -ge 50) -or
+            ($uniPercent -ge 30 -and $totalClassCount -ge 30) -or
+            ($novPercent -ge 10 -and $totalClassCount -ge 100) -or
+            ($gibPercent -ge 5 -and $totalClassCount -ge 100) -or
+            ($totalClassCount -ge 100 -and $obfPercent -ge 50)
         ) {
             $tamperedMods += [PSCustomObject]@{
                 FileName = $mod.FileName
