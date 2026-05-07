@@ -651,7 +651,8 @@ if ($cheatMods.Count -gt 0) {
     Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
 }
         }
-        Write-Host "  ╚══════════════════════════════════════════`n" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
+Write-Host ""
     }
 } else { Write-Host "  No cheat mods detected ✓" -ForegroundColor Green }
 Write-Host ""
