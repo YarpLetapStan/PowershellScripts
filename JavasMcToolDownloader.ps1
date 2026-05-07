@@ -66,6 +66,7 @@ $urls = @(
     'https://github.com/winsiderss/si-builds/releases/download/4.0.26115.206/systeminformer-build-canary-setup.exe'
     'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/PjCheatScannerLite.exe'
     'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/cheat_strings.txt'
+    'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/RunPjCheatScanner.bat'
 )
 
 $counter = 0
