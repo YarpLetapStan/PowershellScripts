@@ -1,11 +1,9 @@
-
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
-
 Clear-Host
-Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
 
-$asciiTitle = @"
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host @"
 ██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
 ╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║     ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╔╝██╔════╝
  ╚████╔╝ ███████║██████╔╝██████╔╝██║     █████╗     ██║   ███████║██████╔╝███████╗   ██║   ███████║██╔██╗ ██║  ███████╗
@@ -19,21 +17,13 @@ $asciiTitle = @"
 ██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
 ██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
 ╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝
-"@
+"@ -ForegroundColor Blue
 
-Write-Host $asciiTitle -ForegroundColor Blue
-Write-Host ""
-
-# Create subtitle line style with double solid lines
-$subtitleText = "YarpLetapStan's Mod Analyzer V6.0"
 $lineWidth = 100
-$line = "━" * $lineWidth
-
-Write-Host $subtitleText.PadLeft(($lineWidth + $subtitleText.Length) / 2) -ForegroundColor Cyan
-Write-Host $line -ForegroundColor cyan
+Write-Host "YarpLetapStan's Mod Analyzer V6.0".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
-# Get mods folder path
 Write-Host "Enter path to the mods folder: " -NoNewline
 Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
 $mods = Read-Host "PATH"
@@ -43,1492 +33,625 @@ if (-not $mods) {
     $mods = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
     Write-Host "Using default path: $mods`n" -ForegroundColor White
 }
+if (-not (Test-Path $mods -PathType Container)) { Write-Host "Invalid Path!" -ForegroundColor Red; exit 1 }
 
-if (-not (Test-Path $mods -PathType Container)) {
-    Write-Host "Invalid Path!" -ForegroundColor Red
-    exit 1
-}
-
-# Check Minecraft uptime - KEPT ORIGINAL FORMAT
 $process = Get-Process javaw -ErrorAction SilentlyContinue
 if (-not $process) { $process = Get-Process java -ErrorAction SilentlyContinue }
-
 if ($process) {
     try {
-        $elapsedTime = (Get-Date) - $process.StartTime
-        Write-Host "Minecraft Uptime: $($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s`n" -ForegroundColor Cyan
+        $elapsed = (Get-Date) - $process.StartTime
+        Write-Host "Minecraft Uptime: $($process.Name) PID $($process.Id) started at $($process.StartTime) and running for $($elapsed.Hours)h $($elapsed.Minutes)m $($elapsed.Seconds)s`n" -ForegroundColor Cyan
     } catch {}
 }
 
-# ==================== Enhanced Fabric/JVM Arguments Injection Detector ====================
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+$sep = "━" * 111
+Write-Host $sep -ForegroundColor Yellow
 Write-Host "JVM ARGUMENTS INJECTION SCANNER" -ForegroundColor Yellow
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
+Write-Host $sep -ForegroundColor Yellow
 Write-Host ""
 
-# Find all javaw.exe processes
 $javaProcesses = Get-Process -Name javaw -ErrorAction SilentlyContinue
-
 if ($javaProcesses.Count -eq 0) {
     Write-Host "  [!] No javaw.exe processes found" -ForegroundColor Yellow
-    Write-Host "  [i] Make sure Minecraft is running" -ForegroundColor Yellow
-    Write-Host ""
+    Write-Host "  [i] Make sure Minecraft is running`n" -ForegroundColor Yellow
 } else {
-    Write-Host "  [i] Scanning $($javaProcesses.Count) Java process(es)..." -ForegroundColor White
-    Write-Host ""
-
+    Write-Host "  [i] Scanning $($javaProcesses.Count) Java process(es)...`n" -ForegroundColor White
     $foundInjection = $false
-    $injectionCount = 0
 
-    # Comprehensive Fabric/JVM injection patterns
     $fabricPatterns = @{
-        # ===== FABRIC SPECIFIC INJECTION =====
-        "fabric.addMods" = '-Dfabric\.addMods='
-        "fabric.loadMods" = '-Dfabric\.loadMods='
-        "fabric.classPathGroups" = '-Dfabric\.classPathGroups='
-        "fabric.gameJarPath" = '-Dfabric\.gameJarPath='
-        "fabric.skipMcProvider" = '-Dfabric\.skipMcProvider='
-        "fabric.development" = '-Dfabric\.development='
-        "fabric.allowUnsupportedVersion" = '-Dfabric\.allowUnsupportedVersion='
-        
-        # Classpath manipulation
-        "fabric.remapClasspathFile" = '-Dfabric\.remapClasspathFile='
-        "fabric.skipIntermediary" = '-Dfabric\.skipIntermediary='
-        
-        # Configuration directories
-        "fabric.configDir" = '-Dfabric\.configDir='
-        "fabric.loader.config" = '-Dfabric\.loader\.config='
-        
-        # Debug/development
-        "fabric.log.level" = '-Dfabric\.log\.level='
-        "fabric.debug.dumpClasspath" = '-Dfabric\.debug\.dumpClasspath='
-        "fabric.log.config" = '-Dfabric\.log\.config='
-        "fabric.dli.config" = '-Dfabric\.dli\.config='
-        
-        # Mixin/transformation
-        "fabric.mixin.configs" = '-Dfabric\.mixin\.configs='
-        "fabric.mixin.hotSwap" = '-Dfabric\.mixin\.hotSwap='
-        "fabric.mixin.debug.export" = '-Dfabric\.mixin\.debug\.export='
-        "fabric.mixin.debug.verbose" = '-Dfabric\.mixin\.debug\.verbose='
-        
-        # Game/version
-        "fabric.gameVersion" = '-Dfabric\.gameVersion='
-        "fabric.forceVersion" = '-Dfabric\.forceVersion='
-        "fabric.autoDetectVersion" = '-Dfabric\.autoDetectVersion='
-        
-        # Launcher/brand
-        "fabric.launcher.name" = '-Dfabric\.launcher\.name='
-        "fabric.launcher.brand" = '-Dfabric\.launcher\.brand='
-        
-        # Mod metadata
-        "fabric.mods.toml.path" = '-Dfabric\.mods\.toml\.path='
-        "fabric.customModList" = '-Dfabric\.customModList='
-        
-        # Dependency resolution
-        "fabric.resolve.modFiles" = '-Dfabric\.resolve\.modFiles='
-        "fabric.skipDependencyResolution" = '-Dfabric\.skipDependencyResolution='
-        
-        # Entrypoints/providers
-        "fabric.loader.entrypoints" = '-Dfabric\.loader\.entrypoints='
-        "fabric.language.providers" = '-Dfabric\.language\.providers='
-        
-        # ===== FORGE SPECIFIC INJECTION =====
-        "forge.addMods" = '-Dforge\.addMods='
-        "forge.mods" = '-Dforge\.mods='
-        "fml.coreMods.load" = '-Dfml\.coreMods\.load='
-        "forge.coreMods.dir" = '-Dforge\.coreMods\.dir='
-        "forge.modDir" = '-Dforge\.modDir='
-        "forge.modsDirectories" = '-Dforge\.modsDirectories='
-        "fml.customModList" = '-Dfml\.customModList='
-        "forge.disableModScan" = '-Dforge\.disableModScan='
-        "forge.modList" = '-Dforge\.modList='
-        "forge.forceVersion" = '-Dforge\.forceVersion='
-        "forge.disableUpdateCheck" = '-Dforge\.disableUpdateCheck='
-        "forge.logging.mojang.level" = '-Dforge\.logging\.mojang\.level='
-        "forge.mixin.hotSwap" = '-Dforge\.mixin\.hotSwap='
-        "forge.resourcePack" = '-Dforge\.resourcePack='
-        "forge.defaultResourcePack" = '-Dforge\.defaultResourcePack='
-        "forge.texturePacks" = '-Dforge\.texturePacks='
-        "forge.assetIndex" = '-Dforge\.assetIndex='
-        "forge.assetsDir" = '-Dforge\.assetsDir='
-        
-        # ===== SECURITY BYPASS =====
-        "javaSecurityManager" = '-Djava\.security\.manager='
-        "javaSecurityPolicy" = '-Djava\.security\.policy='
-        
-        # ===== CLASSPATH MANIPULATION =====
-        "bootClasspath" = '-Xbootclasspath'
-        "systemClassLoader" = '-Djava\.system\.class\.loader='
-        "javaClassPath" = '-Djava\.class\.path='
-        "cp" = '-cp\s+["''][^"'';]*\.jar'
-        
-        # ===== CHEAT CLIENT SIGNATURES =====
-        "cheatClientBrand" = '-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos|Salhack|ForgeHax|Mathax|Meteor|Async|Seppuku|Xatz|Wolfram|Huzuni|Jigsaw|Zamorozka|Moon|Rage|Exhibition|Virtue|Novoline|Rekt|Skid|Ares|Abyss|Thunder|Tenacity|Rise|Flux|Gamesense|Intent|Remix|Sight|Vape|Shield|Ghost|Crispy|Inertia)'
-        
-        # ===== OPTIFINE/SHADERS =====
-        "optifine" = '-Doptifine\.'
-        "shadersmod" = '-Dshaders?\.'
-        "shaderPack" = '-Dshader[sP]ack='
-        
-        # ===== CHEAT MOD PATTERNS =====
-        "cheatPattern" = '-D(xray|fly|speed|killaura|reach|esp|wallhack|noclip|autoclick|aimbot|triggerbot|antiknockback|nofall|timer|step|fullbright|nightvision|cavefinder)\.'
+        "fabric.addMods"="'-Dfabric\.addMods='"; "fabric.loadMods"='-Dfabric\.loadMods='; "fabric.classPathGroups"='-Dfabric\.classPathGroups='; "fabric.gameJarPath"='-Dfabric\.gameJarPath='; "fabric.skipMcProvider"='-Dfabric\.skipMcProvider='; "fabric.development"='-Dfabric\.development='; "fabric.allowUnsupportedVersion"='-Dfabric\.allowUnsupportedVersion='; "fabric.remapClasspathFile"='-Dfabric\.remapClasspathFile='; "fabric.skipIntermediary"='-Dfabric\.skipIntermediary='; "fabric.configDir"='-Dfabric\.configDir='; "fabric.loader.config"='-Dfabric\.loader\.config='; "fabric.log.level"='-Dfabric\.log\.level='; "fabric.debug.dumpClasspath"='-Dfabric\.debug\.dumpClasspath='; "fabric.log.config"='-Dfabric\.log\.config='; "fabric.dli.config"='-Dfabric\.dli\.config='; "fabric.mixin.configs"='-Dfabric\.mixin\.configs='; "fabric.mixin.hotSwap"='-Dfabric\.mixin\.hotSwap='; "fabric.mixin.debug.export"='-Dfabric\.mixin\.debug\.export='; "fabric.mixin.debug.verbose"='-Dfabric\.mixin\.debug\.verbose='; "fabric.gameVersion"='-Dfabric\.gameVersion='; "fabric.forceVersion"='-Dfabric\.forceVersion='; "fabric.autoDetectVersion"='-Dfabric\.autoDetectVersion='; "fabric.launcher.name"='-Dfabric\.launcher\.name='; "fabric.launcher.brand"='-Dfabric\.launcher\.brand='; "fabric.mods.toml.path"='-Dfabric\.mods\.toml\.path='; "fabric.customModList"='-Dfabric\.customModList='; "fabric.resolve.modFiles"='-Dfabric\.resolve\.modFiles='; "fabric.skipDependencyResolution"='-Dfabric\.skipDependencyResolution='; "fabric.loader.entrypoints"='-Dfabric\.loader\.entrypoints='; "fabric.language.providers"='-Dfabric\.language\.providers=';
+        "forge.addMods"='-Dforge\.addMods='; "forge.mods"='-Dforge\.mods='; "fml.coreMods.load"='-Dfml\.coreMods\.load='; "forge.coreMods.dir"='-Dforge\.coreMods\.dir='; "forge.modDir"='-Dforge\.modDir='; "forge.modsDirectories"='-Dforge\.modsDirectories='; "fml.customModList"='-Dfml\.customModList='; "forge.disableModScan"='-Dforge\.disableModScan='; "forge.modList"='-Dforge\.modList='; "forge.forceVersion"='-Dforge\.forceVersion='; "forge.disableUpdateCheck"='-Dforge\.disableUpdateCheck='; "forge.logging.mojang.level"='-Dforge\.logging\.mojang\.level='; "forge.mixin.hotSwap"='-Dforge\.mixin\.hotSwap='; "forge.resourcePack"='-Dforge\.resourcePack='; "forge.defaultResourcePack"='-Dforge\.defaultResourcePack='; "forge.texturePacks"='-Dforge\.texturePacks='; "forge.assetIndex"='-Dforge\.assetIndex='; "forge.assetsDir"='-Dforge\.assetsDir=';
+        "javaSecurityManager"='-Djava\.security\.manager='; "javaSecurityPolicy"='-Djava\.security\.policy='; "bootClasspath"='-Xbootclasspath'; "systemClassLoader"='-Djava\.system\.class\.loader='; "javaClassPath"='-Djava\.class\.path='; "cp"='-cp\s+["''][^"'';]*\.jar';
+        "cheatClientBrand"='-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos|Salhack|ForgeHax|Mathax|Meteor|Async|Seppuku|Xatz|Wolfram|Huzuni|Jigsaw|Zamorozka|Moon|Rage|Exhibition|Virtue|Novoline|Rekt|Skid|Ares|Abyss|Thunder|Tenacity|Rise|Flux|Gamesense|Intent|Remix|Sight|Vape|Shield|Ghost|Crispy|Inertia)';
+        "optifine"='-Doptifine\.'; "shadersmod"='-Dshaders?\.'; "shaderPack"='-Dshader[sP]ack='; "cheatPattern"='-D(xray|fly|speed|killaura|reach|esp|wallhack|noclip|autoclick|aimbot|triggerbot|antiknockback|nofall|timer|step|fullbright|nightvision|cavefinder)\.'
     }
+    $cheatClients = @('Wurst','Aristois','Impact','Kilo','Future','Lambda','Rusher','Konas','Phobos','Salhack','ForgeHax','Mathax','Meteor','Async','Seppuku','Xatz','Wolfram','Huzuni','Jigsaw','Zamorozka','Moon','Rage','Exhibition','Virtue','Novoline','Rekt','Skid','Ares','Abyss','Thunder','Tenacity','Rise','Flux','Gamesense','Intent','Remix','Sight','Vape','Shield','Ghost','Crispy','Inertia')
 
     foreach ($proc in $javaProcesses) {
-        $processInjectionFound = $false
-        
         try {
-            $wmiProcess = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop
-            $commandLine = $wmiProcess.CommandLine
-            
-            if ($commandLine) {
-                Write-Host "  ┌─ Process: PID $($proc.Id) - $($proc.ProcessName)" -ForegroundColor Green
-                
-                # Skip checking the executable path itself
-                if ($commandLine -match '^"([^"]+)"') {
-                    $exePath = $matches[1]
-                    $commandLine = $commandLine.Substring($exePath.Length + 2).Trim()
+            $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop).CommandLine
+            if (-not $cmdLine) { continue }
+            Write-Host "  ┌─ Process: PID $($proc.Id) - $($proc.ProcessName)" -ForegroundColor Green
+            if ($cmdLine -match '^"([^"]+)"') { $cmdLine = $cmdLine.Substring($matches[1].Length + 2).Trim() }
+
+            $detectedPatterns = @(); $suspiciousArgs = @()
+            foreach ($k in $fabricPatterns.Keys) {
+                if ($k -eq "addOpens" -or $k -eq "addExports") { continue }
+                if ($cmdLine -match $fabricPatterns[$k]) {
+                    $detectedPatterns += $k
+                    $suspiciousArgs += ($cmdLine -split '\s+' | Where-Object { $_ -match $fabricPatterns[$k] })
                 }
-                
-                # Check all patterns
-                $detectedPatterns = @()
-                $suspiciousArgs = @()
-                
-                foreach ($patternName in $fabricPatterns.Keys) {
-                    $regexPattern = $fabricPatterns[$patternName]
-                    if ($commandLine -match $regexPattern) {
-                        # Skip legitimate Java module opens
-                        if ($patternName -eq "addOpens" -or $patternName -eq "addExports") {
-                            continue
-                        }
-                        
-                        $detectedPatterns += $patternName
-                        
-                        # Extract the suspicious argument
-                        $argLines = $commandLine -split '\s+'
-                        foreach ($arg in $argLines) {
-                            if ($arg -match $regexPattern) {
-                                $suspiciousArgs += $arg
-                            }
-                        }
-                        $processInjectionFound = $true
-                    }
+            }
+            foreach ($cc in $cheatClients) {
+                if ($cmdLine -match "(?i)\b$cc\b" -and $detectedPatterns -notcontains "CheatClient-$cc") { $detectedPatterns += "CheatClient-$cc" }
+            }
+            if ($cmdLine -match '(%3B|%26%26|%7C%7C|%7C|%60|%24|%3C|%3E)') { $detectedPatterns += "EncodedInjection" }
+
+            if ($detectedPatterns.Count -gt 0) {
+                $foundInjection = $true
+                Write-Host "  ├─ [✗] JVM INJECTION DETECTED`n" -ForegroundColor Red
+                Write-Host "  │  Detected JVM Arguments:" -ForegroundColor Yellow
+                $suspiciousArgs | Select-Object -Unique | ForEach-Object { Write-Host "  │    • $_" -ForegroundColor Magenta }
+                Write-Host "`n  │  Detected Pattern Categories:" -ForegroundColor Yellow
+                $grouped = @{}
+                foreach ($p in $detectedPatterns) {
+                    $t = if ($p -match "^(fabric|forge|javaSecurity|bootClasspath|systemClassLoader|javaClassPath|cp|cheatClient|optifine|shadersmod|shaderPack|cheatPattern|EncodedInjection)") { $matches[1] } else { "other" }
+                    if (-not $grouped[$t]) { $grouped[$t] = @() }
+                    $grouped[$t] += $p
                 }
-                
-                # Check for cheat client names
-                $cheatClients = @('Wurst', 'Aristois', 'Impact', 'Kilo', 'Future', 'Lambda', 'Rusher', 'Konas', 'Phobos', 
-                                 'Salhack', 'ForgeHax', 'Mathax', 'Meteor', 'Async', 'Seppuku', 'Xatz', 'Wolfram', 
-                                 'Huzuni', 'Jigsaw', 'Zamorozka', 'Moon', 'Rage', 'Exhibition', 'Virtue', 'Novoline', 
-                                 'Rekt', 'Skid', 'Ares', 'Abyss', 'Thunder', 'Tenacity', 'Rise', 'Flux', 'Gamesense', 
-                                 'Intent', 'Remix', 'Sight', 'Vape', 'Shield', 'Ghost', 'Crispy', 'Inertia')
-                
-                foreach ($cheatClient in $cheatClients) {
-                    if ($commandLine -match "(?i)\b$cheatClient\b") {
-                        if ($detectedPatterns -notcontains "CheatClient-$cheatClient") {
-                            $detectedPatterns += "CheatClient-$cheatClient"
-                            $processInjectionFound = $true
-                        }
-                    }
+                $typeMap = @{ fabric="Fabric Injection"; forge="Forge Injection"; javaSecurity="Security Bypass"; bootClasspath="Classpath Manipulation"; systemClassLoader="Class Loader"; javaClassPath="Class Path"; cp="Classpath (-cp)"; cheatClient="Cheat Client"; optifine="Optifine/Shaders"; shadersmod="Shader Mod"; shaderPack="Shader Pack"; cheatPattern="Cheat Pattern"; EncodedInjection="Encoded Injection"; other="Other" }
+                foreach ($t in $grouped.Keys | Sort-Object) {
+                    Write-Host "  │    └─ $($typeMap[$t])" -ForegroundColor White
+                    $grouped[$t] | ForEach-Object { Write-Host "  │        • $($_ -replace 'CheatClient-','')" -ForegroundColor Red }
                 }
-                
-                # Check for encoded/suspicious command execution
-                if ($commandLine -match '(%3B|%26%26|%7C%7C|%7C|%60|%24|%3C|%3E)') {
-                    $detectedPatterns += "EncodedInjection"
-                    $processInjectionFound = $true
-                }
-                
-                if ($processInjectionFound -and $detectedPatterns.Count -gt 0) {
-                    $foundInjection = $true
-                    $injectionCount++
-                    
-                    Write-Host "  ├─ [✗] JVM INJECTION DETECTED" -ForegroundColor Red
-                    Write-Host ""
-                    
-                    # Show detected patterns grouped by type
-                    $groupedPatterns = @{}
-                    foreach ($pattern in $detectedPatterns) {
-                        if ($pattern -match "^(fabric|forge|javaSecurity|bootClasspath|systemClassLoader|javaClassPath|cp|cheatClient|optifine|shadersmod|shaderPack|cheatPattern|EncodedInjection)") {
-                            $type = $matches[1]
-                        } else {
-                            $type = "other"
-                        }
-                        if (-not $groupedPatterns.ContainsKey($type)) {
-                            $groupedPatterns[$type] = @()
-                        }
-                        $groupedPatterns[$type] += $pattern
-                    }
-                    
-                    Write-Host "  │  Detected JVM Arguments:" -ForegroundColor Yellow
-                    foreach ($arg in $suspiciousArgs | Select-Object -Unique) {
-                        Write-Host "  │    • $arg" -ForegroundColor Magenta
-                    }
-                    Write-Host ""
-                    
-                    Write-Host "  │  Detected Pattern Categories:" -ForegroundColor Yellow
-                    foreach ($type in $groupedPatterns.Keys | Sort-Object) {
-                        $typeName = switch ($type) {
-                            "fabric" { "Fabric Injection" }
-                            "forge" { "Forge Injection" }
-                            "javaSecurity" { "Security Bypass" }
-                            "bootClasspath" { "Classpath Manipulation" }
-                            "systemClassLoader" { "Class Loader" }
-                            "javaClassPath" { "Class Path" }
-                            "cp" { "Classpath (-cp)" }
-                            "cheatClient" { "Cheat Client" }
-                            "optifine" { "Optifine/Shaders" }
-                            "shadersmod" { "Shader Mod" }
-                            "shaderPack" { "Shader Pack" }
-                            "cheatPattern" { "Cheat Pattern" }
-                            "EncodedInjection" { "Encoded Injection" }
-                            default { "Other" }
-                        }
-                        Write-Host "  │    └─ $typeName" -ForegroundColor White
-                        foreach ($pattern in $groupedPatterns[$type]) {
-                            $displayPattern = $pattern -replace 'CheatClient-', ''
-                            Write-Host "  │        • $displayPattern" -ForegroundColor Red
-                        }
-                    }
-                    Write-Host ""
-                    
-                    Write-Host "  └─ ⚠ WARNING: Potential cheat client or mod injection detected!" -ForegroundColor Red
-                    Write-Host ""
-                } else {
-                    Write-Host "  └─ [✓] No JVM injection patterns detected" -ForegroundColor Green
-                    Write-Host ""
-                }
+                Write-Host "`n  └─ ⚠ WARNING: Potential cheat client or mod injection detected!`n" -ForegroundColor Red
+            } else {
+                Write-Host "  └─ [✓] No JVM injection patterns detected`n" -ForegroundColor Green
             }
         } catch {
             Write-Host "  └─ [!] Warning: Could not retrieve command line for PID $($proc.Id)" -ForegroundColor DarkYellow
-            Write-Host "      [i] Run as Administrator for complete detection." -ForegroundColor DarkYellow
-            Write-Host ""
+            Write-Host "      [i] Run as Administrator for complete detection.`n" -ForegroundColor DarkYellow
         }
     }
-
-    if (-not $foundInjection) {
-        Write-Host "  [✓] CLEAN: No JVM argument injections detected in any Java process" -ForegroundColor Green
-    }
-
+    if (-not $foundInjection) { Write-Host "  [✓] CLEAN: No JVM argument injections detected in any Java process" -ForegroundColor Green }
     Write-Host ""
 }
-# ==================== End of Enhanced Fabric/JVM Arguments Scanner ====================
 
 function Get-Minecraft-Version-From-Mods($modsFolder) {
-    $minecraftVersions = @{}
-    $jarFiles = Get-ChildItem -Path $modsFolder -Filter *.jar
-    $modsScanned = 0
-    
+    $mcVersions = @{}; $modsScanned = 0
     Write-Host "Analyzing mods for Minecraft version..." -ForegroundColor Cyan
-    
-    foreach ($file in $jarFiles) {
+    foreach ($file in (Get-ChildItem -Path $modsFolder -Filter *.jar)) {
         try {
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip = [System.IO.Compression.ZipFile]::OpenRead($file.FullName)
-            
-            # Check fabric.mod.json
-            if ($fabricModJson = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1) {
-                $reader = New-Object System.IO.StreamReader($fabricModJson.Open())
-                $fabricData = $reader.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue
-                $reader.Close()
-                
-                if ($fabricData.depends.minecraft) {
-                    $mcVersionString = $fabricData.depends.minecraft
-                    $extractedVersions = @()
-                    
-                    # Handle version ranges like ">=1.20 <=1.21.4"
-                    if ($mcVersionString -match '>=\s*(\d+\.\d+(?:\.\d+)?).*<=\s*(\d+\.\d+(?:\.\d+)?)') {
-                        # Range detected: use the upper bound as it's more specific
-                        $extractedVersions += $matches[2]
-                    }
-                    # Handle single constraints like ">=1.20", "~1.21", "^1.20.1"
-                    elseif ($mcVersionString -match '[><=~\^]+\s*(\d+\.\d+(?:\.\d+)?)') {
-                        $extractedVersions += $matches[1]
-                    }
-                    # Handle exact version like "1.21.4"
-                    elseif ($mcVersionString -match '^(\d+\.\d+(?:\.\d+)?)$') {
-                        $extractedVersions += $matches[1]
-                    }
-                    # Fallback: extract any version number pattern
-                    elseif ($mcVersionString -match '(\d+\.\d+(?:\.\d+)?)') {
-                        $extractedVersions += $matches[1]
-                    }
-                    
-                    # Add all found versions to the count
-                    foreach ($ver in $extractedVersions) {
-                        if ($ver -match '^\d+\.\d+(?:\.\d+)?$') {
-                            if (-not $minecraftVersions.ContainsKey($ver)) {
-                                $minecraftVersions[$ver] = 0
-                            }
-                            $minecraftVersions[$ver]++
-                            $modsScanned++
-                        }
-                    }
+            $fmj = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1
+            if ($fmj) {
+                $r = New-Object System.IO.StreamReader($fmj.Open()); $fd = $r.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue; $r.Close()
+                if ($fd.depends.minecraft) {
+                    $s = $fd.depends.minecraft
+                    $ver = if ($s -match '>=\s*(\d+\.\d+(?:\.\d+)?).*<=\s*(\d+\.\d+(?:\.\d+)?)') { $matches[2] }
+                          elseif ($s -match '[><=~\^]+\s*(\d+\.\d+(?:\.\d+)?)') { $matches[1] }
+                          elseif ($s -match '^(\d+\.\d+(?:\.\d+)?)$') { $matches[1] }
+                          elseif ($s -match '(\d+\.\d+(?:\.\d+)?)') { $matches[1] }
+                    if ($ver -match '^\d+\.\d+(?:\.\d+)?$') { if (-not $mcVersions[$ver]) { $mcVersions[$ver]=0 }; $mcVersions[$ver]++; $modsScanned++ }
                 }
             }
-            
-            # Check mods.toml for Forge/NeoForge mods
-            if ($modsToml = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1) {
-                $reader = New-Object System.IO.StreamReader($modsToml.Open())
-                $tomlContent = $reader.ReadToEnd()
-                $reader.Close()
-                
-                # Extract Minecraft version from mods.toml
-                if ($tomlContent -match 'modId\s*=\s*"minecraft"[\s\S]{0,200}versionRange\s*=\s*"([^"]+)"') {
-                    $versionRange = $matches[1]
-                    
-                    # Parse version range [1.20.1,1.21) or [1.20.1]
-                    if ($versionRange -match '\[(\d+\.\d+(?:\.\d+)?),(\d+\.\d+(?:\.\d+)?)\)') {
-                        # Use lower bound of range as it's the minimum required
-                        $ver = $matches[1]
-                        if (-not $minecraftVersions.ContainsKey($ver)) {
-                            $minecraftVersions[$ver] = 0
-                        }
-                        $minecraftVersions[$ver]++
-                        $modsScanned++
-                    }
-                    elseif ($versionRange -match '\[(\d+\.\d+(?:\.\d+)?)\]') {
-                        # Exact version
-                        $ver = $matches[1]
-                        if (-not $minecraftVersions.ContainsKey($ver)) {
-                            $minecraftVersions[$ver] = 0
-                        }
-                        $minecraftVersions[$ver]++
-                        $modsScanned++
-                    }
-                    elseif ($versionRange -match '(\d+\.\d+(?:\.\d+)?)') {
-                        # Fallback: extract any version
-                        $ver = $matches[1]
-                        if (-not $minecraftVersions.ContainsKey($ver)) {
-                            $minecraftVersions[$ver] = 0
-                        }
-                        $minecraftVersions[$ver]++
-                        $modsScanned++
-                    }
+            $mtoml = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1
+            if ($mtoml) {
+                $r = New-Object System.IO.StreamReader($mtoml.Open()); $tc = $r.ReadToEnd(); $r.Close()
+                if ($tc -match 'modId\s*=\s*"minecraft"[\s\S]{0,200}versionRange\s*=\s*"([^"]+)"') {
+                    $vr = $matches[1]
+                    $ver = if ($vr -match '\[(\d+\.\d+(?:\.\d+)?),') { $matches[1] }
+                           elseif ($vr -match '\[(\d+\.\d+(?:\.\d+)?)\]') { $matches[1] }
+                           elseif ($vr -match '(\d+\.\d+(?:\.\d+)?)') { $matches[1] }
+                    if ($ver) { if (-not $mcVersions[$ver]) { $mcVersions[$ver]=0 }; $mcVersions[$ver]++; $modsScanned++ }
                 }
             }
-            
             $zip.Dispose()
-        } catch { 
-            continue 
-        }
+        } catch { continue }
     }
-    
-    if ($minecraftVersions.Count -gt 0) {
-        # Sort by count (descending) and then by version number (descending) for ties
-        $sortedVersions = $minecraftVersions.GetEnumerator() | Sort-Object -Property @{Expression={$_.Value}; Descending=$true}, @{Expression={$_.Key}; Descending=$true}
-        $mostCommon = $sortedVersions | Select-Object -First 1
-        
-        Write-Host "Detected Minecraft version: $($mostCommon.Key) (from $($mostCommon.Value) out of $modsScanned mods)" -ForegroundColor Cyan
-        
-  
-        
-        return $mostCommon.Key
+    if ($mcVersions.Count -gt 0) {
+        $best = $mcVersions.GetEnumerator() | Sort-Object -Property @{E={$_.Value};D=$true},@{E={$_.Key};D=$true} | Select-Object -First 1
+        Write-Host "Detected Minecraft version: $($best.Key) (from $($best.Value) out of $modsScanned mods)" -ForegroundColor Cyan
+        return $best.Key
     }
-    
-    # Enhanced process detection with multiple patterns
     if ($process) {
         try {
-            $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
-            
-            # Try multiple patterns in order of reliability
-            $patterns = @(
-                'versions[/\\](\d+\.\d+(?:\.\d+)?)[/\\]',
-                '-Dminecraft\.version=(\d+\.\d+(?:\.\d+)?)',
-                '-Dfabric\.gameVersion=(\d+\.\d+(?:\.\d+)?)',
-                '--version\s+(\d+\.\d+(?:\.\d+)?)',
-                'net\.minecraft\.client\.main\.Main.*?(\d+\.\d+(?:\.\d+)?)'
-            )
-            
-            foreach ($pattern in $patterns) {
-                if ($cmdLine -match $pattern) {
-                    $detectedVersion = $matches[1]
-                    Write-Host "Detected Minecraft version from process: $detectedVersion" -ForegroundColor Cyan
-                    return $detectedVersion
-                }
+            $cl = (Get-WmiObject Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
+            foreach ($pat in @('versions[/\\](\d+\.\d+(?:\.\d+)?)[/\\]','-Dminecraft\.version=(\d+\.\d+(?:\.\d+)?)','-Dfabric\.gameVersion=(\d+\.\d+(?:\.\d+)?)','--version\s+(\d+\.\d+(?:\.\d+)?)')) {
+                if ($cl -match $pat) { Write-Host "Detected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan; return $matches[1] }
             }
-        } catch {
-            Write-Host "Warning: Could not read process command line" -ForegroundColor DarkYellow
-        }
+        } catch { Write-Host "Warning: Could not read process command line" -ForegroundColor DarkYellow }
     }
-    
     Write-Host "Could not auto-detect Minecraft version from mods." -ForegroundColor Yellow
-    $mcVersion = Read-Host "Enter your Minecraft version (e.g., 1.21, 1.20.1) or press Enter to skip filtering"
-    return if ($mcVersion -eq '') { $null } else { $mcVersion }
+    $v = Read-Host "Enter your Minecraft version (e.g., 1.21, 1.20.1) or press Enter to skip"
+    return if ($v -eq '') { $null } else { $v }
 }
 
-# Detect Minecraft version
-if ($minecraftVersion = Get-Minecraft-Version-From-Mods -modsFolder $mods) {
-    Write-Host "Using Minecraft version: $minecraftVersion for filtering`n" -ForegroundColor Green
-}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if ($minecraftVersion = Get-Minecraft-Version-From-Mods -modsFolder $mods) { Write-Host "Using Minecraft version: $minecraftVersion for filtering`n" -ForegroundColor Green }
 
-# Helper functions
-function Get-SHA1($filePath) { return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
+function Get-SHA1($p) { return (Get-FileHash -Path $p -Algorithm SHA1).Hash }
 
-function Get-ZoneIdentifier($filePath) {
+function Get-ZoneIdentifier($p) {
     try {
-        if ($ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue | Where-Object { $_ -match "HostUrl=(.+)" }) {
+        $raw = Get-Content -Raw -Stream Zone.Identifier $p -ErrorAction SilentlyContinue
+        if ($raw -match "HostUrl=(.+)") {
             $url = $matches[1]
-            return @{
-                Source = switch -regex ($url) {
-                    "modrinth\.com" { "Modrinth"; break }
-                    "curseforge\.com" { "CurseForge"; break }
-                    "github\.com" { "GitHub"; break }
-                    "discord" { "Discord"; break }
-                    default { "Other" }
-                }
-                URL = $url
-                IsModrinth = $url -match "modrinth\.com"
-            }
+            $src = switch -regex ($url) { "modrinth\.com"{"Modrinth"} "curseforge\.com"{"CurseForge"} "github\.com"{"GitHub"} "discord"{"Discord"} default{"Other"} }
+            return @{ Source=$src; URL=$url; IsModrinth=$url -match "modrinth\.com" }
         }
     } catch {}
-    return @{ Source = "Unknown"; URL = ""; IsModrinth = $false }
+    return @{ Source="Unknown"; URL=""; IsModrinth=$false }
 }
 
 function Get-Mod-Info-From-Jar($jarPath) {
-    $modInfo = @{ ModId = ""; Name = ""; Version = ""; Description = ""; Authors = @(); License = ""; Contact = @{}; Icon = ""; Environment = ""; Entrypoints = @{}; Mixins = @(); AccessWidener = ""; Depends = @{}; Suggests = @{}; Breaks = @{}; Conflicts = @{}; ModLoader = "" }
-    
+    $mi = @{ ModId=""; Name=""; Version=""; Authors=@(); ModLoader="" }
     try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
-        
-        # Check for fabric.mod.json
-        if ($entry = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1) {
-            $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-            $fabricData = $reader.ReadToEnd() | ConvertFrom-Json
-            $reader.Close()
-            
-            $modInfo.ModId = $fabricData.id; $modInfo.Name = $fabricData.name; $modInfo.Version = $fabricData.version
-            $modInfo.Description = $fabricData.description; $modInfo.Authors = if ($fabricData.authors -is [array]) { $fabricData.authors } else { @($fabricData.authors) }
-            $modInfo.License = $fabricData.license; $modInfo.Contact = $fabricData.contact; $modInfo.Icon = $fabricData.icon
-            $modInfo.Environment = $fabricData.environment; $modInfo.Entrypoints = $fabricData.entrypoints
-            $modInfo.Mixins = if ($fabricData.mixins -is [array]) { $fabricData.mixins } else { @($fabricData.mixins) }
-            $modInfo.AccessWidener = $fabricData.accessWidener; $modInfo.Depends = $fabricData.depends; $modInfo.Suggests = $fabricData.suggests
-            $modInfo.Breaks = $fabricData.breaks; $modInfo.Conflicts = $fabricData.conflicts; $modInfo.ModLoader = "Fabric"
-            
-            $zip.Dispose()
-            return $modInfo
+        $e = $zip.Entries | Where-Object { $_.Name -eq 'fabric.mod.json' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $fd = $r.ReadToEnd() | ConvertFrom-Json; $r.Close()
+            $mi.ModId=$fd.id; $mi.Name=$fd.name; $mi.Version=$fd.version; $mi.ModLoader="Fabric"
+            $zip.Dispose(); return $mi
         }
-        
-        # Check for mods.toml (Forge/NeoForge)
-        if ($entry = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1) {
-            $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-            $tomlContent = $reader.ReadToEnd()
-            $reader.Close()
-            
-            if ($tomlContent -match 'modId\s*=\s*"([^"]+)"') { $modInfo.ModId = $matches[1] }
-            if ($tomlContent -match 'displayName\s*=\s*"([^"]+)"') { $modInfo.Name = $matches[1] }
-            if ($tomlContent -match 'version\s*=\s*"([^"]+)"') { $modInfo.Version = $matches[1] }
-            if ($tomlContent -match 'description\s*=\s*"([^"]+)"') { $modInfo.Description = $matches[1] }
-            if ($tomlContent -match 'authors\s*=\s*"([^"]+)"') { $modInfo.Authors = @($matches[1]) }
-            
-            $modInfo.ModLoader = "Forge/NeoForge"
-            $zip.Dispose()
-            return $modInfo
+        $e = $zip.Entries | Where-Object { $_.FullName -eq 'META-INF/mods.toml' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $tc = $r.ReadToEnd(); $r.Close()
+            if ($tc -match 'modId\s*=\s*"([^"]+)"') { $mi.ModId=$matches[1] }
+            if ($tc -match 'displayName\s*=\s*"([^"]+)"') { $mi.Name=$matches[1] }
+            if ($tc -match 'version\s*=\s*"([^"]+)"') { $mi.Version=$matches[1] }
+            $mi.ModLoader="Forge/NeoForge"; $zip.Dispose(); return $mi
         }
-        
-        # Check for mixin configs
-        if ($entry = $zip.Entries | Where-Object { $_.Name -match '\.mixins\.json$' } | Select-Object -First 1) {
-           $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-            $mixinData = $reader.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue
-            $reader.Close()
-            if ($mixinData.package -and -not $modInfo.ModId) {
-                $packageParts = $mixinData.package -split '\.'
-                if ($packageParts.Count -ge 2) { $modInfo.ModId = $packageParts[-2] }
+        $e = $zip.Entries | Where-Object { $_.Name -match '\.mixins\.json$' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $mx = $r.ReadToEnd() | ConvertFrom-Json -ErrorAction SilentlyContinue; $r.Close()
+            if ($mx.package -and -not $mi.ModId) { $pp = $mx.package -split '\.'; if ($pp.Count -ge 2) { $mi.ModId=$pp[-2] } }
+        }
+        $e = $zip.Entries | Where-Object { $_.Name -eq 'MANIFEST.MF' } | Select-Object -First 1
+        if ($e) {
+            $r = New-Object System.IO.StreamReader($e.Open(), [System.Text.Encoding]::UTF8); $mc2 = $r.ReadToEnd(); $r.Close()
+            foreach ($line in ($mc2 -split "`n")) {
+                if ($line -match 'Implementation-Title:\s*(.+)' -and -not $mi.Name) { $mi.Name=$matches[1].Trim() }
+                if ($line -match 'Implementation-Version:\s*(.+)' -and -not $mi.Version) { $mi.Version=$matches[1].Trim() }
             }
         }
-        
-        # Check for manifest
-        if ($entry = $zip.Entries | Where-Object { $_.Name -eq 'MANIFEST.MF' } | Select-Object -First 1) {
-           $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-            $manifestContent = $reader.ReadToEnd()
-            $reader.Close()
-            
-            $lines = $manifestContent -split "`n"
-            foreach ($line in $lines) {
-                if ($line -match 'Implementation-Title:\s*(.+)' -and -not $modInfo.Name) { $modInfo.Name = $matches[1].Trim() }
-                if ($line -match 'Implementation-Version:\s*(.+)' -and -not $modInfo.Version) { $modInfo.Version = $matches[1].Trim() }
-                if ($line -match 'Specification-Title:\s*(.+)' -and -not $modInfo.Name) { $modInfo.Name = $matches[1].Trim() }
-            }
-        }
-        
         $zip.Dispose()
     } catch {}
-    return $modInfo
+    return $mi
 }
+
+function Find-Closest-Version($localVersion, $availableVersions, $preferredLoader="Fabric", $minecraftVersion) {
+    if (-not $localVersion -or -not $availableVersions) { return $null }
+    $fv = $availableVersions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) }
+    if (-not $fv) { $fv = $availableVersions | Where-Object { $_.game_versions -contains $minecraftVersion } }
+    if (-not $fv) { $fv = $availableVersions | Where-Object { $_.loaders -contains $preferredLoader.ToLower() } }
+    if (-not $fv) { $fv = $availableVersions }
+    $exact = $fv | Where-Object { $_.version_number -eq $localVersion } | Select-Object -First 1
+    if ($exact) { return $exact }
+    try {
+        if ($localVersion -match '(\d+)\.(\d+)\.(\d+)') {
+            $ma=[int]$matches[1]; $mi2=[int]$matches[2]; $pa=[int]$matches[3]
+            $best=$null; $bestD=[double]::MaxValue
+            foreach ($v in $fv) {
+                if ($v.version_number -match '(\d+)\.(\d+)\.(\d+)') {
+                    $d=[math]::Sqrt([math]::Pow($ma-[int]$matches[1],2)*100+[math]::Pow($mi2-[int]$matches[2],2)*10+[math]::Pow($pa-[int]$matches[3],2))
+                    if ($d -lt $bestD) { $bestD=$d; $best=$v }
+                }
+            }
+            if ($best -and $bestD -lt 10) { return $best }
+        }
+        if ($localVersion -match '(\d+)\.(\d+)') {
+            $ma=[int]$matches[1]; $mi2=[int]$matches[2]
+            $best=$null; $bestD=[double]::MaxValue
+            foreach ($v in $fv) {
+                if ($v.version_number -match '(\d+)\.(\d+)') {
+                    $d=[math]::Sqrt([math]::Pow($ma-[int]$matches[1],2)*10+[math]::Pow($mi2-[int]$matches[2],2))
+                    if ($d -lt $bestD) { $bestD=$d; $best=$v }
+                }
+            }
+            if ($best -and $bestD -lt 5) { return $best }
+        }
+    } catch {}
+    return $fv | Where-Object { $_.version_number -match [regex]::Escape($localVersion) } | Select-Object -First 1
+}
+
+function Build-ModrinthResult($proj, $ver, $versions, $byHash=$false, $matchType="") {
+    $file = $ver.files[0]
+    $loader = if ($ver.loaders -contains "fabric") {"Fabric"} elseif ($ver.loaders -contains "forge") {"Forge"} else {$ver.loaders[0]}
+    return @{ Name=$proj.title; Slug=$proj.slug; ExpectedSize=$file.size; VersionNumber=$ver.version_number; FileName=$file.filename
+              ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($ver.id)"; FoundByHash=$byHash
+              ExactMatch=($byHash -or $matchType -eq "Exact Version" -or $matchType -eq "Exact Filename")
+              IsLatestVersion=($versions[0].id -eq $ver.id); MatchType=$matchType; LoaderType=$loader }
+}
+
+function Get-ModrinthVersions($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id/version" -UseBasicParsing }
+function Get-ModrinthProject($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing }
 
 function Fetch-Modrinth-By-Hash($hash) {
     try {
-        $response = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing
-        if ($response.project_id) {
-            $projectData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($response.project_id)" -Method Get -UseBasicParsing
-            $fileInfo = $response.files[0]
-            
-            return @{ 
-                Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $fileInfo.size
-                VersionNumber = $response.version_number; FileName = $fileInfo.filename
-                ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($response.id)"
-                FoundByHash = $true; ExactMatch = $true; IsLatestVersion = $false; MatchType = "Exact Hash"
-                LoaderType = if ($response.loaders -contains "fabric") { "Fabric" } elseif ($response.loaders -contains "forge") { "Forge" } else { "Unknown" }
-            }
+        $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -UseBasicParsing
+        if ($resp.project_id) {
+            $proj = Get-ModrinthProject $resp.project_id
+            return @{ Name=$proj.title; Slug=$proj.slug; ExpectedSize=$resp.files[0].size; VersionNumber=$resp.version_number
+                      FileName=$resp.files[0].filename; ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($resp.id)"
+                      FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
+                      LoaderType=if ($resp.loaders -contains "fabric"){"Fabric"} elseif ($resp.loaders -contains "forge"){"Forge"} else{"Unknown"} }
         }
     } catch {}
-    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown" }
+    return @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; LoaderType="Unknown" }
 }
 
-function Find-Closest-Version($localVersion, $availableVersions, $preferredLoader = "Fabric", $minecraftVersion) {
-    if (-not $localVersion -or -not $availableVersions) { return $null }
-    
-    $filteredVersions = @()
-    foreach ($version in $availableVersions) {
-        $matchesLoader = ($version.loaders -contains $preferredLoader.ToLower())
-        $matchesMinecraft = if ($minecraftVersion -and $version.game_versions) { ($version.game_versions -contains $minecraftVersion) } else { $true }
-        if ($matchesLoader -and $matchesMinecraft) { $filteredVersions += $version }
-    }
-    
-    if ($filteredVersions.Count -eq 0 -and $minecraftVersion) {
-        $filteredVersions = $availableVersions | Where-Object { $_.game_versions -contains $minecraftVersion }
-    }
-    if ($filteredVersions.Count -eq 0) {
-        $filteredVersions = $availableVersions | Where-Object { $_.loaders -contains $preferredLoader.ToLower() }
-    }
-    if ($filteredVersions.Count -eq 0) { $filteredVersions = $availableVersions }
-    
-    foreach ($version in $filteredVersions) {
-        if ($version.version_number -eq $localVersion) { return $version }
-    }
-    
+function Fetch-By-ProjectId($id, $version, $preferredLoader) {
     try {
-        if ($localVersion -match '(\d+)\.(\d+)\.(\d+)') {
-            $major, $minor, $patch = [int]$matches[1], [int]$matches[2], [int]$matches[3]
-            $closest = $null; $closestDistance = [double]::MaxValue
-            
-            foreach ($version in $filteredVersions) {
-                if ($version.version_number -match '(\d+)\.(\d+)\.(\d+)') {
-                    $distance = [math]::Sqrt([math]::Pow($major - [int]$matches[1], 2) * 100 + [math]::Pow($minor - [int]$matches[2], 2) * 10 + [math]::Pow($patch - [int]$matches[3], 2))
-                    if ($distance -lt $closestDistance) { $closestDistance = $distance; $closest = $version }
-                }
-            }
-            if ($closest -and $closestDistance -lt 10) { return $closest }
-        }
-        
-        if ($localVersion -match '(\d+)\.(\d+)') {
-            $major, $minor = [int]$matches[1], [int]$matches[2]
-            $closest = $null; $closestDistance = [double]::MaxValue
-            
-            foreach ($version in $filteredVersions) {
-                if ($version.version_number -match '(\d+)\.(\d+)') {
-                    $distance = [math]::Sqrt([math]::Pow($major - [int]$matches[1], 2) * 10 + [math]::Pow($minor - [int]$matches[2], 2))
-                    if ($distance -lt $closestDistance) { $closestDistance = $distance; $closest = $version }
-                }
-            }
-            if ($closest -and $closestDistance -lt 5) { return $closest }
-        }
+        $proj = Get-ModrinthProject $id; $versions = Get-ModrinthVersions $id
+        $matched = Find-Closest-Version $version $versions $preferredLoader $minecraftVersion
+        if ($matched) { return Build-ModrinthResult $proj $matched $versions -matchType (if ($matched.version_number -eq $version){"Exact Version"} else {"Closest Version"}) }
+        $fallback = $versions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) } | Select-Object -First 1
+        if (-not $fallback) { $fallback = $versions[0] }
+        if ($fallback) { return Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version" }
     } catch {}
-    
-    foreach ($version in $filteredVersions) {
-        if ($version.version_number -contains $localVersion -or $version.version_number -match [regex]::Escape($localVersion)) {
-            return $version
-        }
-    }
-    
     return $null
 }
 
-function Fetch-Modrinth-By-ModId($modId, $version, $preferredLoader = "Fabric") {
+function Fetch-Modrinth-By-ModId($modId, $version, $preferredLoader="Fabric") {
+    $result = Fetch-By-ProjectId $modId $version $preferredLoader
+    if ($result) { return $result }
     try {
-        $projectData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$modId" -Method Get -UseBasicParsing -ErrorAction Stop
-        if ($projectData.id) {
-            $versionsData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$modId/version" -Method Get -UseBasicParsing
-            
-            if ($matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData -preferredLoader $preferredLoader -minecraftVersion $minecraftVersion) {
-                $file = $matchedVersion.files[0]
-                $isExact = ($matchedVersion.version_number -eq $version)
-                $loader = if ($matchedVersion.loaders -contains "fabric") { "Fabric" } elseif ($matchedVersion.loaders -contains "forge") { "Forge" } else { $matchedVersion.loaders[0] }
-                
-                return @{
-                    Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $file.size
-                    VersionNumber = $matchedVersion.version_number; FileName = $file.filename
-                    ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($matchedVersion.id)"
-                    FoundByHash = $false; ExactMatch = $isExact; IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
-                    MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }; LoaderType = $loader
-                }
-            }
-            
-            foreach ($ver in $versionsData) {
-                $matchesLoader = ($ver.loaders -contains $preferredLoader.ToLower())
-                $matchesMinecraft = if ($minecraftVersion -and $ver.game_versions) { ($ver.game_versions -contains $minecraftVersion) } else { $true }
-                
-                if ($matchesLoader -and $matchesMinecraft) {
-                    $file = $ver.files[0]
-                    $loader = if ($ver.loaders -contains "fabric") { "Fabric" } elseif ($ver.loaders -contains "forge") { "Forge" } else { $ver.loaders[0] }
-                    
-                    return @{
-                        Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $file.size
-                        VersionNumber = $ver.version_number; FileName = $file.filename
-                        ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($ver.id)"
-                        FoundByHash = $false; ExactMatch = $false; IsLatestVersion = ($versionsData[0].id -eq $ver.id)
-                        MatchType = "Latest Version ($loader)"; LoaderType = $loader
-                    }
-                }
-            }
-            
-            if ($versionsData.Count -gt 0) {
-                $latestVersion = $versionsData[0]; $latestFile = $latestVersion.files[0]
-                $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
-                
-                return @{
-                    Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $latestFile.size
-                    VersionNumber = $latestVersion.version_number; FileName = $latestFile.filename
-                    ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($latestVersion.id)"
-                    FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $true
-                    MatchType = "Latest Version ($loader)"; LoaderType = $loader
-                }
-            }
-        }
-    } catch {
-        try {
-            $searchData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/search?query=`"$modId`"&facets=`"[[`"project_type:mod`"]]`"&limit=5" -Method Get -UseBasicParsing
-            
-            if ($searchData.hits -and $searchData.hits.Count -gt 0) {
-                $bestMatch = $null; $bestScore = 0
-                foreach ($hit in $searchData.hits) {
-                    $score = 0
-                    if ($hit.slug -eq $modId) { $score += 100 }
-                    if ($hit.project_id -eq $modId) { $score += 100 }
-                    if ($hit.title -eq $modId) { $score += 80 }
-                    if ($hit.title -match $modId) { $score += 50 }
-                    if ($hit.slug -match $modId) { $score += 40 }
-                    
-                    if ($score -gt $bestScore) { $bestScore = $score; $bestMatch = $hit }
-                }
-                
-                if ($bestMatch) {
-                    $versionsData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($bestMatch.project_id)/version" -Method Get -UseBasicParsing
-                    
-                    if ($matchedVersion = Find-Closest-Version -localVersion $version -availableVersions $versionsData -preferredLoader $preferredLoader -minecraftVersion $minecraftVersion) {
-                        $file = $matchedVersion.files[0]
-                        $isExact = ($matchedVersion.version_number -eq $version)
-                        $loader = if ($matchedVersion.loaders -contains "fabric") { "Fabric" } elseif ($matchedVersion.loaders -contains "forge") { "Forge" } else { $matchedVersion.loaders[0] }
-                        
-                        return @{
-                            Name = $bestMatch.title; Slug = $bestMatch.slug; ExpectedSize = $file.size
-                            VersionNumber = $matchedVersion.version_number; FileName = $file.filename
-                            ModrinthUrl = "https://modrinth.com/mod/$($bestMatch.slug)/version/$($matchedVersion.id)"
-                            FoundByHash = $false; ExactMatch = $isExact; IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
-                            MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }; LoaderType = $loader
-                        }
-                    }
-                    
-                    if ($versionsData.Count -gt 0) {
-                        $latestVersion = $versionsData[0]; $latestFile = $latestVersion.files[0]
-                        $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
-                        
-                        return @{
-                            Name = $bestMatch.title; Slug = $bestMatch.slug; ExpectedSize = $latestFile.size
-                            VersionNumber = $latestVersion.version_number; FileName = $latestFile.filename
-                            ModrinthUrl = "https://modrinth.com/mod/$($bestMatch.slug)/version/$($latestVersion.id)"
-                            FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $true
-                            MatchType = "Latest Version ($loader)"; LoaderType = $loader
-                        }
-                    }
-                }
-            }
-        } catch {}
-    }
-    
-    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $false; MatchType = "No Match"; LoaderType = "Unknown" }
-}
-
-function Fetch-Modrinth-By-Filename($filename, $preferredLoader = "Fabric") {
-    $cleanFilename = $filename -replace '\.temp\.jar$|\.tmp\.jar$|_1\.jar$', '.jar'
-    $modNameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($cleanFilename)
-    
-    if ($filename -match '(?i)fabric') { $preferredLoader = "Fabric" }
-    elseif ($filename -match '(?i)forge') { $preferredLoader = "Forge" }
-    
-    $localVersion = ""; $baseName = $modNameWithoutExt
-    if ($modNameWithoutExt -match '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$') {
-        $localVersion = $matches[1]; $baseName = $modNameWithoutExt -replace '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$', ''
-    }
-    
-    $baseName = $baseName -replace '(?i)-fabric$|-forge$', ''
-    
-    foreach ($slug in @($baseName.ToLower(), $modNameWithoutExt.ToLower())) {
-        try {
-            $projectData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$slug" -Method Get -UseBasicParsing
-            $versionsData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$slug/version" -Method Get -UseBasicParsing
-            
-            foreach ($version in $versionsData) {
-                foreach ($file in $version.files) {
-                    if ($file.filename -eq $cleanFilename -or $file.filename -eq $filename) {
-                        $loader = if ($version.loaders -contains "fabric") { "Fabric" } elseif ($version.loaders -contains "forge") { "Forge" } else { $version.loaders[0] }
-                        
-                        return @{
-                            Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $file.size
-                            VersionNumber = $version.version_number; FileName = $file.filename
-                            ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($version.id)"
-                            FoundByHash = $false; ExactMatch = $true; IsLatestVersion = ($versionsData[0].id -eq $version.id)
-                            MatchType = "Exact Filename"; LoaderType = $loader
-                        }
-                    }
-                }
-            }
-            
-            if ($matchedVersion = Find-Closest-Version -localVersion $localVersion -availableVersions $versionsData -preferredLoader $preferredLoader -minecraftVersion $minecraftVersion) {
-                $file = $matchedVersion.files[0]; $isExact = ($matchedVersion.version_number -eq $localVersion)
-                $loader = if ($matchedVersion.loaders -contains "fabric") { "Fabric" } elseif ($matchedVersion.loaders -contains "forge") { "Forge" } else { $matchedVersion.loaders[0] }
-                
-                return @{
-                    Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $file.size
-                    VersionNumber = $matchedVersion.version_number; FileName = $file.filename
-                    ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($matchedVersion.id)"
-                    FoundByHash = $false; ExactMatch = $isExact; IsLatestVersion = ($versionsData[0].id -eq $matchedVersion.id)
-                    MatchType = if ($isExact) { "Exact Version" } else { "Closest Version" }; LoaderType = $loader
-                }
-            }
-            
-            foreach ($version in $versionsData) {
-                $matchesLoader = ($version.loaders -contains $preferredLoader.ToLower())
-                $matchesMinecraft = if ($minecraftVersion -and $version.game_versions) { ($version.game_versions -contains $minecraftVersion) } else { $true }
-                
-                if ($matchesLoader -and $matchesMinecraft) {
-                    $file = $version.files[0]
-                    $loader = if ($version.loaders -contains "fabric") { "Fabric" } elseif ($version.loaders -contains "forge") { "Forge" } else { $version.loaders[0] }
-                    
-                    return @{
-                        Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $file.size
-                        VersionNumber = $version.version_number; FileName = $file.filename
-                        ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($version.id)"
-                        FoundByHash = $false; ExactMatch = $false; IsLatestVersion = ($versionsData[0].id -eq $version.id)
-                        MatchType = "Latest Version ($loader)"; LoaderType = $loader
-                    }
-                }
-            }
-            
-            if ($versionsData.Count -gt 0) {
-                $latestVersion = $versionsData[0]; $latestFile = $latestVersion.files[0]
-                $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
-                
-                return @{
-                    Name = $projectData.title; Slug = $projectData.slug; ExpectedSize = $latestFile.size
-                    VersionNumber = $latestVersion.version_number; FileName = $latestFile.filename
-                    ModrinthUrl = "https://modrinth.com/mod/$($projectData.slug)/version/$($latestVersion.id)"
-                    FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $true
-                    MatchType = "Latest Version ($loader)"; LoaderType = $loader
-                }
-            }
-        } catch { continue }
-    }
-    
-    try {
-        $searchData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/search?query=`"$baseName`"&facets=`"[[`"project_type:mod`"]]`"&limit=5" -Method Get -UseBasicParsing
-        
-        if ($searchData.hits -and $searchData.hits.Count -gt 0) {
-            $hit = $searchData.hits[0]
-            $versionsData = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($hit.project_id)/version" -Method Get -UseBasicParsing
-            
-            foreach ($version in $versionsData) {
-                foreach ($file in $version.files) {
-                    if ($file.filename -eq $cleanFilename -or $file.filename -eq $filename) {
-                        $loader = if ($version.loaders -contains "fabric") { "Fabric" } elseif ($version.loaders -contains "forge") { "Forge" } else { $version.loaders[0] }
-                        
-                        return @{
-                            Name = $hit.title; Slug = $hit.slug; ExpectedSize = $file.size
-                            VersionNumber = $version.version_number; FileName = $file.filename
-                            ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($version.id)"
-                            FoundByHash = $false; ExactMatch = $true; IsLatestVersion = ($versionsData[0].id -eq $version.id)
-                            MatchType = "Exact Filename"; LoaderType = $loader
-                        }
-                    }
-                }
-            }
-            
-            if ($versionsData.Count -gt 0) {
-                $latestVersion = $versionsData[0]; $latestFile = $latestVersion.files[0]
-                $loader = if ($latestVersion.loaders -contains "fabric") { "Fabric" } elseif ($latestVersion.loaders -contains "forge") { "Forge" } else { $latestVersion.loaders[0] }
-                
-                return @{
-                    Name = $hit.title; Slug = $hit.slug; ExpectedSize = $latestFile.size
-                    VersionNumber = $latestVersion.version_number; FileName = $latestFile.filename
-                    ModrinthUrl = "https://modrinth.com/mod/$($hit.slug)/version/$($latestVersion.id)"
-                    FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $true
-                    MatchType = "Latest Version ($loader)"; LoaderType = $loader
-                }
-            }
+        $search = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/search?query=`"$modId`"&facets=`"[[`"project_type:mod`"]]`"&limit=5" -UseBasicParsing
+        if ($search.hits.Count -gt 0) {
+            $best = $search.hits | Sort-Object { if ($_.slug -eq $modId){100} elseif ($_.title -eq $modId){80} elseif ($_.title -match $modId){50} else{0} } -Descending | Select-Object -First 1
+            if ($best) { $r = Fetch-By-ProjectId $best.project_id $version $preferredLoader; if ($r) { return $r } }
         }
     } catch {}
-    
-    return @{ Name = ""; Slug = ""; ExpectedSize = 0; VersionNumber = ""; FileName = ""; FoundByHash = $false; ExactMatch = $false; IsLatestVersion = $false; MatchType = "No Match"; LoaderType = "Unknown" }
+    return @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+}
+
+function Fetch-Modrinth-By-Filename($filename, $preferredLoader="Fabric") {
+    $clean = $filename -replace '\.temp\.jar$|\.tmp\.jar$|_1\.jar$','.jar'
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($clean)
+    if ($filename -match '(?i)fabric') { $preferredLoader="Fabric" } elseif ($filename -match '(?i)forge') { $preferredLoader="Forge" }
+    $localVer = ""; $baseName = $base
+    if ($base -match '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$') { $localVer=$matches[1]; $baseName=$base -replace '[-_](v?[\d\.]+(?:-[a-zA-Z0-9]+)?)$','' }
+    $baseName = $baseName -replace '(?i)-fabric$|-forge$',''
+
+    foreach ($slug in @($baseName.ToLower(), $base.ToLower())) {
+        try {
+            $proj = Get-ModrinthProject $slug; $versions = Get-ModrinthVersions $slug
+            $exactFile = $versions | ForEach-Object { $v=$_; $_.files | Where-Object { $_.filename -eq $clean -or $_.filename -eq $filename } | ForEach-Object { @{ver=$v;file=$_} } } | Select-Object -First 1
+            if ($exactFile) { return Build-ModrinthResult $proj $exactFile.ver $versions -matchType "Exact Filename" }
+            $matched = Find-Closest-Version $localVer $versions $preferredLoader $minecraftVersion
+            if ($matched) { return Build-ModrinthResult $proj $matched $versions -matchType (if ($matched.version_number -eq $localVer){"Exact Version"} else{"Closest Version"}) }
+            $fallback = $versions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) } | Select-Object -First 1
+            if (-not $fallback) { $fallback = $versions[0] }
+            if ($fallback) { return Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version" }
+        } catch { continue }
+    }
+    try {
+        $search = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/search?query=`"$baseName`"&facets=`"[[`"project_type:mod`"]]`"&limit=5" -UseBasicParsing
+        if ($search.hits.Count -gt 0) {
+            $hit = $search.hits[0]; $versions = Get-ModrinthVersions $hit.project_id
+            $exactFile = $versions | ForEach-Object { $v=$_; $_.files | Where-Object { $_.filename -eq $clean -or $_.filename -eq $filename } | ForEach-Object { @{ver=$v;file=$_} } } | Select-Object -First 1
+            if ($exactFile) { return Build-ModrinthResult $hit $exactFile.ver $versions -matchType "Exact Filename" }
+            if ($versions.Count -gt 0) { return Build-ModrinthResult $hit $versions[0] $versions -matchType "Latest Version" }
+        }
+    } catch {}
+    return @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
 }
 
 function Fetch-Megabase($hash) {
-    try {
-        $response = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing
-        if (-not $response.error) { return $response.data }
-    } catch {}
+    try { $r = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -UseBasicParsing; if (-not $r.error) { return $r.data } } catch {}
     return $null
 }
 
 $cheatStrings = @(
-   "clickSimulation", "switchDelay", "switchChance", "placeChance", "glowstoneDelay", "glowstoneChance", "explodeDelay", "explodeChance", "explodeSlot", "antiWeakness", "damageTick", "breakChance", "breakDelay", 
-   "stopOnCrystal", "processCrystal", "swapToWeapon", "isObsidianOrBedrock", "isValidCrystalPosition", "processAnchorPvP", "isValidAnchorPosition",
-
-"AutoCrystal", "autocrystal", "auto crystal", "AutoHitCrystal", "autohitcrystal", "dontPlaceCrystal", "dontBreakCrystal", "canPlaceCrystalServer", "autoCrystalPlaceClock",
-"AutoAnchor", "autoanchor", "auto anchor", "DoubleAnchor", "safe anchor", "safeanchor", "anchortweaks", "anchor macro",
-
-"AutoTotem", "autototem", "auto totem", "InventoryTotem", "inventorytotem", "HoverTotem", "hover totem", "legittotem",
-
-"AutoPot", "autopot", "auto pot", "speedPotSlot", "strengthPotSlot",
-"AutoArmor", "autoarmor", "auto armor", "preventSwordBlockBreaking", "preventSwordBlockAttack",
-
-"AutoDoubleHand", "autodoublehand", "auto double hand", "AutoClicker",
-"AimAssist", "aimassist", "aim assist", "triggerbot", "trigger bot",
-"shieldbreaker", "shield breaker", "axespam", "axe spam",
-"findKnockbackSword", "attackRegisteredThisClick",
-
-"FakeLag", "pingspoof", "ping spoof", "freecam", "Freecam", "FakeInv",
-"pushOutOfBlocks", "onPushOutOfBlocks",
-"webmacro", "web macro", "JumpReset", "Donut",
-
-"setBlockBreakingCooldown", "getBlockBreakingCooldown", "setItemUseCooldown",
-"onBlockBreaking", "invokeDoAttack", "invokeDoItemUse",
-"setSelectedSlot", "getSelectedSlot", "swapBackToOriginalSlot",
-"blockBreakingCooldown", "invokeOnMouseButton",
-"onSwapLastAttackedTicksReset", "getVisualAttackCooldownProgressPerTick",
-"getHandSwingDuration", "onBeginRenderTick",
-"PlayerMoveC2SPacketAccessor", "redirectSelectedSlot", "hookCancelBlockBreaking",
-
-"EndCrystalItemMixin", "endcrystalitemmixin", "WalksyCrystalOptimizerMod",
-"arrayOfString", "lvstrng", "dqrkis", "StringObfuscator", "POT_CHEATS",
-
-"onShouldRenderBlockOutline", "predictCrystals", "noOffhandTotem", "getNearByCrystals",
-"slotExplode", "needToPlaceRails", "findTotemSlot", "activateOnRightClick",
-"crystalPlaceClock", "isDeadBodyNearby", "CrystalTwiceClock",
-"mainHandStack", "attackInAir", "attackOnJump", "onDestruct",
-"getGlowstoneChance", "isAutoCharge", "getPlaceChance", "getSwitchDelay",
-"getGlowstoneDelay", "getExplodeDelay", "getExplodeSlotIndex",
-"getPlaceDelayTicks", "getBreakDelayTicks", "getBreakChance",
-
-"isSpawnersEnabled", "isShulkersEnabled", "onModuleDisabled",
-"switchToBestTool", "switchToBestWeapon",
-"isLootProtect", "getMinHunger", "isTracersEnabled",
-"getSelectedBlocks", "isChestsEnabled",
-"inventoryToMenuSlot", "throwPearl", "isLeftHoldOnly",
-
-"Automatically switches to sword when hitting with totem",
-"Failed to switch to mace after axe!",
-"Breaking shield with axe...", "TrilliumSolutions",
-"selfdestruct", "self destruct", "CwskKkUfHQYB", "HgsCDQ49KkUfHQYB", "DhsnbQ0LDg0MDA", "OhYHBQcOHw", "EgQKDiUqRR8WChk",
-"KjoFWRcEAx0M", "Hx0GAVkcChwdDA", "HSw7RQQIAQQ", "BR0sFBcOGg4a", "Oh0yWR0MCA",
-
-"ＡｕｔｏＣｒｙｓｔａｌ", "Ａｕｔｏ Ｃｒｙｓｔａｌ", "ＡｕｔｏＨｉｔＣｒｙｓｔａｌ", "Ａ．ｕｔｏ Ｃｒｙｓｔａｌ", "Ａ．ｕｔｏＣｒｙｓｔａｌＬＶ２", "Ａ．ｕｔｏ Ｈｉｔ Ｃｒｙｓｔａｌ",
-"ＡｕｔｏＡｎｃｈｏｒ", "Ａｕｔｏ Ａｎｃｈｏｒ", "ＤｏｕｂｌｅＡｎｃｈｏｒ", "Ｄｏｕｂｌｅ Ａｎｃｈｏｒ", "ＳａｆｅＡｎｃｈｏｒ", "Ｓａｆｅ Ａｎｃｈｏｒ",
-"Ａｎｃｈｏｒ Ｍａｃｒｏ", "Ａ．ｎｃｈｏｒ Ｍａｃｒｏ", "Ａ．ｎｃｈｏｒ Ｍａｃｒｏ Ｖ２", "Ｄ．ｏｕｂｌｅ Ａｎｃｈｏｒ", "Ｓ．ａｆｅＡｎｃｈｏｒ",
-"ＡｕｔｏＴｏｔｅｍ", "Ａｕｔｏ Ｔｏｔｅｍ", "Ａｕｔｏ Ｔｏｔｅｍ Ｈｉｔ", "Ａ．ｕｔｏ Ｔｏｔｅｍ Ｈｉｔ", "ＨｏｖｅｒＴｏｔｅｍ", "Ｈｏｖｅｒ Ｔｏｔｅｍ",
-"ＩｎｖｅｎｔｏｒｙＴｏｔｅｍ", "Ｈ．ｏｖｅｒ Ｔｏｔｅｍ", "Ａ．ｕｔｏ Ｉｎｖｅｎｔｏｒｙ Ｔｏｔｅｍ", "Ｆ．ｏｒｃｅ Ｔｏｔｅｍ", "Ｔ．ｏｔｅｍ Ｆｉｒｓｔ",
-"Ｔ．ｏｔｅｍ Ｏｆｆｈａｎｄ", "Ｔ．ｏｔｅｍ Ｓｌｏｔ", "Ｈ．ｏｖｅｒ", "Ｗ．ｏｒｋ Ｗｉｔｈ Ｔｏｔｅｍ", "ＡｕｔｏＤｏｕｂｌｅＨａｎｄ", "Ａｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ", "Ａ．ｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ", 
-"Ａ．ｃｔｉｖａｔｅ Ｋｅｙ", "Ｗ．ｈｉｌｅ Ｕｓｅ", "Ｓ．ｔｏｐ ｏｎ Ｋｉｌｌ", "Ｃ．ｌｉｃｋ Ｓｉｍｕｌａｔｉｏｎ", "Ｓ．ｗｉｔｃｈ Ｄｅｌａｙ",
-"Ｓ．ｗｔｃｈ Ｃｈａｎｃｅ", "Ｐ．ｌａｃｅ Ｃｈａｎｃｅ", "Ｇ．ｌｏｗｓｔｏｎｅ Ｄｅｌａｙ", "Ｇ．ｌｏｗｓｔｏｎｅ Ｃｈａｎｃｅ", "Ｅ．ｘｐｌｏｄｅ Ｄｅｌａｙ",
-"Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ", "Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ", "Ｏ．ｎｌｙ Ｏｗｎ", "Ｏ．ｎｌｙ Ｃｈａｒｇｅ", "Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ"
+    "clickSimulation","switchDelay","switchChance","placeChance","glowstoneDelay","glowstoneChance","explodeDelay","explodeChance","explodeSlot","antiWeakness","damageTick","breakChance","breakDelay",
+    "stopOnCrystal","processCrystal","swapToWeapon","isObsidianOrBedrock","isValidCrystalPosition","processAnchorPvP","isValidAnchorPosition",
+    "AutoCrystal","autocrystal","auto crystal","AutoHitCrystal","autohitcrystal","dontPlaceCrystal","dontBreakCrystal","canPlaceCrystalServer","autoCrystalPlaceClock",
+    "AutoAnchor","autoanchor","auto anchor","DoubleAnchor","safe anchor","safeanchor","anchortweaks","anchor macro",
+    "AutoTotem","autototem","auto totem","InventoryTotem","inventorytotem","HoverTotem","hover totem","legittotem",
+    "AutoPot","autopot","auto pot","speedPotSlot","strengthPotSlot",
+    "AutoArmor","autoarmor","auto armor","preventSwordBlockBreaking","preventSwordBlockAttack",
+    "AutoDoubleHand","autodoublehand","auto double hand","AutoClicker",
+    "AimAssist","aimassist","aim assist","triggerbot","trigger bot",
+    "shieldbreaker","shield breaker","axespam","axe spam",
+    "findKnockbackSword","attackRegisteredThisClick",
+    "FakeLag","pingspoof","ping spoof","freecam","Freecam","FakeInv",
+    "pushOutOfBlocks","onPushOutOfBlocks",
+    "webmacro","web macro","JumpReset","Donut",
+    "setBlockBreakingCooldown","getBlockBreakingCooldown","setItemUseCooldown",
+    "onBlockBreaking","invokeDoAttack","invokeDoItemUse",
+    "setSelectedSlot","getSelectedSlot","swapBackToOriginalSlot",
+    "blockBreakingCooldown","invokeOnMouseButton",
+    "onSwapLastAttackedTicksReset","getVisualAttackCooldownProgressPerTick",
+    "getHandSwingDuration","onBeginRenderTick",
+    "PlayerMoveC2SPacketAccessor","redirectSelectedSlot","hookCancelBlockBreaking",
+    "EndCrystalItemMixin","endcrystalitemmixin","WalksyCrystalOptimizerMod",
+    "arrayOfString","lvstrng","dqrkis","StringObfuscator","POT_CHEATS",
+    "onShouldRenderBlockOutline","predictCrystals","noOffhandTotem","getNearByCrystals",
+    "slotExplode","needToPlaceRails","findTotemSlot","activateOnRightClick",
+    "crystalPlaceClock","isDeadBodyNearby","CrystalTwiceClock",
+    "mainHandStack","attackInAir","attackOnJump","onDestruct",
+    "getGlowstoneChance","isAutoCharge","getPlaceChance","getSwitchDelay",
+    "getGlowstoneDelay","getExplodeDelay","getExplodeSlotIndex",
+    "getPlaceDelayTicks","getBreakDelayTicks","getBreakChance",
+    "isSpawnersEnabled","isShulkersEnabled","onModuleDisabled",
+    "switchToBestTool","switchToBestWeapon",
+    "isLootProtect","getMinHunger","isTracersEnabled",
+    "getSelectedBlocks","isChestsEnabled",
+    "inventoryToMenuSlot","throwPearl","isLeftHoldOnly",
+    "Automatically switches to sword when hitting with totem",
+    "Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions",
+    "selfdestruct","self destruct","CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk",
+    "KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA",
+    "ＡｕｔｏＣｒｙｓｔａｌ","Ａｕｔｏ Ｃｒｙｓｔａｌ","ＡｕｔｏＨｉｔＣｒｙｓｔａｌ","Ａ．ｕｔｏ Ｃｒｙｓｔａｌ","Ａ．ｕｔｏＣｒｙｓｔａｌＬＶ２","Ａ．ｕｔｏ Ｈｉｔ Ｃｒｙｓｔａｌ",
+    "ＡｕｔｏＡｎｃｈｏｒ","Ａｕｔｏ Ａｎｃｈｏｒ","ＤｏｕｂｌｅＡｎｃｈｏｒ","Ｄｏｕｂｌｅ Ａｎｃｈｏｒ","ＳａｆｅＡｎｃｈｏｒ","Ｓａｆｅ Ａｎｃｈｏｒ",
+    "Ａｎｃｈｏｒ Ｍａｃｒｏ","Ａ．ｎｃｈｏｒ Ｍａｃｒｏ","Ａ．ｎｃｈｏｒ Ｍａｃｒｏ Ｖ２","Ｄ．ｏｕｂｌｅ Ａｎｃｈｏｒ","Ｓ．ａｆｅＡｎｃｈｏｒ",
+    "ＡｕｔｏＴｏｔｅｍ","Ａｕｔｏ Ｔｏｔｅｍ","Ａｕｔｏ Ｔｏｔｅｍ Ｈｉｔ","Ａ．ｕｔｏ Ｔｏｔｅｍ Ｈｉｔ","ＨｏｖｅｒＴｏｔｅｍ","Ｈｏｖｅｒ Ｔｏｔｅｍ",
+    "ＩｎｖｅｎｔｏｒｙＴｏｔｅｍ","Ｈ．ｏｖｅｒ Ｔｏｔｅｍ","Ａ．ｕｔｏ Ｉｎｖｅｎｔｏｒｙ Ｔｏｔｅｍ","Ｆ．ｏｒｃｅ Ｔｏｔｅｍ","Ｔ．ｏｔｅｍ Ｆｉｒｓｔ",
+    "Ｔ．ｏｔｅｍ Ｏｆｆｈａｎｄ","Ｔ．ｏｔｅｍ Ｓｌｏｔ","Ｈ．ｏｖｅｒ","Ｗ．ｏｒｋ Ｗｉｔｈ Ｔｏｔｅｍ","ＡｕｔｏＤｏｕｂｌｅＨａｎｄ","Ａｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ","Ａ．ｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ",
+    "Ａ．ｃｔｉｖａｔｅ Ｋｅｙ","Ｗ．ｈｉｌｅ Ｕｓｅ","Ｓ．ｔｏｐ ｏｎ Ｋｉｌｌ","Ｃ．ｌｉｃｋ Ｓｉｍｕｌａｔｉｏｎ","Ｓ．ｗｉｔｃｈ Ｄｅｌａｙ",
+    "Ｓ．ｗｔｃｈ Ｃｈａｎｃｅ","Ｐ．ｌａｃｅ Ｃｈａｎｃｅ","Ｇ．ｌｏｗｓｔｏｎｅ Ｄｅｌａｙ","Ｇ．ｌｏｗｓｔｏｎｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｄｅｌａｙ",
+    "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ"
 )
+
 function Check-Strings($filePath) {
-    $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
-    
+    $found = [System.Collections.Generic.HashSet[string]]::new()
     try {
-        $possiblePaths = @(
-            "C:\Program Files\Git\usr\bin\strings.exe",
-            "C:\Program Files\Git\mingw64\bin\strings.exe",
-            "$env:ProgramFiles\Git\usr\bin\strings.exe",
-            "C:\msys64\usr\bin\strings.exe",
-            "C:\cygwin64\bin\strings.exe"
-        )
-        
-        if ($stringsPath = $possiblePaths | Where-Object { Test-Path $_ } | Select-Object -First 1) {
-            $tempFile = Join-Path $env:TEMP "temp_strings_$(Get-Random).txt"
-           & $stringsPath $filePath 2>$null | Out-File $tempFile -Encoding UTF8
-            if (Test-Path $tempFile) {
-                $extractedContent = Get-Content $tempFile -Raw
-                Remove-Item $tempFile -Force
-                
-                foreach ($string in $cheatStrings) {
-                    if ($extractedContent -match $string) { $stringsFound.Add($string) | Out-Null }
-                }
-            }
+        $stringsExe = @("C:\Program Files\Git\usr\bin\strings.exe","C:\Program Files\Git\mingw64\bin\strings.exe","$env:ProgramFiles\Git\usr\bin\strings.exe","C:\msys64\usr\bin\strings.exe","C:\cygwin64\bin\strings.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($stringsExe) {
+            $tmp = Join-Path $env:TEMP "tmp_strings_$(Get-Random).txt"
+            & $stringsExe $filePath 2>$null | Out-File $tmp -Encoding UTF8
+            if (Test-Path $tmp) { $content = Get-Content $tmp -Raw; Remove-Item $tmp -Force; foreach ($s in $cheatStrings) { if ($content -match $s) { $found.Add($s) | Out-Null } } }
         } else {
-            # Check main file content
-           $content = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
-foreach ($string in $cheatStrings) {
-    if ($string -eq "velocity") {
-        if ($content -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-            $stringsFound.Add($string) | Out-Null
-        }
-    } elseif ($content -match [regex]::Escape($string.ToLower())) {
-        $stringsFound.Add($string) | Out-Null
-    }
-}
-            
-            # Also check .class files and .json files inside the JAR
-            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $raw = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
+            foreach ($s in $cheatStrings) { if ($raw -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
             $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-           $entries = $zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' }
-
-foreach ($entry in $entries) {
-
-    # ===== Nested JAR scanning =====
-    if ($entry.Name -like "*.jar") {
-        try {
-
-            $ms = New-Object System.IO.MemoryStream
-            $entry.Open().CopyTo($ms)
-            $ms.Position = 0
-
-            $nestedZip = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
-
-            foreach ($nestedEntry in $nestedZip.Entries) {
-
-                if ($nestedEntry.Name -match '\.(class|json)$') {
-
-                    $reader = New-Object System.IO.StreamReader($nestedEntry.Open(), [System.Text.Encoding]::UTF8)
-                    $nestedContent = $reader.ReadToEnd().ToLower()
-                    $reader.Close()
-
-                    foreach ($string in $cheatStrings) {
-                        if ($nestedContent -match [regex]::Escape($string.ToLower())) {
-                            $stringsFound.Add($string) | Out-Null
+            foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
+                if ($entry.Name -like "*.jar") {
+                    try {
+                        $ms = New-Object System.IO.MemoryStream; $entry.Open().CopyTo($ms); $ms.Position=0
+                        $nz = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
+                        foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
+                            $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8); $nc = $r.ReadToEnd().ToLower(); $r.Close()
+                            foreach ($s in $cheatStrings) { if ($nc -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
                         }
-                    }
-
+                    } catch {}
+                    continue
                 }
-
+                try {
+                    $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8); $ec = $r.ReadToEnd().ToLower(); $r.Close()
+                    foreach ($s in $cheatStrings) { if ($ec -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
+                } catch {}
             }
-
-        } catch {}
-
-        continue
-    }
-
-    # ===== Normal class/json scanning =====
-    try {
-        $reader = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-        $entryContent = $reader.ReadToEnd().ToLower()
-        $reader.Close()
-
-        foreach ($string in $cheatStrings) {
-            if ($string -eq "velocity") {
-                if ($entryContent -match "velocity(hack|module|cheat|bypass|packet|horizontal|vertical|amount|factor|setting)") {
-                    $stringsFound.Add($string) | Out-Null
-                }
-            }
-           elseif ($entryContent -match [regex]::Escape($string.ToLower())) {
-                $stringsFound.Add($string) | Out-Null
-            }
+            $zip.Dispose()
         }
-
     } catch {}
-}
-$zip.Dispose()
-        }
-    }
-    catch {}
-    
-    return $stringsFound
+    return $found
 }
 
-# Collections for results
 $verifiedMods = [System.Collections.Generic.List[object]]::new()
-$unknownMods = [System.Collections.Generic.List[object]]::new()
-$cheatMods = [System.Collections.Generic.List[object]]::new()
-$sizeMismatchMods = [System.Collections.Generic.List[object]]::new()
+$unknownMods  = [System.Collections.Generic.List[object]]::new()
+$cheatMods    = [System.Collections.Generic.List[object]]::new()
 $tamperedMods = [System.Collections.Generic.List[object]]::new()
-$allModsInfo = [System.Collections.Generic.List[object]]::new()
-
-# Process all mods
+$allModsInfo  = [System.Collections.Generic.List[object]]::new()
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
-$spinner = @("|", "/", "-", "\"); $totalMods = $jarFiles.Count
+$spinner = @("|","/","-","\"); $totalMods = $jarFiles.Count
 
 Write-Host "Scanning $totalMods mods..." -ForegroundColor White
-
 for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $file = $jarFiles[$i]
-    Write-Host "`r[$($spinner[$i % $spinner.Length])] Scanning mods: $($i+1) / $totalMods" -ForegroundColor Magenta -NoNewline
-    
-    # Get file info
-    $hash = Get-SHA1 -filePath $file.FullName
+    Write-Host "`r[$($spinner[$i % 4])] Scanning mods: $($i+1) / $totalMods" -ForegroundColor Magenta -NoNewline
+    $hash = Get-SHA1 $file.FullName
     $actualSize = $file.Length; $actualSizeKB = [math]::Round($actualSize/1KB, 2)
-    $zoneInfo = Get-ZoneIdentifier $file.FullName
-    $jarModInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
-    
-    # Determine preferred loader
-    $preferredLoader = "Fabric"
-    if ($file.Name -match '(?i)fabric') { $preferredLoader = "Fabric" }
-    elseif ($file.Name -match '(?i)forge') { $preferredLoader = "Forge" }
-    elseif ($jarModInfo.ModLoader -eq "Fabric") { $preferredLoader = "Fabric" }
-    elseif ($jarModInfo.ModLoader -eq "Forge/NeoForge") { $preferredLoader = "Forge" }
-    
-    # Try to find mod info
-    $modData = Fetch-Modrinth-By-Hash -hash $hash
-    if (-not $modData.Name -and $jarModInfo.ModId) {
-        $modData = Fetch-Modrinth-By-ModId -modId $jarModInfo.ModId -version $jarModInfo.Version -preferredLoader $preferredLoader
+    $zone = Get-ZoneIdentifier $file.FullName
+    $jarInfo = Get-Mod-Info-From-Jar $file.FullName
+    $loader = if ($file.Name -match '(?i)fabric'){"Fabric"} elseif ($file.Name -match '(?i)forge'){"Forge"} elseif ($jarInfo.ModLoader -eq "Fabric"){"Fabric"} elseif ($jarInfo.ModLoader -eq "Forge/NeoForge"){"Forge"} else {"Fabric"}
+
+    $md = Fetch-Modrinth-By-Hash $hash
+    if (-not $md.Name -and $jarInfo.ModId) { $md = Fetch-Modrinth-By-ModId $jarInfo.ModId $jarInfo.Version $loader }
+    if (-not $md.Name) { $md = Fetch-Modrinth-By-Filename $file.Name $loader }
+
+    $entry = [PSCustomObject]@{
+        ModName=$md.Name; FileName=$file.Name; Version=$md.VersionNumber; ExpectedSize=$md.ExpectedSize
+        ExpectedSizeKB=if($md.ExpectedSize -gt 0){[math]::Round($md.ExpectedSize/1KB,2)} else {0}
+        ActualSize=$actualSize; ActualSizeKB=$actualSizeKB; SizeDiff=($actualSize - $md.ExpectedSize)
+        SizeDiffKB=[math]::Round(($actualSize - $md.ExpectedSize)/1KB,2); DownloadSource=$zone.Source; SourceURL=$zone.URL
+        IsModrinthDownload=$zone.IsModrinth; ModrinthUrl=$md.ModrinthUrl; IsVerified=($md.Name -ne "")
+        MatchType=$md.MatchType; ExactMatch=$md.ExactMatch; IsLatestVersion=$md.IsLatestVersion; LoaderType=$md.LoaderType
+        PreferredLoader=$loader; FilePath=$file.FullName; FileSizeKB=$actualSizeKB
+        JarModId=$jarInfo.ModId; JarName=$jarInfo.Name; JarVersion=$jarInfo.Version; JarModLoader=$jarInfo.ModLoader
+        ZoneId=$zone.URL; FileSize=$actualSize; Hash=$hash
     }
-    if (-not $modData.Name) {
-        $modData = Fetch-Modrinth-By-Filename -filename $file.Name -preferredLoader $preferredLoader
-    }
-    
-    if ($modData.Name) {
-        $sizeDiff = $actualSize - $modData.ExpectedSize
-        $expectedSizeKB = if ($modData.ExpectedSize -gt 0) { [math]::Round($modData.ExpectedSize/1KB, 2) } else { 0 }
-        
-        $modEntry = [PSCustomObject]@{ 
-            ModName = $modData.Name; FileName = $file.Name; Version = $modData.VersionNumber
-            ExpectedSize = $modData.ExpectedSize; ExpectedSizeKB = $expectedSizeKB; ActualSize = $actualSize; ActualSizeKB = $actualSizeKB
-            SizeDiff = $sizeDiff; SizeDiffKB = [math]::Round($sizeDiff/1KB, 2); DownloadSource = $zoneInfo.Source; SourceURL = $zoneInfo.URL
-            IsModrinthDownload = $zoneInfo.IsModrinth; ModrinthUrl = $modData.ModrinthUrl; IsVerified = $true; MatchType = $modData.MatchType
-            ExactMatch = $modData.ExactMatch; IsLatestVersion = $modData.IsLatestVersion; LoaderType = $modData.LoaderType
-            PreferredLoader = $preferredLoader; FilePath = $file.FullName; JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name
-            JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
+
+    if ($md.Name) {
+        $verifiedMods.Add($entry); $allModsInfo.Add($entry)
+        if ($md.ExpectedSize -gt 0 -and $actualSize -ne $md.ExpectedSize -and [math]::Abs($actualSize - $md.ExpectedSize) -gt 1024) {
+            $tamperedMods.Add($entry)
+            $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $file.Name })
         }
-        
-        # Only add to verified mods if it's not tampered or a cheat mod
-        $modEntry.IsVerified = $true
-        $verifiedMods.Add($modEntry)
-        $allModsInfo.Add($modEntry)
-        
-        if ($modData.ExpectedSize -gt 0 -and $actualSize -ne $modData.ExpectedSize) {
-               $sizeMismatchMods.Add($modEntry)
-            if ([math]::Abs($sizeDiff) -gt 1024) { 
-                $tamperedMods.Add($modEntry)
-                # Remove from verified mods if tampered
-                $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $file.Name })
-            }
-        }
-    } elseif ($megabaseData = Fetch-Megabase -hash $hash) {
-        $modEntry = [PSCustomObject]@{ 
-            ModName = $megabaseData.name; FileName = $file.Name; Version = "Unknown"; ExpectedSize = 0; ExpectedSizeKB = 0
-            ActualSize = $actualSize; ActualSizeKB = $actualSizeKB; SizeDiff = 0; SizeDiffKB = 0; DownloadSource = $zoneInfo.Source
-            SourceURL = $zoneInfo.URL; IsModrinthDownload = $zoneInfo.IsModrinth; IsVerified = $true; MatchType = "Megabase"
-            ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown"; PreferredLoader = $preferredLoader
-            FilePath = $file.FullName; JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version
-            JarModLoader = $jarModInfo.ModLoader
-        }
-        
-        $verifiedMods.Add($modEntry)
-        $allModsInfo.Add($modEntry)
+    } elseif ($mb = Fetch-Megabase $hash) {
+        $entry.ModName = $mb.name; $entry.IsVerified = $true
+        $verifiedMods.Add($entry); $allModsInfo.Add($entry)
     } else {
-        $unknownModEntry = [PSCustomObject]@{ 
-            FileName = $file.Name; FilePath = $file.FullName; ZoneId = $zoneInfo.URL; DownloadSource = $zoneInfo.Source
-            IsModrinthDownload = $zoneInfo.IsModrinth; FileSize = $actualSize; FileSizeKB = $actualSizeKB; Hash = $hash
-            ExpectedSize = 0; ExpectedSizeKB = 0; SizeDiff = 0; SizeDiffKB = 0; ModrinthUrl = ""; ModName = ""; MatchType = ""
-            ExactMatch = $false; IsLatestVersion = $false; LoaderType = "Unknown"; PreferredLoader = $preferredLoader
-            JarModId = $jarModInfo.ModId; JarName = $jarModInfo.Name; JarVersion = $jarModInfo.Version; JarModLoader = $jarModInfo.ModLoader
-        }
-        
-       $unknownMods.Add($unknownModEntry)
-       $allModsInfo.Add($unknownModEntry)
+        $unknownMods.Add($entry); $allModsInfo.Add($entry)
     }
 }
 
-# Try to identify unknown mods
 for ($i = 0; $i -lt $unknownMods.Count; $i++) {
     $mod = $unknownMods[$i]
-    $modrinthInfo = if ($mod.JarModId) { Fetch-Modrinth-By-ModId -modId $mod.JarModId -version $mod.JarVersion -preferredLoader $mod.PreferredLoader }
-    if (-not $modrinthInfo -or -not $modrinthInfo.Name) { $modrinthInfo = Fetch-Modrinth-By-Filename -filename $mod.FileName -preferredLoader $mod.PreferredLoader }
-    
-    if ($modrinthInfo -and $modrinthInfo.Name) {
-        $mod.ModName = $modrinthInfo.Name; $mod.ExpectedSize = $modrinthInfo.ExpectedSize
-        $mod.ExpectedSizeKB = if ($modrinthInfo.ExpectedSize -gt 0) { [math]::Round($modrinthInfo.ExpectedSize/1KB, 2) } else { 0 }
-        $mod.SizeDiff = $mod.FileSize - $modrinthInfo.ExpectedSize
-        $mod.SizeDiffKB = [math]::Round(($mod.FileSize - $modrinthInfo.ExpectedSize)/1KB, 2)
-        $mod.ModrinthUrl = $modrinthInfo.ModrinthUrl; $mod.ModName = $modrinthInfo.Name; $mod.MatchType = $modrinthInfo.MatchType
-        $mod.ExactMatch = $modrinthInfo.ExactMatch; $mod.IsLatestVersion = $modrinthInfo.IsLatestVersion; $mod.LoaderType = $modrinthInfo.LoaderType
-        
-        for ($j = 0; $j -lt $allModsInfo.Count; $j++) {
-            if ($allModsInfo[$j].FileName -eq $mod.FileName) {
-                $allModsInfo[$j].ModName = $modrinthInfo.Name; $allModsInfo[$j].ExpectedSize = $modrinthInfo.ExpectedSize
-                $allModsInfo[$j].ExpectedSizeKB = $mod.ExpectedSizeKB; $allModsInfo[$j].SizeDiff = $mod.SizeDiff
-                $allModsInfo[$j].SizeDiffKB = $mod.SizeDiffKB; $allModsInfo[$j].ModrinthUrl = $modrinthInfo.ModrinthUrl
-                $allModsInfo[$j].ModName = $modrinthInfo.Name; $allModsInfo[$j].MatchType = $modrinthInfo.MatchType
-                $allModsInfo[$j].ExactMatch = $modrinthInfo.ExactMatch; $allModsInfo[$j].IsLatestVersion = $modrinthInfo.IsLatestVersion
-                $allModsInfo[$j].LoaderType = $modrinthInfo.LoaderType
-                
-                # Move from unknown to verified if successfully identified
-                if ($modrinthInfo.ExpectedSize -gt 0) {
-                    $newVerifiedEntry = [PSCustomObject]@{ 
-                        ModName = $modrinthInfo.Name; FileName = $mod.FileName; Version = $modrinthInfo.VersionNumber
-                        ExpectedSize = $modrinthInfo.ExpectedSize; ExpectedSizeKB = $mod.ExpectedSizeKB; ActualSize = $mod.FileSize; ActualSizeKB = $mod.FileSizeKB
-                        SizeDiff = $mod.SizeDiff; SizeDiffKB = $mod.SizeDiffKB; DownloadSource = $mod.DownloadSource; SourceURL = $mod.ZoneId
-                        IsModrinthDownload = $mod.IsModrinthDownload; ModrinthUrl = $modrinthInfo.ModrinthUrl; IsVerified = $true; MatchType = $modrinthInfo.MatchType
-                        ExactMatch = $modrinthInfo.ExactMatch; IsLatestVersion = $modrinthInfo.IsLatestVersion; LoaderType = $modrinthInfo.LoaderType
-                        PreferredLoader = $mod.PreferredLoader; FilePath = $mod.FilePath; JarModId = $mod.JarModId; JarName = $mod.JarName
-                        JarVersion = $mod.JarVersion; JarModLoader = $mod.JarModLoader
-                    }
-                    
-                    $verifiedMods.Add($newVerifiedEntry)
-                    $null = $unknownMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $mod.FileName })
-                }
-                break
-            }
-        }
+    $mr = if ($mod.JarModId) { Fetch-Modrinth-By-ModId $mod.JarModId $mod.JarVersion $mod.PreferredLoader } else { $null }
+    if (-not $mr -or -not $mr.Name) { $mr = Fetch-Modrinth-By-Filename $mod.FileName $mod.PreferredLoader }
+    if ($mr -and $mr.Name -and $mr.ExpectedSize -gt 0) {
+        $mod.ModName=$mr.Name; $mod.ExpectedSize=$mr.ExpectedSize; $mod.ExpectedSizeKB=[math]::Round($mr.ExpectedSize/1KB,2)
+        $mod.SizeDiff=$mod.FileSize-$mr.ExpectedSize; $mod.SizeDiffKB=[math]::Round(($mod.FileSize-$mr.ExpectedSize)/1KB,2)
+        $mod.ModrinthUrl=$mr.ModrinthUrl; $mod.MatchType=$mr.MatchType; $mod.ExactMatch=$mr.ExactMatch
+        $mod.IsLatestVersion=$mr.IsLatestVersion; $mod.LoaderType=$mr.LoaderType
+        $newEntry = $mod.PSObject.Copy(); $newEntry.IsVerified=$true; $newEntry.Version=$mr.VersionNumber
+        $verifiedMods.Add($newEntry)
+        $null = $unknownMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $mod.FileName })
     }
 }
 
-# Scan for cheat strings
 $counter = 0
 $tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
-
 try {
     if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
     New-Item -ItemType Directory -Path $tempDir | Out-Null
-    
     Write-Host "`nScanning for cheat strings..." -ForegroundColor White
-    
+
     foreach ($mod in $allModsInfo) {
         $counter++
-        Write-Host "`r[$($spinner[$counter % $spinner.Length])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
-        
-        # Check for single-letter class files
-$singleLetterClassCount = 0
-$totalClassCount = 0
-$obfuscatedPathCount = 0
+        Write-Host "`r[$($spinner[$counter % 4])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
 
-try {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
-    $classEntries = $zip.Entries | Where-Object { $_.FullName -match '\.class$' }
-
-    foreach ($entry in $classEntries) {
-        $totalClassCount++
-
-        $className = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
-        if ($className.Length -le 2) {
-            $singleLetterClassCount++
-        }
-
-        # Detect single-letter package chains like a/b/c/Class.class
-        $pathWithoutClass = $entry.FullName -replace '\.class$',''
-        $segments = $pathWithoutClass -split '/'
-
-        $consecutiveSingle = 0
-        $maxConsecutive = 0
-
-        foreach ($segment in $segments) {
-            if ($segment.Length -eq 1) {
-                $consecutiveSingle++
-                if ($consecutiveSingle -gt $maxConsecutive) {
-                    $maxConsecutive = $consecutiveSingle
+        $s1=0; $s2=0; $tc=0; $obf=0; $num=0; $uni=0; $nov=0; $gib=0; $spkg=0
+        try {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
+            foreach ($entry in ($zip.Entries | Where-Object { $_.FullName -match '\.class$' })) {
+                $tc++
+                $cn = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+                $segs = ($entry.FullName -replace '\.class$','') -split '/'
+                if ($cn -match '^[a-zA-Z]$')    { $s1++ }
+                if ($cn -match '^[a-zA-Z]{2}$') { $s2++ }
+                if ($cn -match '^\d+$')          { $num++ }
+                if ($cn -match '[^\x00-\x7F]')   { $uni++ }
+                if ($cn.Length -ge 3 -and $cn -match '^[a-zA-Z]+$') {
+                    $v = ($cn.ToCharArray() | Where-Object { $_ -match '[aeiouAEIOU]' }).Count
+                    if ($v -eq 0) { $nov++ }
+                    if ($cn -match '[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]{3,}' -and ($v/$cn.Length) -lt 0.3) { $gib++ }
                 }
-            } else {
-                $consecutiveSingle = 0
+                foreach ($seg in $segs[0..($segs.Count-2)]) { if ($seg.Length -eq 1) { $spkg++ } }
+                $cons=0; $maxC=0
+                foreach ($seg in $segs[0..($segs.Count-2)]) { if ($seg.Length -eq 1){$cons++;if($cons -gt $maxC){$maxC=$cons}} else {$cons=0} }
+                if ($maxC -ge 3) { $obf++ }
             }
+            $zip.Dispose()
+        } catch {}
+
+        $pct = { param($n,$t) if($t -ge 5){[math]::Round($n/$t*100)} else {0} }
+        $s1p=[math]::Round($(if($tc -ge 5){$s1/$tc*100} else {0}))
+        $s2p=[math]::Round($(if($tc -ge 5){$s2/$tc*100} else {0}))
+        $np=[math]::Round($(if($tc -ge 5){$num/$tc*100} else {0}))
+        $up=[math]::Round($(if($tc -ge 5){$uni/$tc*100} else {0}))
+        $nvp=[math]::Round($(if($tc -ge 5){$nov/$tc*100} else {0}))
+        $gp=[math]::Round($(if($tc -ge 5){$gib/$tc*100} else {0}))
+        $op=[math]::Round($(if($tc -ge 10){$obf/$tc*100} else {0}))
+
+        if (($s1p -ge 15 -and $tc -ge 5) -or ($s2p -ge 20 -and $tc -ge 5) -or ($np -ge 20 -and $tc -ge 5) -or
+            ($up -ge 10 -and $tc -ge 5) -or ($nvp -ge 8 -and $tc -ge 5) -or ($gp -ge 15 -and $tc -ge 100) -or
+            ($spkg -ge 50 -and $tc -ge 10) -or ($op -ge 25 -and $tc -ge 10)) {
+            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.FileSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReason="Obfuscation patterns detected" })
+            $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
 
-        if ($maxConsecutive -ge 3) {
-            $obfuscatedPathCount++
-        }
-    }
-
-    $zip.Dispose()
-} catch {}
-
-$obfPercent = 0
-if ($totalClassCount -ge 10) {
-    $obfPercent = [math]::Round(($obfuscatedPathCount / $totalClassCount) * 100)
-}
-
-if (
-    $singleLetterClassCount -gt 15 -or
-    ($totalClassCount -ge 10 -and $obfPercent -ge 25)
-) {
-    $reason = if ($obfPercent -ge 25) {
-        "Multiple single-letter/obfuscation class patterns detected"
-    } else {
-        "Multiple single-letter/obfuscation class patterns detected"
-    }
-
-    $tamperedMods += [PSCustomObject]@{
-        FileName = $mod.FileName
-        ModName = $mod.ModName
-        ActualSizeKB = $mod.FileSizeKB
-        ExpectedSizeKB = $mod.ExpectedSizeKB
-        SizeDiffKB = $mod.SizeDiffKB
-        TamperReason = $reason
-    }
-
-    # Remove from verified mods
-    $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
-}     
-        if ($modStrings = Check-Strings $mod.FilePath) {
-           $cheatMods.Add([PSCustomObject]@{
-                FileName = $mod.FileName; StringsFound = $modStrings; FileSizeKB = $mod.FileSizeKB
-                DownloadSource = $mod.DownloadSource; SourceURL = $mod.ZoneId; ExpectedSizeKB = $mod.ExpectedSizeKB
-                SizeDiffKB = $mod.SizeDiffKB; IsVerifiedMod = ($mod.IsVerified -eq $true); ModName = $mod.ModName
-                ModrinthUrl = $mod.ModrinthUrl; FilePath = $mod.FilePath
-                HasSizeMismatch = ($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1)
-                JarModId = $mod.JarModId; JarName = $mod.JarName; JarVersion = $mod.JarVersion
-                MatchType = $mod.MatchType; ExactMatch = $mod.ExactMatch; IsLatestVersion = $mod.IsLatestVersion
-                LoaderType = $mod.LoaderType
-            })
-            
-            # Remove from verified mods if cheat detected
+        $strings = Check-Strings $mod.FilePath
+        if ($strings.Count -gt 0) {
+            $cheatMods.Add([PSCustomObject]@{ FileName=$mod.FileName; StringsFound=$strings; FileSizeKB=$mod.FileSizeKB; DownloadSource=$mod.DownloadSource; SourceURL=$mod.ZoneId; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; IsVerifiedMod=$mod.IsVerified; ModName=$mod.ModName; ModrinthUrl=$mod.ModrinthUrl; FilePath=$mod.FilePath; HasSizeMismatch=($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1); JarModId=$mod.JarModId; JarName=$mod.JarName; JarVersion=$mod.JarVersion; MatchType=$mod.MatchType; ExactMatch=$mod.ExactMatch; IsLatestVersion=$mod.IsLatestVersion; LoaderType=$mod.LoaderType })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
     }
-} catch {
-    Write-Host "`nError occurred while scanning: $($_.Exception.Message)" -ForegroundColor Red
-} finally {
-    if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
-}
+} catch { Write-Host "`nError: $($_.Exception.Message)" -ForegroundColor Red
+} finally { if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue } }
 
 Write-Host "`nScanning complete!`n" -ForegroundColor Green
 
-# ==================== DISALLOWED MODS DETECTOR ====================
-# List of disallowed mods with their Modrinth slugs
 $disallowedMods = @{
-    "xeros-minimap" = @{
-        Names = @("Xero's Minimap", "Xeros Minimap", "xeros-minimap", "XerosMinimap", "Xero's Minimap Mod")
-    }
-    "freecam" = @{
-        Names = @("Freecam", "freecam", "FreeCam", "Free Cam")
-    }
-    "health-indicators" = @{
-        Names = @("Health Indicators", "health indicators", "HealthIndicators", "Health Indicators Mod")
-    }
-    "clickcrystals" = @{
-        Names = @("ClickCrystals", "clickcrystals", "ClickCrystals Mod")
-    }
-    "mousetweaks" = @{
-        Names = @("Mouse Tweaks", "mousetweaks", "MouseTweaks")
-    }
-    "itemscroller" = @{
-        Names = @("Item Scroller", "itemscroller", "ItemScroller")
-    }
-    "tweakeroo" = @{
-        Names = @("Tweakeroo", "tweakeroo", "Tweakeroo")
+    "xeros-minimap"=@{Names=@("Xero's Minimap","Xeros Minimap","xeros-minimap","XerosMinimap","Xero's Minimap Mod")}
+    "freecam"=@{Names=@("Freecam","freecam","FreeCam","Free Cam")}
+    "health-indicators"=@{Names=@("Health Indicators","health indicators","HealthIndicators","Health Indicators Mod")}
+    "clickcrystals"=@{Names=@("ClickCrystals","clickcrystals","ClickCrystals Mod")}
+    "mousetweaks"=@{Names=@("Mouse Tweaks","mousetweaks","MouseTweaks")}
+    "itemscroller"=@{Names=@("Item Scroller","itemscroller","ItemScroller")}
+    "tweakeroo"=@{Names=@("Tweakeroo","tweakeroo")}
+}
+
+$disallowedFound = @()
+foreach ($file in (Get-ChildItem -Path $mods -Filter *.jar)) {
+    $fn = $file.Name.ToLower(); $ji = Get-Mod-Info-From-Jar $file.FullName
+    foreach ($slug in $disallowedMods.Keys) {
+        $md2 = $disallowedMods[$slug]; $hit = $false
+        foreach ($name in $md2.Names) {
+            if ($fn -match [regex]::Escape($name.ToLower()) -or $fn -match [regex]::Escape($slug.ToLower()) -or $fn -match [regex]::Escape(($name -replace ' ','').ToLower())) { $hit=$true; break }
+        }
+        if (-not $hit -and $ji.ModId -and $ji.ModId.ToLower() -match $slug.ToLower()) { $hit=$true }
+        if (-not $hit -and $ji.Name -and $ji.Name.ToLower() -match $slug.ToLower()) { $hit=$true }
+        if ($hit) { $disallowedFound += [PSCustomObject]@{ FileName=$file.Name; ModName=$md2.Names[0] }; break }
     }
 }
 
-# Scan for disallowed mods
-$disallowedModsFound = @()
-$jarFiles = Get-ChildItem -Path $mods -Filter *.jar
-
-foreach ($file in $jarFiles) {
-    $fileName = $file.Name.ToLower()
-    $modInfo = Get-Mod-Info-From-Jar -jarPath $file.FullName
-    
-    # Check each disallowed mod
-    foreach ($modSlug in $disallowedMods.Keys) {
-        $modData = $disallowedMods[$modSlug]
-        $isDisallowed = $false
-        
-        # Check filename
-        foreach ($name in $modData.Names) {
-            if ($fileName -match [regex]::Escape($name.ToLower()) -or 
-                $fileName -match [regex]::Escape($modSlug.ToLower()) -or
-                $fileName -match [regex]::Escape(($name -replace ' ', '').ToLower())) {
-                $isDisallowed = $true
-                break
-            }
-        }
-        
-        # Check mod info from jar
-        if (-not $isDisallowed) {
-            if ($modInfo.ModId -and $modInfo.ModId.ToLower() -match $modSlug.ToLower()) {
-                $isDisallowed = $true
-            }
-            elseif ($modInfo.Name -and $modInfo.Name.ToLower() -match $modSlug.ToLower()) {
-                $isDisallowed = $true
-            }
-        }
-        
-        if ($isDisallowed) {
-            $disallowedModsFound += [PSCustomObject]@{
-                FileName = $file.Name
-                ModName = $modData.Names[0]
-            }
-            break
-        }
+function Write-Sep($color="Cyan") { Write-Host ("━"*111) -ForegroundColor $color }
+function Write-Card($lines, $color) {
+    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor $color
+    foreach ($l in $lines) {
+        Write-Host "  ║ " -NoNewline -ForegroundColor $color
+        if ($l -is [hashtable]) { Write-Host $l.text -ForegroundColor $l.color }
+        else { Write-Host $l -ForegroundColor White }
     }
+    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor $color
+    Write-Host ""
 }
 
-# ==================== RESULTS SECTION ====================
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host ""
+Write-Sep; Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan; Write-Sep; Write-Host ""
 
-# Verified Mods Section
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
-Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Green
-
+Write-Sep Green; Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green; Write-Sep Green
 if ($verifiedMods.Count -gt 0) {
     foreach ($mod in $verifiedMods) {
-        $isTampered = $tamperedMods.FileName -contains $mod.FileName
-        $isCheatMod = $cheatMods.FileName -contains $mod.FileName
-        
-        if (-not $isTampered -and -not $isCheatMod) {
-            Write-Host "  ✓ " -NoNewline -ForegroundColor Green
-            Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White
-            Write-Host "($($mod.FileName))" -ForegroundColor Green
+        if (($tamperedMods | Where-Object { $_.FileName -eq $mod.FileName }).Count -eq 0 -and ($cheatMods | Where-Object { $_.FileName -eq $mod.FileName }).Count -eq 0) {
+            Write-Host "  ✓ " -NoNewline -ForegroundColor Green; Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White; Write-Host "($($mod.FileName))" -ForegroundColor Green
             Write-Host "    Size: $($mod.ActualSizeKB) KB" -ForegroundColor Green
         }
     }
-} else {
-    Write-Host "  No verified mods found" -ForegroundColor Gray
-}
+} else { Write-Host "  No verified mods found" -ForegroundColor Gray }
 Write-Host ""
 
-# Unknown Mods Section with Box - Yellow borders, White/Cyan text
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Yellow
-
+Write-Sep Yellow; Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow; Write-Sep Yellow
 if ($unknownMods.Count -gt 0) {
-    for ($i = 0; $i -lt $unknownMods.Count; $i++) {
-        $mod = $unknownMods[$i]
-        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Yellow
-        Write-Host "  ║ " -NoNewline -ForegroundColor Yellow
-        Write-Host "UNKNOWN MOD" -ForegroundColor Yellow
-        Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Yellow
-        Write-Host "  ║ " -NoNewline -ForegroundColor Yellow
-        Write-Host "File: $($mod.FileName)" -ForegroundColor White
-        Write-Host "  ║ " -NoNewline -ForegroundColor Yellow
-        Write-Host "Size: $($mod.FileSizeKB) KB" -ForegroundColor White
-        if ($mod.ModName) {
-            Write-Host "  ║ " -NoNewline -ForegroundColor Yellow
-            Write-Host "Identified as: $($mod.ModName)" -ForegroundColor Cyan
-        }
-        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Yellow
-        if ($i -lt $unknownMods.Count - 1) {
-            Write-Host ""
-        }
+    foreach ($mod in $unknownMods) {
+        Write-Card @(@{text="UNKNOWN MOD";color="Yellow"}, "File: $($mod.FileName)", "Size: $($mod.FileSizeKB) KB") Yellow
+        if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor Yellow; Write-Host "Identified as: $($mod.ModName)" -ForegroundColor Cyan }
     }
-} else {
-    Write-Host "  No unknown mods found" -ForegroundColor Gray
-}
+} else { Write-Host "  No unknown mods found" -ForegroundColor Gray }
 Write-Host ""
 
-# Tampered Mods Section with Box - DarkYellow borders, White/Magenta/Red text
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkYellow
-Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkYellow
-
+Write-Sep DarkYellow; Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -ForegroundColor DarkYellow; Write-Sep DarkYellow
 if ($tamperedMods.Count -gt 0) {
-    for ($i = 0; $i -lt $tamperedMods.Count; $i++) {
-        $mod = $tamperedMods[$i]
-        $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkYellow
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
-        Write-Host "TAMPERED MOD" -ForegroundColor DarkYellow
-        Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
-        Write-Host "File: $($mod.FileName)" -ForegroundColor White
-        if ($mod.ModName) {
-            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
-            Write-Host "Mod: $($mod.ModName)" -ForegroundColor Magenta
-        }
-        if ($mod.TamperReason) {
-            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
-            Write-Host "Reason: $($mod.TamperReason)" -ForegroundColor Red
-        }
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
-        Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow
-        Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkYellow
-        if ($i -lt $tamperedMods.Count - 1) {
-            Write-Host ""
-        }
+    foreach ($mod in $tamperedMods) {
+        $sign = if ($mod.SizeDiffKB -gt 0) {"+"} else {""}
+        Write-Card @(@{text="TAMPERED MOD";color="DarkYellow"}, "File: $($mod.FileName)", $(if($mod.ModName){"Mod: $($mod.ModName)"} else {$null}), $(if($mod.TamperReason){"Reason: $($mod.TamperReason)"} else {$null}), "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)", "Difference: $sign$($mod.SizeDiffKB) KB") DarkYellow
     }
-} else {
-    Write-Host "  No tampered mods found" -ForegroundColor Gray
-}
+} else { Write-Host "  No tampered mods found" -ForegroundColor Gray }
 Write-Host ""
 
-# Cheat Mods Section with Box - Red borders, White/Yellow/Magenta text
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
-Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
-
+Write-Sep Red; Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red; Write-Sep Red
 if ($cheatMods.Count -gt 0) {
-    for ($i = 0; $i -lt $cheatMods.Count; $i++) {
-        $mod = $cheatMods[$i]
+    foreach ($mod in $cheatMods) {
+        $dqrkisStrings = @("CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA")
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ " -NoNewline -ForegroundColor Red
-        Write-Host "CHEAT MOD DETECTED" -ForegroundColor Red
+        Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "CHEAT MOD DETECTED" -ForegroundColor Red
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ " -NoNewline -ForegroundColor Red
-        Write-Host "File: $($mod.FileName)" -ForegroundColor White
-        
-        if ($mod.ModName) {
-            Write-Host "  ║ " -NoNewline -ForegroundColor Red
-            Write-Host "Mod: $($mod.ModName)" -ForegroundColor White
-        }
-        
-        if ($mod.StringsFound.Count -gt 0) {
-            $cheatList = @($mod.StringsFound) | Sort-Object
-            $dqrkisStrings = @("CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA")
-            $hasDqrkis = ($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0
-            if ($hasDqrkis) {
-                Write-Host "  ║ " -NoNewline -ForegroundColor Red
-                Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red
-            }
-            Write-Host "  ║ " -NoNewline -ForegroundColor Red
-            Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
-            foreach ($cheatString in $cheatList) {
-                Write-Host "  ║   " -NoNewline -ForegroundColor Red
-                Write-Host "• $cheatString" -ForegroundColor Magenta
-            }
-        }
-        
+        Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "File: $($mod.FileName)" -ForegroundColor White
+        if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Mod: $($mod.ModName)" -ForegroundColor White }
+        if (($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red }
+        Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
+        @($mod.StringsFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Magenta }
         if ($mod.ExpectedSizeKB -gt 0) {
-            $sign = if ($mod.SizeDiffKB -gt 0) { "+" } else { "" }
-            if ($mod.SizeDiffKB -eq 0) {
-                Write-Host "  ║ " -NoNewline -ForegroundColor Red
-                Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor White
-            } else {
-                Write-Host "  ║ " -NoNewline -ForegroundColor Red
-                Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor White
-                Write-Host "  ║ " -NoNewline -ForegroundColor Red
-                Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor White
-            }
+            $sign = if ($mod.SizeDiffKB -gt 0){"+"} else {""}
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red
+            if ($mod.SizeDiffKB -eq 0) { Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor White }
+            else { Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor White }
         }
-        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
-        if ($i -lt $cheatMods.Count - 1) {
-            Write-Host ""
-        }
+        Write-Host "  ╚══════════════════════════════════════════`n" -ForegroundColor Red
     }
-} else {
-    Write-Host "  No cheat mods detected ✓" -ForegroundColor Green
-}
+} else { Write-Host "  No cheat mods detected ✓" -ForegroundColor Green }
 Write-Host ""
 
-# Disallowed Mods Section - Red borders, White text
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
-Write-Host "DISALLOWED MODS: $($disallowedModsFound.Count) ⚠" -ForegroundColor Red
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
-
-if ($disallowedModsFound.Count -gt 0) {
-    for ($i = 0; $i -lt $disallowedModsFound.Count; $i++) {
-        $mod = $disallowedModsFound[$i]
-        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ " -NoNewline -ForegroundColor Red
-        Write-Host "DISALLOWED MOD DETECTED" -ForegroundColor Red
-        Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
-        Write-Host "  ║ " -NoNewline -ForegroundColor Red
-        Write-Host "File: $($mod.FileName)" -ForegroundColor White
-        Write-Host "  ║ " -NoNewline -ForegroundColor Red
-        Write-Host "Mod: $($mod.ModName)" -ForegroundColor White
-        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
-        if ($i -lt $disallowedModsFound.Count - 1) {
-            Write-Host ""
-        }
-    }
-} else {
-    Write-Host "  No disallowed mods detected ✓" -ForegroundColor Green
-}
+Write-Sep Red; Write-Host "DISALLOWED MODS: $($disallowedFound.Count) ⚠" -ForegroundColor Red; Write-Sep Red
+if ($disallowedFound.Count -gt 0) {
+    foreach ($mod in $disallowedFound) { Write-Card @(@{text="DISALLOWED MOD DETECTED";color="Red"}, "File: $($mod.FileName)", "Mod: $($mod.ModName)") Red }
+} else { Write-Host "  No disallowed mods detected ✓" -ForegroundColor Green }
 Write-Host ""
 
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+Write-Sep
 Write-Host "Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
-Write-Host "Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor White 
+Write-Host "Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor White
 Write-Host "`nPress any key to exit..." -ForegroundColor DarkGray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
