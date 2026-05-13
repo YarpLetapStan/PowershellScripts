@@ -77,7 +77,6 @@ $downloadList = @(
     @{ Link = 'https://github.com/winsiderss/si-builds/releases/download/4.0.26133.456/systeminformer-build-canary-setup.exe' },
     @{ Link = 'https://github.com/spokwn/JournalTrace/releases/download/1.2/JournalTrace.exe' },
     @{ Link = 'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.1/MeowDoomsdayFucker.exe' },
-    # Rest of tools
     @{ Link = 'https://www.nirsoft.net/utils/winprefetchview-x64.zip' },
     @{ Link = 'https://github.com/spokwn/Tool/releases/download/v1.1.3/espouken.exe' },
     @{ Link = 'https://dl.echo.ac/tool/usb';        Name = 'echo-usb.exe' },
