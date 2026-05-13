@@ -1,10 +1,9 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 cls
 
-Write-Host ""
-Write-Host "#########################################" -ForegroundColor Magenta
-Write-Host "#     Yarp's SS Tool Downloader         #" -ForegroundColor White
-Write-Host "#########################################" -ForegroundColor Magenta
+
+Write-Host "       Yarp's SS Tool Downloader        " -ForegroundColor Cyan
+Write-Host "  $("━" * 41)" -ForegroundColor Cyan
 Write-Host ""
 
 if (-not ([Security.Principal.WindowsPrincipal] `
@@ -28,7 +27,7 @@ Write-Host "[+] Working directory: $workDir" -ForegroundColor Cyan
 
 try {
     Add-MpPreference -ExclusionPath $workDir -ErrorAction Stop
-    Write-Host "[Downloaded] Defender exclusion set for: $workDir" -ForegroundColor Green
+    Write-Host "[OK] Defender exclusion set for: $workDir" -ForegroundColor Green
 }
 catch {
     Write-Host "[!!] Defender exclusion failed: $_" -ForegroundColor Yellow
@@ -56,7 +55,7 @@ $downloadList = @(
     'https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.3/PrefetchView++.exe',
     'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.1/MeowDoomsdayFucker.exe',
     'https://www.nirsoft.net/utils/winprefetchview-x64.zip',
-    'https://github.com/winsiderss/si-builds/releases/download/4.0.26115.206/systeminformer-build-canary-setup.exe',
+    'https://github.com/winsiderss/si-builds/releases/download/4.0.26133.456/systeminformer-build-canary-setup.exe',
     'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/PjCheatScannerLite.exe',
     'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/cheat_strings.txt',
     'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/RunPjCheatScanner.bat',
