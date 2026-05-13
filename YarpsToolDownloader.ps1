@@ -60,10 +60,10 @@ function Fetch-File {
     try {
         Invoke-WebRequest -Uri $Link -OutFile $out -UseBasicParsing `
             -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        Write-Host "  [OK] $file" -ForegroundColor Green
+        Write-Host "  [Downloaded] $file" -ForegroundColor Green
     }
     catch {
-        Write-Host "  [FAIL] $file - $_" -ForegroundColor Red
+        Write-Host "  [Failed] $file - $_" -ForegroundColor Red
     }
 }
 
