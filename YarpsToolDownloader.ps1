@@ -38,11 +38,12 @@ function Fetch-File {
     $file = if ($Name) { $Name } else { Split-Path $Link -Leaf }
     $out  = Join-Path $workDir $file
     try {
-        Invoke-WebRequest -Uri $Link -OutFile $out -UseBasicParsing
+        Invoke-WebRequest -Uri $Link -OutFile $out -UseBasicParsing `
+            -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         Write-Host "  [OK] $file" -ForegroundColor Green
     }
     catch {
-        Write-Host "  [FAIL] $file" -ForegroundColor Red
+        Write-Host "  [FAIL] $file - $_" -ForegroundColor Red
     }
 }
 
