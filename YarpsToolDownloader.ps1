@@ -1,13 +1,27 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 cls
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
+Write-Host @"
+██╗   ██╗ █████╗ ██████╗ ██████╗ ███████╗    ███████╗███████╗    ████████╗ ██████╗  ██████╗ ██╗     
+╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██╔════╝    ██╔════╝██╔════╝    ╚══██╔══╝██╔═══██╗██╔═══██╗██║     
+ ╚████╔╝ ███████║██████╔╝██████╔╝███████╗    ███████╗███████╗       ██║   ██║   ██║██║   ██║██║     
+  ╚██╔╝  ██╔══██║██╔══██╗██╔═══╝ ╚════██║    ╚════██║╚════██║       ██║   ██║   ██║██║   ██║██║     
+   ██║   ██║  ██║██║  ██║██║     ███████║    ███████║███████║       ██║   ╚██████╔╝╚██████╔╝███████╗
+   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝    ╚══════╝╚══════╝       ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝
 
+██████╗  ██████╗ ██╗    ██╗███╗   ██╗██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗ 
+██╔══██╗██╔═══██╗██║    ██║████╗  ██║██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+██║  ██║██║   ██║██║ █╗ ██║██╔██╗ ██║██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+██║  ██║██║   ██║██║███╗██║██║╚██╗██║██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+██████╔╝╚██████╔╝╚███╔███╔╝██║ ╚████║███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+╚═════╝  ╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+"@ -ForegroundColor Blue
 
-
-
-
-Write-Host "       Yarp's SS Tool Downloader        " -ForegroundColor Cyan
-Write-Host "  $("━" * 41)" -ForegroundColor Cyan
+$lineWidth = 100
+Write-Host "Yarp's SS Tool Downloader".PadLeft(($lineWidth + 24) / 2) -ForegroundColor Cyan
+Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
 if (-not ([Security.Principal.WindowsPrincipal] `
@@ -46,10 +60,10 @@ function Fetch-File {
     try {
         Invoke-WebRequest -Uri $Link -OutFile $out -UseBasicParsing `
             -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        Write-Host "  [Downloaded] $file" -ForegroundColor Green
+        Write-Host "  [OK] $file" -ForegroundColor Green
     }
     catch {
-        Write-Host "  [Failed] $file - $_" -ForegroundColor Red
+        Write-Host "  [FAIL] $file - $_" -ForegroundColor Red
     }
 }
 
