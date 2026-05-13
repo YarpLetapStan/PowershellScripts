@@ -28,7 +28,7 @@ Write-Host "[+] Working directory: $workDir" -ForegroundColor Cyan
 
 try {
     Add-MpPreference -ExclusionPath $workDir -ErrorAction Stop
-    Write-Host "[OK] Defender exclusion set for: $workDir" -ForegroundColor Green
+    Write-Host "[Downloaded] Defender exclusion set for: $workDir" -ForegroundColor Green
 }
 catch {
     Write-Host "[!!] Defender exclusion failed: $_" -ForegroundColor Yellow
