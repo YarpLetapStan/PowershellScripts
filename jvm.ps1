@@ -377,7 +377,7 @@ $cheatStrings = @(
     "isSpawnersEnabled","isShulkersEnabled","onModuleDisabled",
     "switchToBestTool","switchToBestWeapon",
     "isLootProtect","getMinHunger","isTracersEnabled",
-    "getSelectedBlocks","isChestsEnabled",
+    "getSelectedBlocks","isChestsEnabled", "Anch0r Macr0", "Aut0H1tCryst4l", "L3g1t R3t0t3m",
     "inventoryToMenuSlot","throwPearl","isLeftHoldOnly",
     "Automatically switches to sword when hitting with totem",
     "Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions",
