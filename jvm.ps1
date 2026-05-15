@@ -377,7 +377,7 @@ $cheatStrings = @(
     "isSpawnersEnabled","isShulkersEnabled","onModuleDisabled",
     "switchToBestTool","switchToBestWeapon",
     "isLootProtect","getMinHunger","isTracersEnabled",
-    "getSelectedBlocks","isChestsEnabled", "Anch0r Macr0", "Aut0H1tCryst4l", "L3g1t R3t0t3m",
+    "getSelectedBlocks","isChestsEnabled",
     "inventoryToMenuSlot","throwPearl","isLeftHoldOnly",
     "Automatically switches to sword when hitting with totem",
     "Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions",
@@ -394,22 +394,13 @@ $cheatStrings = @(
     "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ"
 )
 
-# Build HashSet once for fast case-insensitive lookups
+# Build HashSet once for fast case-insensitive lookups — avoids recompiling regex per string per file
 $cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
 
 function Check-Strings($filePath) {
     $found = [System.Collections.Generic.HashSet[string]]::new()
     try {
-        $bytes = [System.IO.File]::ReadAllBytes($filePath)
-        $ascii = [System.Text.Encoding]::ASCII.GetString($bytes)
-        $utf8  = [System.Text.Encoding]::UTF8.GetString($bytes)
-
-        foreach ($s in $cheatStringSet) {
-            if ($ascii.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s); continue }
-            if ($utf8.IndexOf($s,  [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
-        }
-
         $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
         foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
             if ($entry.Name -like "*.jar") {
