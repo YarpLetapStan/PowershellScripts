@@ -394,37 +394,47 @@ $cheatStrings = @(
     "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ"
 )
 
+# Build HashSet once for fast case-insensitive lookups
+$cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
+
 function Check-Strings($filePath) {
     $found = [System.Collections.Generic.HashSet[string]]::new()
     try {
-        $stringsExe = @("C:\Program Files\Git\usr\bin\strings.exe","C:\Program Files\Git\mingw64\bin\strings.exe","$env:ProgramFiles\Git\usr\bin\strings.exe","C:\msys64\usr\bin\strings.exe","C:\cygwin64\bin\strings.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($stringsExe) {
-            $tmp = Join-Path $env:TEMP "tmp_strings_$(Get-Random).txt"
-            & $stringsExe $filePath 2>$null | Out-File $tmp -Encoding UTF8
-            if (Test-Path $tmp) { $content = Get-Content $tmp -Raw; Remove-Item $tmp -Force; foreach ($s in $cheatStrings) { if ($content -match $s) { $found.Add($s) | Out-Null } } }
-        } else {
-            $raw = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
-            foreach ($s in $cheatStrings) { if ($raw -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
-            $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-            foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
-                if ($entry.Name -like "*.jar") {
-                    try {
-                        $ms = New-Object System.IO.MemoryStream; $entry.Open().CopyTo($ms); $ms.Position=0
-                        $nz = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
-                        foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
-                            $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8); $nc = $r.ReadToEnd().ToLower(); $r.Close()
-                            foreach ($s in $cheatStrings) { if ($nc -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
-                        }
-                    } catch {}
-                    continue
-                }
-                try {
-                    $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8); $ec = $r.ReadToEnd().ToLower(); $r.Close()
-                    foreach ($s in $cheatStrings) { if ($ec -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
-                } catch {}
-            }
-            $zip.Dispose()
+        $bytes = [System.IO.File]::ReadAllBytes($filePath)
+        $ascii = [System.Text.Encoding]::ASCII.GetString($bytes)
+        $utf8  = [System.Text.Encoding]::UTF8.GetString($bytes)
+
+        foreach ($s in $cheatStringSet) {
+            if ($ascii.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s); continue }
+            if ($utf8.IndexOf($s,  [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
         }
+
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
+        foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
+            if ($entry.Name -like "*.jar") {
+                try {
+                    $ms = New-Object System.IO.MemoryStream; $entry.Open().CopyTo($ms); $ms.Position=0
+                    $nz = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
+                    foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
+                        $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8)
+                        $nc = $r.ReadToEnd(); $r.Close()
+                        foreach ($s in $cheatStringSet) {
+                            if ($nc.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
+                        }
+                    }
+                } catch {}
+                continue
+            }
+            try {
+                $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
+                $ec = $r.ReadToEnd(); $r.Close()
+                foreach ($s in $cheatStringSet) {
+                    if ($ec.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
+                }
+            } catch {}
+        }
+        $zip.Dispose()
     } catch {}
     return $found
 }
@@ -539,13 +549,13 @@ try {
         if (($s1p -ge 15 -and $tc -ge 5) -or ($s2p -ge 20 -and $tc -ge 5) -or ($np -ge 20 -and $tc -ge 5) -or
             ($up -ge 10 -and $tc -ge 5) -or ($nvp -ge 8 -and $tc -ge 5) -or ($gp -ge 15 -and $tc -ge 100) -or
             ($spkg -ge 50 -and $tc -ge 10) -or ($op -ge 25 -and $tc -ge 10)) {
-            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.FileSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReason="Obfuscation patterns detected" })
+            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReason="Obfuscation patterns detected" })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
 
         $strings = Check-Strings $mod.FilePath
         if ($strings.Count -gt 0) {
-            $cheatMods.Add([PSCustomObject]@{ FileName=$mod.FileName; StringsFound=$strings; FileSizeKB=$mod.FileSizeKB; DownloadSource=$mod.DownloadSource; SourceURL=$mod.ZoneId; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; IsVerifiedMod=$mod.IsVerified; ModName=$mod.ModName; ModrinthUrl=$mod.ModrinthUrl; FilePath=$mod.FilePath; HasSizeMismatch=($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1); JarModId=$mod.JarModId; JarName=$mod.JarName; JarVersion=$mod.JarVersion; MatchType=$mod.MatchType; ExactMatch=$mod.ExactMatch; IsLatestVersion=$mod.IsLatestVersion; LoaderType=$mod.LoaderType })
+            $cheatMods.Add([PSCustomObject]@{ FileName=$mod.FileName; StringsFound=$strings; FileSizeKB=$mod.ActualSizeKB; DownloadSource=$mod.DownloadSource; SourceURL=$mod.ZoneId; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; IsVerifiedMod=$mod.IsVerified; ModName=$mod.ModName; ModrinthUrl=$mod.ModrinthUrl; FilePath=$mod.FilePath; HasSizeMismatch=($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1); JarModId=$mod.JarModId; JarName=$mod.JarName; JarVersion=$mod.JarVersion; MatchType=$mod.MatchType; ExactMatch=$mod.ExactMatch; IsLatestVersion=$mod.IsLatestVersion; LoaderType=$mod.LoaderType })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
     }
@@ -616,7 +626,15 @@ Write-Sep DarkYellow; Write-Host "TAMPERED MODS: $($tamperedMods.Count) ⚠" -Fo
 if ($tamperedMods.Count -gt 0) {
     foreach ($mod in $tamperedMods) {
         $sign = if ($mod.SizeDiffKB -gt 0) {"+"} else {""}
-        Write-Card @(@{text="TAMPERED MOD";color="DarkYellow"}, "File: $($mod.FileName)", $(if($mod.ModName){"Mod: $($mod.ModName)"} else {$null}), $(if($mod.TamperReason){"Reason: $($mod.TamperReason)"} else {$null}), "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)", "Difference: $sign$($mod.SizeDiffKB) KB") DarkYellow
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkYellow
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "TAMPERED MOD" -ForegroundColor DarkYellow
+        Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "File: $($mod.FileName)" -ForegroundColor White
+        if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Mod: $($mod.ModName)" -ForegroundColor Magenta }
+        if ($mod.TamperReason) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Reason: $($mod.TamperReason)" -ForegroundColor Red }
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════`n" -ForegroundColor DarkYellow
     }
 } else { Write-Host "  No tampered mods found" -ForegroundColor Gray }
 Write-Host ""
@@ -637,9 +655,13 @@ if ($cheatMods.Count -gt 0) {
             $sign = if ($mod.SizeDiffKB -gt 0){"+"} else {""}
             Write-Host "  ║ " -NoNewline -ForegroundColor Red
             if ($mod.SizeDiffKB -eq 0) { Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor White }
-            else { Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor White }
+            else {
+                Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | " -NoNewline -ForegroundColor White
+                Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+            }
         }
-        Write-Host "  ╚══════════════════════════════════════════`n" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
+        Write-Host ""
     }
 } else { Write-Host "  No cheat mods detected ✓" -ForegroundColor Green }
 Write-Host ""
