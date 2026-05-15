@@ -496,8 +496,8 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
 $counter = 0
 $tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
 try {
-    if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
-    New-Item -ItemType Directory -Path $tempDir | Out-Null
+   if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
+$null = New-Item -ItemType Directory -Path $tempDir -Force
     Write-Host "`nScanning for cheat strings..." -ForegroundColor White
 
     foreach ($mod in $allModsInfo) {
