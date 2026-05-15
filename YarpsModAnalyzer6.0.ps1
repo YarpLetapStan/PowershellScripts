@@ -646,7 +646,6 @@ if ($cheatMods.Count -gt 0) {
             Write-Host "  ║ " -NoNewline -ForegroundColor Red
             if ($mod.SizeDiffKB -eq 0) { Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor White }
             else {
-    Write-Host "  ║ " -NoNewline -ForegroundColor Red
     Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | " -NoNewline -ForegroundColor White
     Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
 }
