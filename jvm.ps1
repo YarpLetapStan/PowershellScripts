@@ -359,7 +359,7 @@ $cheatStrings = @(
     "pushOutOfBlocks","onPushOutOfBlocks",
     "webmacro","web macro","JumpReset","Donut",
     "setBlockBreakingCooldown","getBlockBreakingCooldown","setItemUseCooldown",
-    "onBlockBreaking","invokeDoAttack","invokeDoItemUse",
+    "onBlockBreaking","invokeDoAttack","invokeDoItemUse", "ahc.class",
     "setSelectedSlot","getSelectedSlot","swapBackToOriginalSlot",
     "blockBreakingCooldown","invokeOnMouseButton",
     "onSwapLastAttackedTicksReset","getVisualAttackCooldownProgressPerTick",
