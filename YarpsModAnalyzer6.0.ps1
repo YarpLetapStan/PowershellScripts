@@ -377,7 +377,7 @@ $cheatStrings = @(
     "isSpawnersEnabled","isShulkersEnabled","onModuleDisabled",
     "switchToBestTool","switchToBestWeapon",
     "isLootProtect","getMinHunger","isTracersEnabled",
-    "getSelectedBlocks","isChestsEnabled",
+    "getSelectedBlocks","isChestsEnabled", "4ctivat K3y","D4m4ge T1ck","Sw1tch D3lay","Ch4rg3 D3l4y",
     "inventoryToMenuSlot","throwPearl","isLeftHoldOnly",
     "Automatically switches to sword when hitting with totem",
     "Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions",
@@ -394,37 +394,38 @@ $cheatStrings = @(
     "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ"
 )
 
+# Build HashSet once for fast case-insensitive lookups — avoids recompiling regex per string per file
+$cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
+
 function Check-Strings($filePath) {
     $found = [System.Collections.Generic.HashSet[string]]::new()
     try {
-        $stringsExe = @("C:\Program Files\Git\usr\bin\strings.exe","C:\Program Files\Git\mingw64\bin\strings.exe","$env:ProgramFiles\Git\usr\bin\strings.exe","C:\msys64\usr\bin\strings.exe","C:\cygwin64\bin\strings.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($stringsExe) {
-            $tmp = Join-Path $env:TEMP "tmp_strings_$(Get-Random).txt"
-            & $stringsExe $filePath 2>$null | Out-File $tmp -Encoding UTF8
-            if (Test-Path $tmp) { $content = Get-Content $tmp -Raw; Remove-Item $tmp -Force; foreach ($s in $cheatStrings) { if ($content -match $s) { $found.Add($s) | Out-Null } } }
-        } else {
-            $raw = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($filePath)).ToLower()
-            foreach ($s in $cheatStrings) { if ($raw -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
-            $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
-            foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
-                if ($entry.Name -like "*.jar") {
-                    try {
-                        $ms = New-Object System.IO.MemoryStream; $entry.Open().CopyTo($ms); $ms.Position=0
-                        $nz = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
-                        foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
-                            $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8); $nc = $r.ReadToEnd().ToLower(); $r.Close()
-                            foreach ($s in $cheatStrings) { if ($nc -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
-                        }
-                    } catch {}
-                    continue
-                }
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
+        foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
+            if ($entry.Name -like "*.jar") {
                 try {
-                    $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8); $ec = $r.ReadToEnd().ToLower(); $r.Close()
-                    foreach ($s in $cheatStrings) { if ($ec -match [regex]::Escape($s.ToLower())) { $found.Add($s) | Out-Null } }
+                    $ms = New-Object System.IO.MemoryStream; $entry.Open().CopyTo($ms); $ms.Position=0
+                    $nz = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
+                    foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
+                        $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8)
+                        $nc = $r.ReadToEnd(); $r.Close()
+                        foreach ($s in $cheatStringSet) {
+                            if ($nc.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
+                        }
+                    }
                 } catch {}
+                continue
             }
-            $zip.Dispose()
+            try {
+                $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
+                $ec = $r.ReadToEnd(); $r.Close()
+                foreach ($s in $cheatStringSet) {
+                    if ($ec.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
+                }
+            } catch {}
         }
+        $zip.Dispose()
     } catch {}
     return $found
 }
@@ -495,8 +496,8 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
 $counter = 0
 $tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
 try {
-    if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
-    New-Item -ItemType Directory -Path $tempDir | Out-Null
+   if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
+$null = New-Item -ItemType Directory -Path $tempDir -Force
     Write-Host "`nScanning for cheat strings..." -ForegroundColor White
 
     foreach ($mod in $allModsInfo) {
@@ -646,12 +647,12 @@ if ($cheatMods.Count -gt 0) {
             Write-Host "  ║ " -NoNewline -ForegroundColor Red
             if ($mod.SizeDiffKB -eq 0) { Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB ✓" -ForegroundColor White }
             else {
-    Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | " -NoNewline -ForegroundColor White
-    Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
-}
+                Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | " -NoNewline -ForegroundColor White
+                Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+            }
         }
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
-Write-Host ""
+        Write-Host ""
     }
 } else { Write-Host "  No cheat mods detected ✓" -ForegroundColor Green }
 Write-Host ""
