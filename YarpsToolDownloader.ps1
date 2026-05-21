@@ -71,9 +71,8 @@ $downloadList = @(
     # Priority tools first
     @{ Link = 'https://github.com/spokwn/BAM-parser/releases/download/v1.2.9/BAMParser.exe' },
     @{ Link = 'https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.3/PrefetchView++.exe' },
-    @{ Link = 'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/PjCheatScannerLite.exe' },
-    @{ Link = 'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/cheat_strings.txt' },
-    @{ Link = 'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/Scanner/RunPjCheatScanner.bat' },
+    @{ Link = 'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/1.1/PjCheatScannerLite.exe' },
+    @{ Link = 'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/1.1/cheat_strings.txt' },
     @{ Link = 'https://github.com/winsiderss/si-builds/releases/download/4.0.26133.456/systeminformer-build-canary-setup.exe' },
     @{ Link = 'https://github.com/spokwn/JournalTrace/releases/download/1.2/JournalTrace.exe' },
     @{ Link = 'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.1/MeowDoomsdayFucker.exe' },
