@@ -356,7 +356,8 @@ $cheatStrings = @(
     "shieldbreaker","shield breaker","axespam","axe spam",
     "findKnockbackSword","attackRegisteredThisClick",
     "FakeLag","pingspoof","ping spoof","freecam","Freecam","FakeInv",
-    "pushOutOfBlocks","onPushOutOfBlocks",
+    "pushOutOfBlocks","onPushOutOfBlocks","MAX_ESPERA_TICKS", "esperandoCristal", "posCristal", "buscarCristal", "kanPlaceKrystalServer",
+    "modifyDecrementAmount", "preventSwordFromBlockAttack", "preventSwordFromBlockBreaking", "shouldBlockBlockHit", "lwfh"
     "webmacro","web macro","JumpReset","Donut",
     "setBlockBreakingCooldown","getBlockBreakingCooldown","setItemUseCooldown",
     "onBlockBreaking","invokeDoAttack","invokeDoItemUse",
