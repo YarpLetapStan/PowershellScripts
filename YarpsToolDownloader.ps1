@@ -28,7 +28,7 @@ if (-not ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()
 ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "[!!] Please run this script as Administrator." -ForegroundColor Red
-    Write-Host "     Right-click PowerShell and select 'Run as administrator'." -ForegroundColor Yellow
+    Write-Host "     Right-click CMD and select 'Run as administrator'." -ForegroundColor Yellow
     Write-Host ""
     pause
     exit 0
