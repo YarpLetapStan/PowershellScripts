@@ -87,7 +87,7 @@ $downloadList = @(
     @{ Link = 'https://dl.echo.ac/tool/strings';    Name = 'echo-strings.exe' },
     @{ Link = 'https://github.com/txvch/Screenshare-Collector/releases/download/tech/Technical.Utilities.exe' },
     @{ Link = 'https://github.com/spokwn/KernelLiveDumpTool/releases/download/v1.1/KernelLiveDumpTool.exe' },
-    @{ Link = 'https://www.nirsoft.net/utils/usbdeview-x64.zip' }
+    @{ Link = 'https://www.nirsoft.net/utils/usbdeview-x64.zip' },
     @{ Link = 'https://adoptium.net/download?link=https%3A%2F%2Fgithub.com%2Fadoptium%2Ftemurin25-binaries%2Freleases%2Fdownload%2Fjdk-25.0.3%252B9%2FOpenJDK25U-jdk_x64_windows_hotspot_25.0.3_9.msi&vendor=Adoptium' },
 )
 
