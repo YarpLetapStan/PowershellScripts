@@ -1,4 +1,4 @@
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+\[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 Clear-Host
 
@@ -20,7 +20,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Mod Analyzer V6.0".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Mod Analyzer V6.1".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
@@ -69,9 +69,16 @@ if ($javaProcesses.Count -eq 0) {
 
     foreach ($proc in $javaProcesses) {
         try {
-            $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop).CommandLine
+            $cmdLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop).CommandLine
             if (-not $cmdLine) { continue }
-            Write-Host "  ┌─ Process: PID $($proc.Id) - $($proc.ProcessName)" -ForegroundColor Green
+
+            # Extract player name and UUID from JVM args
+            $playerName = if ($cmdLine -match '--username\s+(\S+)') { $matches[1] } else { "Unknown" }
+            $playerUUID = if ($cmdLine -match '--uuid\s+(\S+)') { $matches[1] } else { $null }
+
+            Write-Host "  ┌─ Process: PID $($proc.Id) | Player: $playerName" -ForegroundColor Green
+            if ($playerUUID) { Write-Host "  ├─ UUID: $playerUUID" -ForegroundColor DarkGray }
+
             if ($cmdLine -match '^"([^"]+)"') { $cmdLine = $cmdLine.Substring($matches[1].Length + 2).Trim() }
 
             $detectedPatterns = @(); $suspiciousArgs = @()
@@ -156,7 +163,7 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
     }
     if ($process) {
         try {
-            $cl = (Get-WmiObject Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
+            $cl = (Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
             foreach ($pat in @('versions[/\\](\d+\.\d+(?:\.\d+)?)[/\\]','-Dminecraft\.version=(\d+\.\d+(?:\.\d+)?)','-Dfabric\.gameVersion=(\d+\.\d+(?:\.\d+)?)','--version\s+(\d+\.\d+(?:\.\d+)?)')) {
                 if ($cl -match $pat) { Write-Host "Detected Minecraft version from process: $($matches[1])" -ForegroundColor Cyan; return $matches[1] }
             }
@@ -267,18 +274,24 @@ function Build-ModrinthResult($proj, $ver, $versions, $byHash=$false, $matchType
 function Get-ModrinthVersions($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id/version" -UseBasicParsing }
 function Get-ModrinthProject($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing }
 
+# ── Modrinth result cache ──────────────────────────────────────────────────────
+$modrinthCache = @{}
+
 function Fetch-Modrinth-By-Hash($hash) {
+    if ($modrinthCache.ContainsKey("hash:$hash")) { return $modrinthCache["hash:$hash"] }
+    $result = @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
     try {
         $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -UseBasicParsing
         if ($resp.project_id) {
             $proj = Get-ModrinthProject $resp.project_id
-            return @{ Name=$proj.title; Slug=$proj.slug; ExpectedSize=$resp.files[0].size; VersionNumber=$resp.version_number
-                      FileName=$resp.files[0].filename; ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($resp.id)"
-                      FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
-                      LoaderType=if ($resp.loaders -contains "fabric"){"Fabric"} elseif ($resp.loaders -contains "forge"){"Forge"} else{"Unknown"} }
+            $result = @{ Name=$proj.title; Slug=$proj.slug; ExpectedSize=$resp.files[0].size; VersionNumber=$resp.version_number
+                         FileName=$resp.files[0].filename; ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($resp.id)"
+                         FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
+                         LoaderType=if ($resp.loaders -contains "fabric"){"Fabric"} elseif ($resp.loaders -contains "forge"){"Forge"} else{"Unknown"} }
         }
     } catch {}
-    return @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; LoaderType="Unknown" }
+    $modrinthCache["hash:$hash"] = $result
+    return $result
 }
 
 function Fetch-By-ProjectId($id, $version, $preferredLoader) {
@@ -294,19 +307,25 @@ function Fetch-By-ProjectId($id, $version, $preferredLoader) {
 }
 
 function Fetch-Modrinth-By-ModId($modId, $version, $preferredLoader="Fabric") {
+    $cacheKey = "modid:$modId|$version|$preferredLoader"
+    if ($modrinthCache.ContainsKey($cacheKey)) { return $modrinthCache[$cacheKey] }
     $result = Fetch-By-ProjectId $modId $version $preferredLoader
-    if ($result) { return $result }
+    if ($result) { $modrinthCache[$cacheKey] = $result; return $result }
     try {
         $search = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/search?query=`"$modId`"&facets=`"[[`"project_type:mod`"]]`"&limit=5" -UseBasicParsing
         if ($search.hits.Count -gt 0) {
             $best = $search.hits | Sort-Object { if ($_.slug -eq $modId){100} elseif ($_.title -eq $modId){80} elseif ($_.title -match $modId){50} else{0} } -Descending | Select-Object -First 1
-            if ($best) { $r = Fetch-By-ProjectId $best.project_id $version $preferredLoader; if ($r) { return $r } }
+            if ($best) { $r = Fetch-By-ProjectId $best.project_id $version $preferredLoader; if ($r) { $modrinthCache[$cacheKey] = $r; return $r } }
         }
     } catch {}
-    return @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+    $empty = @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+    $modrinthCache[$cacheKey] = $empty
+    return $empty
 }
 
 function Fetch-Modrinth-By-Filename($filename, $preferredLoader="Fabric") {
+    $cacheKey = "filename:$filename|$preferredLoader"
+    if ($modrinthCache.ContainsKey($cacheKey)) { return $modrinthCache[$cacheKey] }
     $clean = $filename -replace '\.temp\.jar$|\.tmp\.jar$|_1\.jar$','.jar'
     $base = [System.IO.Path]::GetFileNameWithoutExtension($clean)
     if ($filename -match '(?i)fabric') { $preferredLoader="Fabric" } elseif ($filename -match '(?i)forge') { $preferredLoader="Forge" }
@@ -318,12 +337,12 @@ function Fetch-Modrinth-By-Filename($filename, $preferredLoader="Fabric") {
         try {
             $proj = Get-ModrinthProject $slug; $versions = Get-ModrinthVersions $slug
             $exactFile = $versions | ForEach-Object { $v=$_; $_.files | Where-Object { $_.filename -eq $clean -or $_.filename -eq $filename } | ForEach-Object { @{ver=$v;file=$_} } } | Select-Object -First 1
-            if ($exactFile) { return Build-ModrinthResult $proj $exactFile.ver $versions -matchType "Exact Filename" }
+            if ($exactFile) { $r = Build-ModrinthResult $proj $exactFile.ver $versions -matchType "Exact Filename"; $modrinthCache[$cacheKey] = $r; return $r }
             $matched = Find-Closest-Version $localVer $versions $preferredLoader $minecraftVersion
-            if ($matched) { return Build-ModrinthResult $proj $matched $versions -matchType (if ($matched.version_number -eq $localVer){"Exact Version"} else{"Closest Version"}) }
+            if ($matched) { $r = Build-ModrinthResult $proj $matched $versions -matchType (if ($matched.version_number -eq $localVer){"Exact Version"} else{"Closest Version"}); $modrinthCache[$cacheKey] = $r; return $r }
             $fallback = $versions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) } | Select-Object -First 1
             if (-not $fallback) { $fallback = $versions[0] }
-            if ($fallback) { return Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version" }
+            if ($fallback) { $r = Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version"; $modrinthCache[$cacheKey] = $r; return $r }
         } catch { continue }
     }
     try {
@@ -331,16 +350,55 @@ function Fetch-Modrinth-By-Filename($filename, $preferredLoader="Fabric") {
         if ($search.hits.Count -gt 0) {
             $hit = $search.hits[0]; $versions = Get-ModrinthVersions $hit.project_id
             $exactFile = $versions | ForEach-Object { $v=$_; $_.files | Where-Object { $_.filename -eq $clean -or $_.filename -eq $filename } | ForEach-Object { @{ver=$v;file=$_} } } | Select-Object -First 1
-            if ($exactFile) { return Build-ModrinthResult $hit $exactFile.ver $versions -matchType "Exact Filename" }
-            if ($versions.Count -gt 0) { return Build-ModrinthResult $hit $versions[0] $versions -matchType "Latest Version" }
+            if ($exactFile) { $r = Build-ModrinthResult $hit $exactFile.ver $versions -matchType "Exact Filename"; $modrinthCache[$cacheKey] = $r; return $r }
+            if ($versions.Count -gt 0) { $r = Build-ModrinthResult $hit $versions[0] $versions -matchType "Latest Version"; $modrinthCache[$cacheKey] = $r; return $r }
         }
     } catch {}
-    return @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+    $empty = @{ Name=""; Slug=""; ExpectedSize=0; VersionNumber=""; FileName=""; FoundByHash=$false; ExactMatch=$false; IsLatestVersion=$false; MatchType="No Match"; LoaderType="Unknown" }
+    $modrinthCache[$cacheKey] = $empty
+    return $empty
 }
 
 function Fetch-Megabase($hash) {
     try { $r = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -UseBasicParsing; if (-not $r.error) { return $r.data } } catch {}
     return $null
+}
+
+# ── Bulk hash lookup via Modrinth POST /v2/version_files ──────────────────────
+function Invoke-BulkHashLookup($jarFiles) {
+    $hashMap = @{}
+    foreach ($file in $jarFiles) {
+        $hash = Get-SHA1 $file.FullName
+        $hashMap[$hash] = $file
+    }
+
+    Write-Host "Running bulk hash lookup on $($hashMap.Count) mods..." -ForegroundColor Cyan
+    $bulkResults = @{}
+    try {
+        $body = @{ hashes = @($hashMap.Keys); algorithm = "sha1" } | ConvertTo-Json
+        $raw = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_files" -Method POST -ContentType "application/json" -Body $body -UseBasicParsing
+        # Cache each hash result so individual lookups skip the API
+        foreach ($prop in $raw.PSObject.Properties) {
+            $hash = $prop.Name
+            $ver  = $prop.Value
+            $bulkResults[$hash] = $ver
+            # Pre-populate the hash cache so Fetch-Modrinth-By-Hash returns instantly
+            try {
+                $proj = Get-ModrinthProject $ver.project_id
+                $modrinthCache["hash:$hash"] = @{
+                    Name=$proj.title; Slug=$proj.slug; ExpectedSize=$ver.files[0].size
+                    VersionNumber=$ver.version_number; FileName=$ver.files[0].filename
+                    ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($ver.id)"
+                    FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
+                    LoaderType=if ($ver.loaders -contains "fabric"){"Fabric"} elseif ($ver.loaders -contains "forge"){"Forge"} else{"Unknown"}
+                }
+            } catch {}
+        }
+        Write-Host "Bulk lookup matched $($bulkResults.Count) / $($hashMap.Count) mods`n" -ForegroundColor Green
+    } catch {
+        Write-Host "Bulk lookup failed, falling back to individual lookups: $($_.Exception.Message)`n" -ForegroundColor DarkYellow
+    }
+    return $hashMap
 }
 
 $cheatStrings = @(
@@ -352,14 +410,16 @@ $cheatStrings = @(
     "AutoPot","autopot","auto pot","speedPotSlot","strengthPotSlot",
     "AutoArmor","autoarmor","auto armor","preventSwordBlockBreaking","preventSwordBlockAttack",
     "AutoDoubleHand","autodoublehand","auto double hand","AutoClicker",
-    "AimAssist","aimassist","aim assist","triggerbot","trigger bot",
+    "AimAssist","aimassist","aim assist","triggerbot","trigger bot","Sw1tch","D3l4y","M1n","Pl4ce","D3l4y","M1n",
+    "T0t3m","Sl0t","glfwGetMouseButton","Expl0de","Sl0t","Aut0","Cry5t4l","C11ckGu1","obsPos","crystalslot",
     "shieldbreaker","shield breaker","axespam","axe spam",
     "findKnockbackSword","attackRegisteredThisClick",
     "FakeLag","pingspoof","ping spoof","freecam","Freecam","FakeInv",
-    "pushOutOfBlocks","onPushOutOfBlocks",
+    "pushOutOfBlocks","onPushOutOfBlocks","MAX_ESPERA_TICKS","esperandoCristal","posCristal","buscarCristal","kanPlaceKrystalServer",
+    "modifyDecrementAmount","preventSwordFromBlockAttack","preventSwordFromBlockBreaking","shouldBlockBlockHit","lwfh",
     "webmacro","web macro","JumpReset","Donut",
     "setBlockBreakingCooldown","getBlockBreakingCooldown","setItemUseCooldown",
-    "onBlockBreaking","invokeDoAttack","invokeDoItemUse", "ahc.class",
+    "onBlockBreaking","invokeDoAttack","invokeDoItemUse",
     "setSelectedSlot","getSelectedSlot","swapBackToOriginalSlot",
     "blockBreakingCooldown","invokeOnMouseButton",
     "onSwapLastAttackedTicksReset","getVisualAttackCooldownProgressPerTick",
@@ -377,7 +437,7 @@ $cheatStrings = @(
     "isSpawnersEnabled","isShulkersEnabled","onModuleDisabled",
     "switchToBestTool","switchToBestWeapon",
     "isLootProtect","getMinHunger","isTracersEnabled",
-    "getSelectedBlocks","isChestsEnabled", "4ctivat K3y","D4m4ge T1ck","Sw1tch D3lay","Ch4rg3 D3l4y",
+    "getSelectedBlocks","isChestsEnabled","4ctivat K3y","D4m4ge T1ck","Sw1tch D3lay","Ch4rg3 D3l4y",
     "inventoryToMenuSlot","throwPearl","isLeftHoldOnly",
     "Automatically switches to sword when hitting with totem",
     "Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions",
@@ -391,10 +451,20 @@ $cheatStrings = @(
     "Ｔ．ｏｔｅｍ Ｏｆｆｈａｎｄ","Ｔ．ｏｔｅｍ Ｓｌｏｔ","Ｈ．ｏｖｅｒ","Ｗ．ｏｒｋ Ｗｉｔｈ Ｔｏｔｅｍ","ＡｕｔｏＤｏｕｂｌｅＨａｎｄ","Ａｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ","Ａ．ｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ",
     "Ａ．ｃｔｉｖａｔｅ Ｋｅｙ","Ｗ．ｈｉｌｅ Ｕｓｅ","Ｓ．ｔｏｐ ｏｎ Ｋｉｌｌ","Ｃ．ｌｉｃｋ Ｓｉｍｕｌａｔｉｏｎ","Ｓ．ｗｉｔｃｈ Ｄｅｌａｙ",
     "Ｓ．ｗｔｃｈ Ｃｈａｎｃｅ","Ｐ．ｌａｃｅ Ｃｈａｎｃｅ","Ｇ．ｌｏｗｓｔｏｎｅ Ｄｅｌａｙ","Ｇ．ｌｏｗｓｔｏｎｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｄｅｌａｙ",
-    "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ"
+    "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ",
+    # ── New strings ──────────────────────────────────────────────────────────────
+    "pedroisgay","krloader",
+    "Aut0Cryst3l","Aut0 Cryst3l","Aut0H1tCryst3l","Aut0 H1t Cryst3l","K3yAHC",
+    "Aut0 H1t Cryst4l M4cr0","Anch0r Macr0","Anch0r M4cr0","D0uble4nch0r","D0ubl3 4nch0r",
+    "S4fe4nch0r","S4fe Anch0r","4nch0r M4cr0",
+    "Aut0 T0t3m","L3g1t R3t0t3m","Aut0 D0ubl3 H4nd","Aut0H1tCyst4l","Aut0 Stun","Pr3Ch3ck",
+    "Expl0d3 D3l4y","T0t3m Sl0t","Ch4rge D3l4y","M1ss Ch4nce","Expl0de Sl0t","Expl0d3 Sl0t",
+    "N0 Dglwst0ne","Clk Sim","P34rl C4tch3r",
+    "4ctiv4tK3y","d4m4geT1ck","sw1tchD3lay","ch4rg3D3l4y","expl0d3D3l4y","t0t3mSl0t",
+    "simulateClicks","Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y"
 )
 
-# Build HashSet once for fast case-insensitive lookups — avoids recompiling regex per string per file
+# Build HashSet once for fast case-insensitive lookups
 $cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
 
@@ -438,6 +508,9 @@ $allModsInfo  = [System.Collections.Generic.List[object]]::new()
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 $spinner = @("|","/","-","\"); $totalMods = $jarFiles.Count
 
+# ── Bulk hash lookup: pre-populates $modrinthCache for all matched hashes ─────
+$hashMap = Invoke-BulkHashLookup $jarFiles
+
 Write-Host "Scanning $totalMods mods..." -ForegroundColor White
 for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $file = $jarFiles[$i]
@@ -448,6 +521,7 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $jarInfo = Get-Mod-Info-From-Jar $file.FullName
     $loader = if ($file.Name -match '(?i)fabric'){"Fabric"} elseif ($file.Name -match '(?i)forge'){"Forge"} elseif ($jarInfo.ModLoader -eq "Fabric"){"Fabric"} elseif ($jarInfo.ModLoader -eq "Forge/NeoForge"){"Forge"} else {"Fabric"}
 
+    # Fetch-Modrinth-By-Hash now returns instantly from cache if bulk lookup matched
     $md = Fetch-Modrinth-By-Hash $hash
     if (-not $md.Name -and $jarInfo.ModId) { $md = Fetch-Modrinth-By-ModId $jarInfo.ModId $jarInfo.Version $loader }
     if (-not $md.Name) { $md = Fetch-Modrinth-By-Filename $file.Name $loader }
@@ -478,6 +552,7 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     }
 }
 
+# ── Second pass: unknown mods — cache prevents duplicate API calls ─────────────
 for ($i = 0; $i -lt $unknownMods.Count; $i++) {
     $mod = $unknownMods[$i]
     $mr = if ($mod.JarModId) { Fetch-Modrinth-By-ModId $mod.JarModId $mod.JarVersion $mod.PreferredLoader } else { $null }
@@ -496,8 +571,8 @@ for ($i = 0; $i -lt $unknownMods.Count; $i++) {
 $counter = 0
 $tempDir = Join-Path $env:TEMP "yarpletapstanmodanalyzer"
 try {
-   if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
-$null = New-Item -ItemType Directory -Path $tempDir -Force
+    if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue }
+    $null = New-Item -ItemType Directory -Path $tempDir -Force
     Write-Host "`nScanning for cheat strings..." -ForegroundColor White
 
     foreach ($mod in $allModsInfo) {
@@ -528,7 +603,6 @@ $null = New-Item -ItemType Directory -Path $tempDir -Force
             $zip.Dispose()
         } catch {}
 
-        $pct = { param($n,$t) if($t -ge 5){[math]::Round($n/$t*100)} else {0} }
         $s1p=[math]::Round($(if($tc -ge 5){$s1/$tc*100} else {0}))
         $s2p=[math]::Round($(if($tc -ge 5){$s2/$tc*100} else {0}))
         $np=[math]::Round($(if($tc -ge 5){$num/$tc*100} else {0}))
@@ -592,6 +666,8 @@ function Write-Card($lines, $color) {
 }
 
 Write-Sep; Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan; Write-Sep; Write-Host ""
+Write-Host "  Verified: $($verifiedMods.Count) | Unknown: $($unknownMods.Count) | Tampered: $($tamperedMods.Count) | Cheat: $($cheatMods.Count)" -ForegroundColor Cyan
+Write-Host ""
 
 Write-Sep Green; Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green; Write-Sep Green
 if ($verifiedMods.Count -gt 0) {
