@@ -771,7 +771,7 @@ Write-Host ""
 if ($summaryPlayers.Count -gt 0) {
     foreach ($p in $summaryPlayers) {
         Write-Host "  Player     " -NoNewline -ForegroundColor White; Write-Host $p.Name -ForegroundColor White
-        Write-Host "  UUID       " -NoNewline -ForegroundColor White; Write-Host $p.UUID -ForegroundColor DarkGray
+        Write-Host "  UUID       " -NoNewline -ForegroundColor White; Write-Host $p.UUID -ForegroundColor White
         Write-Host ""
     }
 }
@@ -784,13 +784,10 @@ Write-Host "  Disallowed " -NoNewline -ForegroundColor White; Write-Host $disall
 Write-Host ""
 
 if ($allCheatStrings.Count -gt 0) {
-    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
-    Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "CHEAT STRINGS DETECTED" -ForegroundColor Red
-    Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
+    Write-Host "  Cheat Strings" -ForegroundColor White
     $allCheatStrings | Sort-Object | ForEach-Object {
-        Write-Host "  ║   • " -NoNewline -ForegroundColor Red; Write-Host $_ -ForegroundColor Magenta
+        Write-Host "  • $_" -ForegroundColor Magenta
     }
-    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
     Write-Host ""
 }
 
