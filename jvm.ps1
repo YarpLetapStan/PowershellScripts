@@ -1,4 +1,4 @@
-\[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 Clear-Host
 
@@ -411,7 +411,7 @@ $cheatStrings = @(
     "AutoArmor","autoarmor","auto armor","preventSwordBlockBreaking","preventSwordBlockAttack",
     "AutoDoubleHand","autodoublehand","auto double hand","AutoClicker",
     "AimAssist","aimassist","aim assist","triggerbot","trigger bot","Sw1tch","D3l4y","M1n","Pl4ce","D3l4y","M1n",
-    "T0t3m","Sl0t","glfwGetMouseButton","Expl0de","Sl0t","Aut0","Cry5t4l","C11ckGu1","obsPos","crystalslot",
+    "T0t3m","Sl0t", "Expl0de","Sl0t","Aut0","Cry5t4l","C11ckGu1","obsPos","crystalslot",
     "shieldbreaker","shield breaker","axespam","axe spam",
     "findKnockbackSword","attackRegisteredThisClick",
     "FakeLag","pingspoof","ping spoof","freecam","Freecam","FakeInv",
