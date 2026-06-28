@@ -372,7 +372,6 @@ function Invoke-BulkHashLookup($jarFiles) {
         $hashMap[$hash] = $file
     }
 
-    Write-Host "Running bulk hash lookup on $($hashMap.Count) mods..." -ForegroundColor Cyan
     $bulkResults = @{}
     try {
         $body = @{ hashes = @($hashMap.Keys); algorithm = "sha1" } | ConvertTo-Json
@@ -394,7 +393,7 @@ function Invoke-BulkHashLookup($jarFiles) {
                 }
             } catch {}
         }
-        Write-Host "Bulk lookup matched $($bulkResults.Count) / $($hashMap.Count) mods`n" -ForegroundColor Green
+
     } catch {
         Write-Host "Bulk lookup failed, falling back to individual lookups: $($_.Exception.Message)`n" -ForegroundColor DarkYellow
     }
@@ -411,7 +410,7 @@ $cheatStrings = @(
     "AutoArmor","autoarmor","auto armor","preventSwordBlockBreaking","preventSwordBlockAttack",
     "AutoDoubleHand","autodoublehand","auto double hand","AutoClicker",
     "AimAssist","aimassist","aim assist","triggerbot","trigger bot","Sw1tch","D3l4y","M1n","Pl4ce","D3l4y","M1n",
-    "T0t3m","Sl0t", "Expl0de","Sl0t","Aut0","Cry5t4l","C11ckGu1","obsPos","crystalslot",
+    "T0t3m","Sl0t","glfwGetMouseButton","Expl0de","Sl0t","Aut0","Cry5t4l","C11ckGu1","obsPos","crystalslot",
     "shieldbreaker","shield breaker","axespam","axe spam",
     "findKnockbackSword","attackRegisteredThisClick",
     "FakeLag","pingspoof","ping spoof","freecam","Freecam","FakeInv",
@@ -665,10 +664,84 @@ function Write-Card($lines, $color) {
     Write-Host ""
 }
 
-Write-Sep; Write-Host "RESULTS SUMMARY" -ForegroundColor Cyan; Write-Sep; Write-Host ""
-Write-Host "  Verified: $($verifiedMods.Count) | Unknown: $($unknownMods.Count) | Tampered: $($tamperedMods.Count) | Cheat: $($cheatMods.Count)" -ForegroundColor Cyan
+# Scroll console to bottom so summary is immediately visible
+$ui = $Host.UI.RawUI
+try {
+    $buf = $ui.BufferSize
+    $win = $ui.WindowSize
+    $ui.WindowPosition = New-Object System.Management.Automation.Host.Coordinates 0, ($buf.Height - $win.Height)
+} catch {}
+
+# ── Collect player info from running Java processes for summary ───────────────
+$summaryPlayers = @()
+foreach ($proc in (Get-Process -Name javaw -ErrorAction SilentlyContinue)) {
+    try {
+        $cl = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop).CommandLine
+        if (-not $cl) { continue }
+        $pName = if ($cl -match '--username\s+(\S+)') { $matches[1] } else { "Unknown" }
+        $pUUID = if ($cl -match '--uuid\s+(\S+)') { $matches[1] } else { "N/A" }
+        $summaryPlayers += [PSCustomObject]@{ Name=$pName; UUID=$pUUID }
+    } catch {}
+}
+
+# ── Collect all cheat strings found across all cheat mods ────────────────────
+$allCheatStrings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($mod in $cheatMods) { foreach ($s in $mod.StringsFound) { [void]$allCheatStrings.Add($s) } }
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  SUMMARY
+# ════════════════════════════════════════════════════════════════════════════════
+Write-Sep Cyan; Write-Host "  RESULTS SUMMARY" -ForegroundColor Cyan; Write-Sep Cyan
 Write-Host ""
 
+# Player info
+if ($summaryPlayers.Count -gt 0) {
+    foreach ($p in $summaryPlayers) {
+        Write-Host "  Player   : " -NoNewline -ForegroundColor DarkGray; Write-Host $p.Name -ForegroundColor White
+        Write-Host "  UUID     : " -NoNewline -ForegroundColor DarkGray; Write-Host $p.UUID -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host "  Player   : " -NoNewline -ForegroundColor DarkGray; Write-Host "No Minecraft process detected" -ForegroundColor DarkGray
+}
+Write-Host ""
+
+# Mod counts
+$verColor   = if ($verifiedMods.Count -gt 0)  { "Green" }     else { "Gray" }
+$unkColor   = if ($unknownMods.Count -gt 0)   { "Yellow" }    else { "Gray" }
+$tampColor  = if ($tamperedMods.Count -gt 0)  { "DarkYellow"} else { "Gray" }
+$cheatColor = if ($cheatMods.Count -gt 0)     { "Red" }       else { "Green" }
+$disColor   = if ($disallowedFound.Count -gt 0){ "Red" }      else { "Green" }
+
+Write-Host "  Verified : " -NoNewline -ForegroundColor DarkGray; Write-Host "$($verifiedMods.Count)" -ForegroundColor $verColor
+Write-Host "  Unknown  : " -NoNewline -ForegroundColor DarkGray; Write-Host "$($unknownMods.Count)" -ForegroundColor $unkColor
+Write-Host "  Tampered : " -NoNewline -ForegroundColor DarkGray; Write-Host "$($tamperedMods.Count)" -ForegroundColor $tampColor
+Write-Host "  Cheat    : " -NoNewline -ForegroundColor DarkGray; Write-Host "$($cheatMods.Count)" -ForegroundColor $cheatColor
+Write-Host "  Disallowed: " -NoNewline -ForegroundColor DarkGray; Write-Host "$($disallowedFound.Count)" -ForegroundColor $disColor
+Write-Host ""
+
+# Cheat strings found
+if ($allCheatStrings.Count -gt 0) {
+    Write-Host "  Cheat Strings Found:" -ForegroundColor Red
+    $allCheatStrings | Sort-Object | ForEach-Object { Write-Host "    • $_" -ForegroundColor Magenta }
+} else {
+    Write-Host "  Cheat Strings Found : " -NoNewline -ForegroundColor DarkGray; Write-Host "None ✓" -ForegroundColor Green
+}
+Write-Host ""
+
+# Disallowed mods in summary
+if ($disallowedFound.Count -gt 0) {
+    Write-Host "  Disallowed Mods Found:" -ForegroundColor Red
+    foreach ($mod in $disallowedFound) { Write-Host "    • $($mod.ModName) ($($mod.FileName))" -ForegroundColor Magenta }
+} else {
+    Write-Host "  Disallowed Mods Found: " -NoNewline -ForegroundColor DarkGray; Write-Host "None ✓" -ForegroundColor Green
+}
+Write-Host ""
+Write-Sep Cyan
+Write-Host ""
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  DETAIL SECTIONS
+# ════════════════════════════════════════════════════════════════════════════════
 Write-Sep Green; Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green; Write-Sep Green
 if ($verifiedMods.Count -gt 0) {
     foreach ($mod in $verifiedMods) {
