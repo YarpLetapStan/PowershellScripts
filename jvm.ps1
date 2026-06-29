@@ -770,33 +770,46 @@ Write-Host ""
 
 if ($summaryPlayers.Count -gt 0) {
     foreach ($p in $summaryPlayers) {
-        Write-Host "  Player     " -NoNewline -ForegroundColor White; Write-Host $p.Name -ForegroundColor White
-        Write-Host "  UUID       " -NoNewline -ForegroundColor White; Write-Host $p.UUID -ForegroundColor White
+        Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Player     " -NoNewline -ForegroundColor White; Write-Host $p.Name -ForegroundColor White
+        Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "UUID       " -NoNewline -ForegroundColor White; Write-Host $p.UUID -ForegroundColor White
+        Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Verified   " -NoNewline -ForegroundColor White; Write-Host $verifiedMods.Count   -ForegroundColor $verColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Unknown    " -NoNewline -ForegroundColor White; Write-Host $unknownMods.Count    -ForegroundColor $unkColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Tampered   " -NoNewline -ForegroundColor White; Write-Host $tamperedMods.Count   -ForegroundColor $tampColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Cheat      " -NoNewline -ForegroundColor White; Write-Host $cheatMods.Count      -ForegroundColor $cheatColor
+        Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Disallowed " -NoNewline -ForegroundColor White; Write-Host $disallowedFound.Count -ForegroundColor $disColor
+        Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Cyan
         Write-Host ""
     }
+} else {
+    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Player     " -NoNewline -ForegroundColor White; Write-Host "No Minecraft process detected" -ForegroundColor DarkGray
+    Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Verified   " -NoNewline -ForegroundColor White; Write-Host $verifiedMods.Count   -ForegroundColor $verColor
+    Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Unknown    " -NoNewline -ForegroundColor White; Write-Host $unknownMods.Count    -ForegroundColor $unkColor
+    Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Tampered   " -NoNewline -ForegroundColor White; Write-Host $tamperedMods.Count   -ForegroundColor $tampColor
+    Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Cheat      " -NoNewline -ForegroundColor White; Write-Host $cheatMods.Count      -ForegroundColor $cheatColor
+    Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "Disallowed " -NoNewline -ForegroundColor White; Write-Host $disallowedFound.Count -ForegroundColor $disColor
+    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
 }
 
-Write-Host "  Verified   " -NoNewline -ForegroundColor White; Write-Host $verifiedMods.Count   -ForegroundColor $verColor
-Write-Host "  Unknown    " -NoNewline -ForegroundColor White; Write-Host $unknownMods.Count    -ForegroundColor $unkColor
-Write-Host "  Tampered   " -NoNewline -ForegroundColor White; Write-Host $tamperedMods.Count   -ForegroundColor $tampColor
-Write-Host "  Cheat      " -NoNewline -ForegroundColor White; Write-Host $cheatMods.Count      -ForegroundColor $cheatColor
-Write-Host "  Disallowed " -NoNewline -ForegroundColor White; Write-Host $disallowedFound.Count -ForegroundColor $disColor
-Write-Host ""
-
 if ($allCheatStrings.Count -gt 0) {
-    Write-Host "  Cheat Strings" -ForegroundColor White
+    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+    Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Cheat Strings Detected:" -ForegroundColor Red
     $allCheatStrings | Sort-Object | ForEach-Object {
-        Write-Host "  • $_" -ForegroundColor Magenta
+        Write-Host "  ║   • " -NoNewline -ForegroundColor Red; Write-Host $_ -ForegroundColor Magenta
     }
+    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
     Write-Host ""
 }
 
 if ($disallowedFound.Count -gt 0) {
     Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
-    Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "DISALLOWED MODS DETECTED" -ForegroundColor Red
-    Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
+    Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Disallowed Mods Detected:" -ForegroundColor Red
     foreach ($mod in $disallowedFound) {
-        Write-Host "  ║   • " -NoNewline -ForegroundColor Red; Write-Host $mod.ModName -ForegroundColor White
+        Write-Host "  ║   • " -NoNewline -ForegroundColor Red; Write-Host $mod.ModName -ForegroundColor Magenta
     }
     Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
     Write-Host ""
