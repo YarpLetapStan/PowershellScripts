@@ -20,7 +20,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Mod Analyzer V6.1".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Mod Analyzer V6.0".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
