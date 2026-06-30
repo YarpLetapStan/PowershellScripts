@@ -20,7 +20,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "Yarp's SS Tool Downloader".PadLeft(($lineWidth + 24) / 2) -ForegroundColor Cyan
+Write-Host "Yarp's SS Tool Downloader - Join discord.gg/napvp".PadLeft(($lineWidth + 24) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
@@ -101,4 +101,4 @@ foreach ($item in $downloadList) {
 }
 
 Start-Process explorer.exe $workDir
-Write-Host "`n[DONE] All tasks complete." -ForegroundColor Green
+Write-Host "`n[DONE] All tasks complete. Join discord.gg/napvp" -ForegroundColor Green
