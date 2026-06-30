@@ -761,6 +761,7 @@ if ($summaryPlayers.Count -gt 0) {
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Tampered   " -NoNewline -ForegroundColor White; Write-Host $tamperedMods.Count   -ForegroundColor $(if($tamperedMods.Count -eq 0){"DarkGray"} else {$tampColor})
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Cheat      " -NoNewline -ForegroundColor White; Write-Host $cheatMods.Count      -ForegroundColor $(if($cheatMods.Count -eq 0){"DarkGray"} else {$cheatColor})
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Disallowed " -NoNewline -ForegroundColor White; Write-Host $disallowedFound.Count -ForegroundColor $(if($disallowedFound.Count -eq 0){"DarkGray"} else {$disColor})
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Join discord.gg/napvp" -ForegroundColor Blue
         Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkGray
         Write-Host ""
     }
