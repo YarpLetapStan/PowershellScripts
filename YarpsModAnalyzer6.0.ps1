@@ -20,7 +20,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Mod Analyzer V6.0".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Mod Analyzer V6.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
@@ -798,8 +798,8 @@ if ($disallowedFound.Count -gt 0) {
 }
 
 Write-Host ("━" * 50) -ForegroundColor Cyan
-Write-Host "  Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
-Write-Host "  Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor DarkGray
+Write-Host "  Credits to Habibi Mod Analyzer and Tonynoh" -ForegroundColor DarkGray
+Write-Host "  Join discord.gg/napvp ❤️" -ForegroundColor White
 Write-Host ("━" * 50) -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Press any key to exit..." -ForegroundColor DarkGray
