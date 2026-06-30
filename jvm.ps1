@@ -72,7 +72,6 @@ if ($javaProcesses.Count -eq 0) {
             $cmdLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction Stop).CommandLine
             if (-not $cmdLine) { continue }
 
-            # Extract player name and UUID from JVM args
             $playerName = if ($cmdLine -match '--username\s+(\S+)') { $matches[1] } else { "Unknown" }
             $playerUUID = if ($cmdLine -match '--uuid\s+(\S+)') { $matches[1] } else { $null }
 
@@ -274,7 +273,6 @@ function Build-ModrinthResult($proj, $ver, $versions, $byHash=$false, $matchType
 function Get-ModrinthVersions($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id/version" -UseBasicParsing }
 function Get-ModrinthProject($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing }
 
-# ── Modrinth result cache ──────────────────────────────────────────────────────
 $modrinthCache = @{}
 
 function Fetch-Modrinth-By-Hash($hash) {
@@ -364,7 +362,6 @@ function Fetch-Megabase($hash) {
     return $null
 }
 
-# ── Bulk hash lookup via Modrinth POST /v2/version_files ──────────────────────
 function Invoke-BulkHashLookup($jarFiles) {
     $hashMap = @{}
     foreach ($file in $jarFiles) {
@@ -376,12 +373,10 @@ function Invoke-BulkHashLookup($jarFiles) {
     try {
         $body = @{ hashes = @($hashMap.Keys); algorithm = "sha1" } | ConvertTo-Json
         $raw = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_files" -Method POST -ContentType "application/json" -Body $body -UseBasicParsing
-        # Cache each hash result so individual lookups skip the API
         foreach ($prop in $raw.PSObject.Properties) {
             $hash = $prop.Name
             $ver  = $prop.Value
             $bulkResults[$hash] = $ver
-            # Pre-populate the hash cache so Fetch-Modrinth-By-Hash returns instantly
             try {
                 $proj = Get-ModrinthProject $ver.project_id
                 $modrinthCache["hash:$hash"] = @{
@@ -451,7 +446,6 @@ $cheatStrings = @(
     "Ａ．ｃｔｉｖａｔｅ Ｋｅｙ","Ｗ．ｈｉｌｅ Ｕｓｅ","Ｓ．ｔｏｐ ｏｎ Ｋｉｌｌ","Ｃ．ｌｉｃｋ Ｓｉｍｕｌａｔｉｏｎ","Ｓ．ｗｉｔｃｈ Ｄｅｌａｙ",
     "Ｓ．ｗｔｃｈ Ｃｈａｎｃｅ","Ｐ．ｌａｃｅ Ｃｈａｎｃｅ","Ｇ．ｌｏｗｓｔｏｎｅ Ｄｅｌａｙ","Ｇ．ｌｏｗｓｔｏｎｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｄｅｌａｙ",
     "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ",
-    # ── New strings ──────────────────────────────────────────────────────────────
     "pedroisgay","krloader",
     "Aut0Cryst3l","Aut0 Cryst3l","Aut0H1tCryst3l","Aut0 H1t Cryst3l","K3yAHC",
     "Aut0 H1t Cryst4l M4cr0","Anch0r Macr0","Anch0r M4cr0","D0uble4nch0r","D0ubl3 4nch0r",
@@ -463,7 +457,6 @@ $cheatStrings = @(
     "simulateClicks","Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y"
 )
 
-# Build HashSet once for fast case-insensitive lookups
 $cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
 
@@ -507,7 +500,6 @@ $allModsInfo  = [System.Collections.Generic.List[object]]::new()
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar
 $spinner = @("|","/","-","\"); $totalMods = $jarFiles.Count
 
-# ── Bulk hash lookup: pre-populates $modrinthCache for all matched hashes ─────
 $hashMap = Invoke-BulkHashLookup $jarFiles
 
 Write-Host "Scanning $totalMods mods..." -ForegroundColor White
@@ -520,7 +512,6 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     $jarInfo = Get-Mod-Info-From-Jar $file.FullName
     $loader = if ($file.Name -match '(?i)fabric'){"Fabric"} elseif ($file.Name -match '(?i)forge'){"Forge"} elseif ($jarInfo.ModLoader -eq "Fabric"){"Fabric"} elseif ($jarInfo.ModLoader -eq "Forge/NeoForge"){"Forge"} else {"Fabric"}
 
-    # Fetch-Modrinth-By-Hash now returns instantly from cache if bulk lookup matched
     $md = Fetch-Modrinth-By-Hash $hash
     if (-not $md.Name -and $jarInfo.ModId) { $md = Fetch-Modrinth-By-ModId $jarInfo.ModId $jarInfo.Version $loader }
     if (-not $md.Name) { $md = Fetch-Modrinth-By-Filename $file.Name $loader }
@@ -551,7 +542,6 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     }
 }
 
-# ── Second pass: unknown mods — cache prevents duplicate API calls ─────────────
 for ($i = 0; $i -lt $unknownMods.Count; $i++) {
     $mod = $unknownMods[$i]
     $mr = if ($mod.JarModId) { Fetch-Modrinth-By-ModId $mod.JarModId $mod.JarVersion $mod.PreferredLoader } else { $null }
@@ -664,7 +654,6 @@ function Write-Card($lines, $color) {
     Write-Host ""
 }
 
-# ── Collect player info from running Java processes for summary ───────────────
 $summaryPlayers = @()
 foreach ($proc in (Get-Process -Name javaw -ErrorAction SilentlyContinue)) {
     try {
@@ -676,13 +665,9 @@ foreach ($proc in (Get-Process -Name javaw -ErrorAction SilentlyContinue)) {
     } catch {}
 }
 
-# ── Collect all cheat strings found across all cheat mods ────────────────────
 $allCheatStrings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($mod in $cheatMods) { foreach ($s in $mod.StringsFound) { [void]$allCheatStrings.Add($s) } }
 
-# ════════════════════════════════════════════════════════════════════════════════
-#  DETAIL SECTIONS
-# ════════════════════════════════════════════════════════════════════════════════
 Write-Sep Green; Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green; Write-Sep Green
 if ($verifiedMods.Count -gt 0) {
     foreach ($mod in $verifiedMods) {
@@ -753,9 +738,6 @@ if ($disallowedFound.Count -gt 0) {
 } else { Write-Host "  No disallowed mods detected ✓" -ForegroundColor Green }
 Write-Host ""
 
-# ════════════════════════════════════════════════════════════════════════════════
-#  SUMMARY  (printed last so it's the first thing you see at the bottom)
-# ════════════════════════════════════════════════════════════════════════════════
 $verColor   = if ($verifiedMods.Count -gt 0)    { "Green" }  else { "DarkGray" }
 $unkColor   = if ($unknownMods.Count -gt 0)     { "Yellow" } else { "DarkGray" }
 $tampColor  = if ($tamperedMods.Count -gt 0)    { "Red" }    else { "DarkGray" }
@@ -817,7 +799,7 @@ if ($disallowedFound.Count -gt 0) {
 
 Write-Host ("━" * 50) -ForegroundColor Cyan
 Write-Host "  Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
-Write-Host "  Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor White
+Write-Host "  Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor DarkGrey
 Write-Host ("━" * 50) -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Press any key to exit..." -ForegroundColor DarkGray
