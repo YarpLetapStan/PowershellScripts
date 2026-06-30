@@ -76,7 +76,7 @@ if ($javaProcesses.Count -eq 0) {
             $playerUUID = if ($cmdLine -match '--uuid\s+(\S+)') { $matches[1] } else { $null }
 
             Write-Host "  ┌─ Process: PID $($proc.Id) | Player: $playerName" -ForegroundColor Green
-            if ($playerUUID) { Write-Host "  ├─ UUID: $playerUUID" -ForegroundColor DarkGray }
+            if ($playerUUID) { Write-Host "  ├─ UUID: $playerUUID" -ForegroundColor DarkGreen }
 
             if ($cmdLine -match '^"([^"]+)"') { $cmdLine = $cmdLine.Substring($matches[1].Length + 2).Trim() }
 
@@ -791,7 +791,7 @@ if ($disallowedFound.Count -gt 0) {
     Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
     Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Disallowed Mods Detected:" -ForegroundColor Red
     foreach ($mod in $disallowedFound) {
-        Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $mod.ModName -ForegroundColor Magenta
+        Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $mod.ModName -ForegroundColor white
     }
     Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
     Write-Host ""
@@ -799,7 +799,7 @@ if ($disallowedFound.Count -gt 0) {
 
 Write-Host ("━" * 50) -ForegroundColor Cyan
 Write-Host "  Credits to Habibi Mod Analyzer" -ForegroundColor DarkGray
-Write-Host "  Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor DarkGrey
+Write-Host "  Special Thanks to Tonynoh For Helping me ❤️" -ForegroundColor DarkGray
 Write-Host ("━" * 50) -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Press any key to exit..." -ForegroundColor DarkGray
