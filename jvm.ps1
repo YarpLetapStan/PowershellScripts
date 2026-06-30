@@ -791,7 +791,7 @@ if ($disallowedFound.Count -gt 0) {
     Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
     Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Disallowed Mods Detected:" -ForegroundColor Red
     foreach ($mod in $disallowedFound) {
-        Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $mod.ModName -ForegroundColor white
+        Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor White; Write-Host $mod.ModName -ForegroundColor white
     }
     Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
     Write-Host ""
