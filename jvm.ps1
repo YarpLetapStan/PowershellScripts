@@ -32,7 +32,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Classloader Dump V1.0".PadLeft(($lineWidth + 37) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Classloader Dump v1.0".PadLeft(($lineWidth + 37) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
