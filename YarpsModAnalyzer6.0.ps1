@@ -781,7 +781,7 @@ if ($summaryPlayers.Count -gt 0) {
 
 if ($allCheatStrings.Count -gt 0) {
     Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
-    Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Cheat Strings Detected:" -ForegroundColor Red
+    Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Cheat Strings Detected In Instance:" -ForegroundColor Red
     $allCheatStrings | Sort-Object | ForEach-Object {
         Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $_ -ForegroundColor Magenta
     }
@@ -801,7 +801,7 @@ if ($disallowedFound.Count -gt 0) {
 
 Write-Host ("━" * 50) -ForegroundColor Cyan
 Write-Host "  Credits to Habibi Mod Analyzer and Tonynoh" -ForegroundColor DarkGray
-Write-Host "  Join discord.gg/napvp ❤️" -ForegroundColor White
+Write-Host "  Join discord.gg/napvp ❤️" -ForegroundColor Blue
 Write-Host ("━" * 50) -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Press any key to exit..." -ForegroundColor DarkGray
