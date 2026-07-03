@@ -1,79 +1,205 @@
-# =======================
-# TOOLS COLLECTOR (CUSTOM)
-# =======================
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+$ErrorActionPreference = "Stop"
+Clear-Host
 
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Write-Host "Made by YarpLetapStan`nDm YarpLetapStan for Questions or Bugs`n" -ForegroundColor Cyan
+Write-Host @"
+██╗   ██╗ █████╗ ██████╗ ██████╗ ██╗     ███████╗████████╗ █████╗ ██████╗ ███████╗████████╗ █████╗ ███╗   ██╗ ╗███████╗
+╚██╗ ██╔╝██╔══██╗██╔══██╗██╔══██╗██║     ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔══██╗████╗  ██║╔╝██╔════╝
+ ╚████╔╝ ███████║██████╔╝██████╔╝██║     █████╗     ██║   ███████║██████╔╝███████╗   ██║   ███████║██╔██╗ ██║  ███████╗
+  ╚██╔╝  ██╔══██║██╔══██╗██╔═══╝ ██║     ██╔══╝     ██║   ██╔══██║██╔═══╝ ╚════██║   ██║   ██╔══██║██║╚██╗██║  ╚════██║
+   ██║   ██║  ██║██║  ██║██║     ███████╗███████╗   ██║   ██║  ██║██║     ███████║   ██║   ██║  ██║██║ ╚████║  ███████║
+   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝     ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝
+"@ -ForegroundColor Blue
 
-cls
+Write-Host @"
+ ██████╗██╗      █████╗ ███████╗███████╗██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+██╔════╝██║     ██╔══██╗██╔════╝██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+██║     ██║     ███████║███████╗███████╗██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+██║     ██║     ██╔══██║╚════██║╚════██║██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+╚██████╗███████╗██║  ██║███████║███████║███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+ ╚═════╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+"@ -ForegroundColor Blue
+
+Write-Host @"
+██████╗ ██╗   ██╗███╗   ███╗██████╗
+██╔══██╗██║   ██║████╗ ████║██╔══██╗
+██║  ██║██║   ██║██╔████╔██║██████╔╝
+██║  ██║██║   ██║██║╚██╔╝██║██╔═══╝
+██████╔╝╚██████╔╝██║ ╚═╝ ██║██║
+╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝
+"@ -ForegroundColor Blue
+
+$lineWidth = 100
+Write-Host "YarpLetapStan's Classloader Dump v1.0".PadLeft(($lineWidth + 37) / 2) -ForegroundColor Cyan
+Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
-Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "        TOOLS COLLECTOR (MIN)        " -ForegroundColor Green
-Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host ""
 
-if (-not ([Security.Principal.WindowsPrincipal] `
-    [Security.Principal.WindowsIdentity]::GetCurrent()
-).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+$MsiUrl  = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B9/OpenJDK25U-jdk_x64_windows_hotspot_25.0.3_9.msi"
+$MsiName = "OpenJDK25U-jdk_x64_windows_hotspot_25.0.3_9.msi"
 
-    Write-Host "Restarting as administrator..." -ForegroundColor Yellow
-    Start-Process powershell -Verb RunAs -ArgumentList `
-        "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`""
-    exit 0
-}
-
-$root = "C:\"
-$name = "SS"
-$i = 1
-while (Test-Path "$root$name$i") { $i++ }
-$folder = "$root$name$i"
-
-New-Item -Path $folder -ItemType Directory -Force | Out-Null
-Set-Location $folder
-Write-Host "[+] Created folder: $folder" -ForegroundColor Cyan
-
-try {
-    Add-MpPreference -ExclusionPath $folder -ErrorAction Stop
-    Write-Host "[✓] Added Windows Defender exclusion for: $folder" -ForegroundColor Green
-}
-catch {
-    Write-Host "[!] Could not add Defender exclusion: $_" -ForegroundColor Yellow
-    Write-Host "    (You may need to add it manually if Defender blocks the tools)" -ForegroundColor Yellow
-}
-
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-function Download-File {
-    param ([string]$Url)
-
-    $fileName = Split-Path $Url -Leaf
-    $dest = Join-Path $folder $fileName
-
-    try {
-        Invoke-WebRequest -Uri $Url -OutFile $dest -UseBasicParsing
-        Write-Host "[✓] Downloaded: $fileName" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "[✗] Failed: $fileName" -ForegroundColor Red
-    }
-}
-
-$urls = @(
-    'https://github.com/spokwn/BAM-parser/releases/download/v1.2.9/BAMParser.exe',
-    'https://github.com/spokwn/JournalTrace/releases/download/1.2/JournalTrace.exe',
-    'https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.3/PrefetchView++.exe',
-    'https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/download/V.1.1/MeowDoomsdayFucker.exe',
-    'https://www.nirsoft.net/utils/winprefetchview-x64.zip',
-    'https://github.com/winsiderss/si-builds/releases/download/3.2.25275.112/systeminformer-build-canary-setup.exe'
+$jobs = @(
+    @{ Cmd = "VM.classloaders show-classes"; Short = "Classloaders-Full"; Title = "VM.classloaders show-classes" },
+    @{ Cmd = "VM.classloaders";              Short = "Classloaders-Tree"; Title = "VM.classloaders" }
 )
 
-$counter = 0
-$total = $urls.Count
+$downloads = Join-Path $env:USERPROFILE "Downloads"
+if (-not (Test-Path $downloads)) { $downloads = [Environment]::GetFolderPath("Desktop") }
+$stamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 
-foreach ($url in $urls) {
-    $counter++
-    Write-Host "`n[$counter/$total] $(Split-Path $url -Leaf)" -ForegroundColor Cyan
-    Download-File $url
+foreach ($j in $jobs) {
+    $j.File = Join-Path $downloads ("{0}_{1}.txt" -f $j.Short, $stamp)
+    @(
+        "YarpLetapStan's Classloader Dump"
+        "Command : jcmd <pid> $($j.Title)"
+        "Date    : $(Get-Date)"
+        "Machine : $env:COMPUTERNAME   User: $env:USERNAME"
+        ("━" * 60)
+    ) -join "`r`n" | Set-Content -Path $j.File -Encoding UTF8
 }
 
-Start-Process explorer.exe $folder
-Write-Host "`n[✓] Finished" -ForegroundColor Green
+function Find-Jcmd($proc) {
+    if ($PSScriptRoot) {
+        $c = Join-Path $PSScriptRoot "jcmd.exe"
+        if (Test-Path $c) { return $c }
+    }
+    try {
+        if ($proc -and $proc.Path) {
+            $c = Join-Path (Split-Path $proc.Path) "jcmd.exe"
+            if (Test-Path $c) { return $c }
+        }
+    } catch {}
+    if ($env:JAVA_HOME) {
+        $c = Join-Path $env:JAVA_HOME "bin\jcmd.exe"
+        if (Test-Path $c) { return $c }
+    }
+    $onPath = Get-Command jcmd.exe -ErrorAction SilentlyContinue
+    if ($onPath) { return $onPath.Source }
+    $roots = @(
+        "C:\Program Files\Eclipse Adoptium",
+        "C:\Program Files\Java",
+        "C:\Program Files\Microsoft",
+        "C:\Program Files\Zulu",
+        "C:\Program Files\Amazon Corretto",
+        "$env:LOCALAPPDATA\Programs\Java"
+    )
+    foreach ($r in $roots) {
+        $hit = Get-ChildItem -Path $r -Filter jcmd.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+    }
+    return $null
+}
+
+function Test-Admin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    (New-Object Security.Principal.WindowsPrincipal $id).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Install-Temurin {
+    if (-not (Test-Admin)) {
+        Write-Host "  [i] Need admin to install the JDK - relaunching elevated..." -ForegroundColor Yellow
+        Start-Process powershell.exe -Verb RunAs -ArgumentList @("-ExecutionPolicy","Bypass","-File","`"$PSCommandPath`"")
+        exit
+    }
+    $msiPath = Join-Path $env:TEMP $MsiName
+    Write-Host "  [i] Downloading Temurin 25 JDK (~180 MB)..." -ForegroundColor Yellow
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $MsiUrl -OutFile $msiPath -UseBasicParsing
+    } catch {
+        Write-Host "  [!] Download failed: $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+    Write-Host "  [i] Installing silently..." -ForegroundColor Yellow
+    Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /qn /norestart" -Wait | Out-Null
+    Remove-Item $msiPath -ErrorAction SilentlyContinue
+    return (Find-Jcmd $null)
+}
+
+$sep = "━" * 111
+Write-Host $sep -ForegroundColor Yellow
+Write-Host "MINECRAFT PROCESS SCANNER" -ForegroundColor Yellow
+Write-Host $sep -ForegroundColor Yellow
+Write-Host ""
+
+$javaProcs = Get-Process -Name javaw, java -ErrorAction SilentlyContinue
+if (-not $javaProcs) {
+    Write-Host "  [!] No javaw/java process found" -ForegroundColor Red
+    Write-Host "  [i] Make sure Minecraft is running`n" -ForegroundColor Yellow
+    foreach ($j in $jobs) { Add-Content $j.File "`r`nNO JAVA PROCESS FOUND - Minecraft was not running." }
+    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown"); exit
+}
+
+Write-Host "  [i] Found $($javaProcs.Count) Java process(es)" -ForegroundColor White
+foreach ($p in $javaProcs) {
+    try {
+        $up = (Get-Date) - $p.StartTime
+        Write-Host "  ┌─ $($p.Name) PID $($p.Id)" -ForegroundColor Green
+        Write-Host "  └─ Uptime: $($up.Hours)h $($up.Minutes)m $($up.Seconds)s" -ForegroundColor DarkGreen
+    } catch {}
+}
+Write-Host ""
+
+$jcmd = Find-Jcmd $javaProcs[0]
+if (-not $jcmd) { Write-Host "  [i] jcmd not found locally" -ForegroundColor Yellow; $jcmd = Install-Temurin }
+if (-not $jcmd) {
+    Write-Host "  [!] Could not obtain jcmd. Aborting." -ForegroundColor Red
+    foreach ($j in $jobs) { Add-Content $j.File "`r`n[!] jcmd unavailable - no diagnostics collected." }
+    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown"); exit
+}
+Write-Host "  [✓] Using jcmd: $jcmd`n" -ForegroundColor Green
+
+Write-Host $sep -ForegroundColor Cyan
+Write-Host "RUNNING CLASSLOADER DUMPS" -ForegroundColor Cyan
+Write-Host $sep -ForegroundColor Cyan
+Write-Host ""
+
+foreach ($j in $jobs) {
+    Add-Content $j.File "`r`nUsing jcmd: $jcmd"
+    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "$($j.Title)" -ForegroundColor White
+    Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Cyan
+
+    foreach ($proc in $javaProcs) {
+        $pidNum   = $proc.Id
+        $procPath = if ($proc.Path) { $proc.Path } else { "(path unavailable)" }
+
+        Add-Content $j.File "`r`n$('━' * 60)"
+        Add-Content $j.File "PROCESS : $($proc.ProcessName)  PID: $pidNum"
+        Add-Content $j.File "EXE     : $procPath"
+        Add-Content $j.File "COMMAND : jcmd $pidNum $($j.Cmd)"
+        Add-Content $j.File ("━" * 60)
+        try {
+            $output = & $jcmd $pidNum $j.Cmd.Split(" ") 2>&1
+            if ($output) { Add-Content $j.File ($output -join "`r`n") } else { Add-Content $j.File "(no output)" }
+            Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "[✓] PID $pidNum dumped" -ForegroundColor Green
+        } catch {
+            Add-Content $j.File "[!] ATTACH FAILED: $($_.Exception.Message)"
+            Add-Content $j.File "    (A cheat that blocks the Attach API can cause this - worth a closer look.)"
+            Write-Host "  ║ " -NoNewline -ForegroundColor Cyan; Write-Host "[!] PID $pidNum attach failed" -ForegroundColor Red
+        }
+    }
+    Add-Content $j.File "`r`n$('━' * 60)`r`nEnd of report."
+    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
+}
+
+Write-Host ("━" * 50) -ForegroundColor Cyan
+Write-Host "  DUMP COMPLETE" -ForegroundColor Cyan
+Write-Host ("━" * 50) -ForegroundColor Cyan
+Write-Host ""
+foreach ($j in $jobs) {
+    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkGray
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Saved  " -NoNewline -ForegroundColor White; Write-Host "$($j.Short).txt" -ForegroundColor Green
+    Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Path   " -NoNewline -ForegroundColor White; Write-Host "$($j.File)" -ForegroundColor DarkGray
+    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor DarkGray
+    Write-Host ""
+}
+Write-Host "  [i] Send BOTH .txt files to the staff member running your SS.`n" -ForegroundColor Cyan
+
+Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
