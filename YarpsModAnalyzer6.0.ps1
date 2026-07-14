@@ -622,10 +622,38 @@ $disallowedMods = @{
     "xeros-minimap"=@{Names=@("Xero's Minimap","Xeros Minimap","xeros-minimap","XerosMinimap","Xero's Minimap Mod")}
     "freecam"=@{Names=@("Freecam","freecam","FreeCam","Free Cam")}
     "health-indicators"=@{Names=@("Health Indicators","health indicators","HealthIndicators","Health Indicators Mod")}
-    "clickcrystals"=@{Names=@("ClickCrystals","clickcrystals","ClickCrystals Mod")}
+    "clickcrystals"=@{Names=@("ClickCrystals","clickcrystals","ClickCrystals Mod","Click Crystals")}
     "mousetweaks"=@{Names=@("Mouse Tweaks","mousetweaks","MouseTweaks")}
     "itemscroller"=@{Names=@("Item Scroller","itemscroller","ItemScroller")}
     "tweakeroo"=@{Names=@("Tweakeroo","tweakeroo")}
+    "kinds-crystal-optimizer"=@{Names=@("Kind's Crystal Optimizer","Kinds Crystal Optimizer","Kind Crystal Optimizer","KindsCrystalOptimizer","KindCrystalOptimizer")}
+    "g1ax-crystal-optimizer"=@{Names=@("G1ax Crystal Optimizer","G1axCrystalOptimizer","G1ax")}
+    "shikarus-crystal-optimizer"=@{Names=@("Shikaru's Crystal Optimizer","Shikarus Crystal Optimizer","ShikaruCrystalOptimizer","ShikarusCrystalOptimizer")}
+    "hcscr"=@{Names=@("HCsCR","HCs Crystal Optimizer")}
+    "hazel-crystal-optimizer"=@{Names=@("Hazel Crystal Optimizer","HazelCrystalOptimizer","Hazel Crystal Optimizer - HCO")}
+    "psychodreams-crystal-optimizer"=@{Names=@("Psychodreams CrystalOptimizer","Psychodreams Crystal Optimizer","PsychodreamsCrystalOptimizer")}
+    "walksys-crystal-optimizer"=@{Names=@("Walksy's Crystal Optimizer","Walksys Crystal Optimizer","WalksyCrystalOptimizer","Walksy Crystal Optimizer")}
+    "no-delay-optimizer"=@{Names=@("No delay Optimizer","NoDelayOptimizer","No Delay Optimizer","nodelayoptimizer")}
+    "safe-crystals"=@{Names=@("Safe Crystals","safecrystals","SafeCrystals","safe crystals")}
+    "nocrystalrefresh"=@{Names=@("NoCrystalRefresh","No Crystal Refresh","nocrystalrefresh")}
+    "psychodreams-antirefreshcrystal"=@{Names=@("Psychodreams Antirefreshcrystal","PsychodreamsAntirefreshcrystal","AntiRefreshCrystal","Anti Refresh Crystal")}
+    "crystal-macro"=@{Names=@("Crystal Macro Mod","Crystal Macro","CrystalMacro","crystalmacro")}
+    "auto-crystal-switcher"=@{Names=@("Auto Crystal Switcher","AutoCrystalSwitcher","autocrystalswitcher")}
+    "kinds-anchor-optimizer"=@{Names=@("Kind's Anchor Optimizer","Kinds Anchor Optimizer","KindsAnchorOptimizer","KindAnchorOptimizer")}
+    "tenites-anchor-optimizer"=@{Names=@("Tenite's anchor optimizer","Tenites anchor optimizer","TenitesAnchorOptimizer","TeniteAnchorOptimizer")}
+    "vixsls-anchor-optimizer"=@{Names=@("Vixsl's Anchor Optimizer","Vixsls Anchor Optimizer","VixslAnchorOptimizer","VixslsAnchorOptimizer")}
+    "diolez-anchor-optimizer"=@{Names=@("DiolezAnchorOptimizer","Diolez Anchor Optimizer","diolezanchoroptimizer")}
+    "dokkos-hotbar-optimizer"=@{Names=@("Dokko's hotbar optimizer","Dokkos hotbar optimizer","DokkosHotbarOptimizer","DokkoHotbarOptimizer")}
+    "bobs-hotbar-optimizer"=@{Names=@("bob's hotbar optimizer","bobs hotbar optimizer","BobsHotbarOptimizer","BobHotbarOptimizer")}
+    "gloryis-keyboard-optimizer"=@{Names=@("Gloryi's Keyboard Optimizer","Gloryis Keyboard Optimizer","GloryiKeyboardOptimizer","GloryisKeyboardOptimizer")}
+    "jellos-pvp-optimizer"=@{Names=@("Jello's pvp optimizer","Jellos pvp optimizer","JellosPvpOptimizer","JelloPvpOptimizer")}
+    "lunartweaks"=@{Names=@("LunarTweaks","Lunar Tweaks","lunartweaks")}
+    "no-shield-delay"=@{Names=@("No Shield Delay","NoShieldDelay","noshielddelay")}
+    "no-mining-cooldown"=@{Names=@("No Mining Cooldown","NoMiningCooldown","nominingcooldown")}
+    "no-jump-delay"=@{Names=@("No Jump Delay Enhanced","No Jump Delay","NoJumpDelay","NoJumpDelayEnhanced")}
+    "lwfh-airplace"=@{Names=@("lwfh Airplace","lwfh","Airplace")}
+    "autototem-catchall"=@{Names=@("AutoTotem","Auto Totem","autototem","auto-totem")}
+    "d-hand"=@{Names=@("D-hand mod","D-hand","DHand","Double Hand Mod")}
 }
 
 $disallowedFound = @()
@@ -636,8 +664,8 @@ foreach ($file in (Get-ChildItem -Path $mods -Filter *.jar)) {
         foreach ($name in $md2.Names) {
             if ($fn -match [regex]::Escape($name.ToLower()) -or $fn -match [regex]::Escape($slug.ToLower()) -or $fn -match [regex]::Escape(($name -replace ' ','').ToLower())) { $hit=$true; break }
         }
-        if (-not $hit -and $ji.ModId -and $ji.ModId.ToLower() -match $slug.ToLower()) { $hit=$true }
-        if (-not $hit -and $ji.Name -and $ji.Name.ToLower() -match $slug.ToLower()) { $hit=$true }
+        if (-not $hit -and $ji.ModId -and $ji.ModId.ToLower() -match [regex]::Escape($slug.ToLower())) { $hit=$true }
+        if (-not $hit -and $ji.Name -and $ji.Name.ToLower() -match [regex]::Escape($slug.ToLower())) { $hit=$true }
         if ($hit) { $disallowedFound += [PSCustomObject]@{ FileName=$file.Name; ModName=$md2.Names[0] }; break }
     }
 }
