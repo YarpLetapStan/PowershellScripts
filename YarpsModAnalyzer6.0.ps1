@@ -454,7 +454,8 @@ $cheatStrings = @(
     "Expl0d3 D3l4y","T0t3m Sl0t","Ch4rge D3l4y","M1ss Ch4nce","Expl0de Sl0t","Expl0d3 Sl0t",
     "N0 Dglwst0ne","Clk Sim","P34rl C4tch3r",
     "4ctiv4tK3y","d4m4geT1ck","sw1tchD3lay","ch4rg3D3l4y","expl0d3D3l4y","t0t3mSl0t",
-    "simulateClicks","Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y"
+    "simulateClicks","Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y",
+    "A.n.c.h.o.r. .M.a.c.r.o","A.u.t.o. .C.r.y.s.t.a.l","A.u.t.o. .M.a.c.e","H.o.v.e.r. .T.o.t.e.m"
 )
 
 $cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -647,6 +648,7 @@ $disallowedMods = @{
     "bobs-hotbar-optimizer"=@{Names=@("bob's hotbar optimizer","bobs hotbar optimizer","BobsHotbarOptimizer","BobHotbarOptimizer")}
     "gloryis-keyboard-optimizer"=@{Names=@("Gloryi's Keyboard Optimizer","Gloryis Keyboard Optimizer","GloryiKeyboardOptimizer","GloryisKeyboardOptimizer")}
     "jellos-pvp-optimizer"=@{Names=@("Jello's pvp optimizer","Jellos pvp optimizer","JellosPvpOptimizer","JelloPvpOptimizer")}
+    "pvp-optimizer"=@{Names=@("PVP Optimizer","pvpoptimizer","PVPOptimizer","pvp optimizer")}
     "lunartweaks"=@{Names=@("LunarTweaks","Lunar Tweaks","lunartweaks")}
     "no-shield-delay"=@{Names=@("No Shield Delay","NoShieldDelay","noshielddelay")}
     "no-mining-cooldown"=@{Names=@("No Mining Cooldown","NoMiningCooldown","nominingcooldown")}
@@ -659,13 +661,17 @@ $disallowedMods = @{
 $disallowedFound = @()
 foreach ($file in (Get-ChildItem -Path $mods -Filter *.jar)) {
     $fn = $file.Name.ToLower(); $ji = Get-Mod-Info-From-Jar $file.FullName
+    $jid = if ($ji.ModId) { $ji.ModId.ToLower() } else { "" }
+    $jnm = if ($ji.Name) { $ji.Name.ToLower() } else { "" }
     foreach ($slug in $disallowedMods.Keys) {
         $md2 = $disallowedMods[$slug]; $hit = $false
+        $slugL = $slug.ToLower(); $slugNoDash = $slugL -replace '-',''
         foreach ($name in $md2.Names) {
-            if ($fn -match [regex]::Escape($name.ToLower()) -or $fn -match [regex]::Escape($slug.ToLower()) -or $fn -match [regex]::Escape(($name -replace ' ','').ToLower())) { $hit=$true; break }
+            $nameL = $name.ToLower(); $nameNoSpace = ($name -replace ' ','').ToLower()
+            if ($fn -match [regex]::Escape($nameL) -or $fn -match [regex]::Escape($nameNoSpace) -or $fn -match [regex]::Escape($slugL) -or $fn -match [regex]::Escape($slugNoDash)) { $hit=$true; break }
+            if ($jid -and ($jid -match [regex]::Escape($nameNoSpace) -or $jid -match [regex]::Escape($slugNoDash) -or $jid -match [regex]::Escape($slugL))) { $hit=$true; break }
+            if ($jnm -and ($jnm -match [regex]::Escape($nameL) -or $jnm -match [regex]::Escape($nameNoSpace) -or $jnm -match [regex]::Escape($slugL))) { $hit=$true; break }
         }
-        if (-not $hit -and $ji.ModId -and $ji.ModId.ToLower() -match [regex]::Escape($slug.ToLower())) { $hit=$true }
-        if (-not $hit -and $ji.Name -and $ji.Name.ToLower() -match [regex]::Escape($slug.ToLower())) { $hit=$true }
         if ($hit) { $disallowedFound += [PSCustomObject]@{ FileName=$file.Name; ModName=$md2.Names[0] }; break }
     }
 }
