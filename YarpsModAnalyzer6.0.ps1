@@ -20,7 +20,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Mod Analyzer V6.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Mod Analyzer V7.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
@@ -63,9 +63,11 @@ if ($javaProcesses.Count -eq 0) {
         "forge.addMods"='-Dforge\.addMods='; "forge.mods"='-Dforge\.mods='; "fml.coreMods.load"='-Dfml\.coreMods\.load='; "forge.coreMods.dir"='-Dforge\.coreMods\.dir='; "forge.modDir"='-Dforge\.modDir='; "forge.modsDirectories"='-Dforge\.modsDirectories='; "fml.customModList"='-Dfml\.customModList='; "forge.disableModScan"='-Dforge\.disableModScan='; "forge.modList"='-Dforge\.modList='; "forge.forceVersion"='-Dforge\.forceVersion='; "forge.disableUpdateCheck"='-Dforge\.disableUpdateCheck='; "forge.logging.mojang.level"='-Dforge\.logging\.mojang\.level='; "forge.mixin.hotSwap"='-Dforge\.mixin\.hotSwap='; "forge.resourcePack"='-Dforge\.resourcePack='; "forge.defaultResourcePack"='-Dforge\.defaultResourcePack='; "forge.texturePacks"='-Dforge\.texturePacks='; "forge.assetIndex"='-Dforge\.assetIndex='; "forge.assetsDir"='-Dforge\.assetsDir=';
         "javaSecurityManager"='-Djava\.security\.manager='; "javaSecurityPolicy"='-Djava\.security\.policy='; "bootClasspath"='-Xbootclasspath'; "systemClassLoader"='-Djava\.system\.class\.loader='; "javaClassPath"='-Djava\.class\.path='; "cp"='-cp\s+["''][^"'';]*\.jar';
         "cheatClientBrand"='-D(client|launcher)\.brand=(Wurst|Aristois|Impact|Kilo|Future|Lambda|Rusher|Konas|Phobos|Salhack|ForgeHax|Mathax|Meteor|Async|Seppuku|Xatz|Wolfram|Huzuni|Jigsaw|Zamorozka|Moon|Rage|Exhibition|Virtue|Novoline|Rekt|Skid|Ares|Abyss|Thunder|Tenacity|Rise|Flux|Gamesense|Intent|Remix|Sight|Vape|Shield|Ghost|Crispy|Inertia)';
+        "javaAgent"='-javaagent:'; "agentLib"='-agentlib:jdwp'; "agentPath"='-agentpath:';
         "optifine"='-Doptifine\.'; "shadersmod"='-Dshaders?\.'; "shaderPack"='-Dshader[sP]ack='; "cheatPattern"='-D(xray|fly|speed|killaura|reach|esp|wallhack|noclip|autoclick|aimbot|triggerbot|antiknockback|nofall|timer|step|fullbright|nightvision|cavefinder)\.'
     }
     $cheatClients = @('Wurst','Aristois','Impact','Kilo','Future','Lambda','Rusher','Konas','Phobos','Salhack','ForgeHax','Mathax','Meteor','Async','Seppuku','Xatz','Wolfram','Huzuni','Jigsaw','Zamorozka','Moon','Rage','Exhibition','Virtue','Novoline','Rekt','Skid','Ares','Abyss','Thunder','Tenacity','Rise','Flux','Gamesense','Intent','Remix','Sight','Vape','Shield','Ghost','Crispy','Inertia')
+    $legitAgents = @('jmxremote','yjp','jrebel','newrelic','jacoco','theseus')
 
     foreach ($proc in $javaProcesses) {
         try {
@@ -84,6 +86,17 @@ if ($javaProcesses.Count -eq 0) {
             foreach ($k in $fabricPatterns.Keys) {
                 if ($k -eq "addOpens" -or $k -eq "addExports") { continue }
                 if ($cmdLine -match $fabricPatterns[$k]) {
+                    if ($k -eq "javaAgent") {
+                        $agentHits = @()
+                        foreach ($m in [regex]::Matches($cmdLine, '-javaagent:([^\s"]+)')) {
+                            $agentName = [System.IO.Path]::GetFileName($m.Groups[1].Value.Trim('"').Trim("'"))
+                            $isLegit = $false
+                            foreach ($la in $legitAgents) { if ($agentName -match $la) { $isLegit = $true; break } }
+                            if (-not $isLegit) { $agentHits += $m.Value }
+                        }
+                        if ($agentHits.Count -eq 0) { continue }
+                        $suspiciousArgs += $agentHits
+                    }
                     $detectedPatterns += $k
                     $suspiciousArgs += ($cmdLine -split '\s+' | Where-Object { $_ -match $fabricPatterns[$k] })
                 }
@@ -101,11 +114,11 @@ if ($javaProcesses.Count -eq 0) {
                 Write-Host "`n  │  Detected Pattern Categories:" -ForegroundColor Yellow
                 $grouped = @{}
                 foreach ($p in $detectedPatterns) {
-                    $t = if ($p -match "^(fabric|forge|javaSecurity|bootClasspath|systemClassLoader|javaClassPath|cp|cheatClient|optifine|shadersmod|shaderPack|cheatPattern|EncodedInjection)") { $matches[1] } else { "other" }
+                    $t = if ($p -match "^(fabric|forge|javaSecurity|bootClasspath|systemClassLoader|javaClassPath|cp|cheatClient|javaAgent|agentLib|agentPath|optifine|shadersmod|shaderPack|cheatPattern|EncodedInjection)") { $matches[1] } else { "other" }
                     if (-not $grouped[$t]) { $grouped[$t] = @() }
                     $grouped[$t] += $p
                 }
-                $typeMap = @{ fabric="Fabric Injection"; forge="Forge Injection"; javaSecurity="Security Bypass"; bootClasspath="Classpath Manipulation"; systemClassLoader="Class Loader"; javaClassPath="Class Path"; cp="Classpath (-cp)"; cheatClient="Cheat Client"; optifine="Optifine/Shaders"; shadersmod="Shader Mod"; shaderPack="Shader Pack"; cheatPattern="Cheat Pattern"; EncodedInjection="Encoded Injection"; other="Other" }
+                $typeMap = @{ fabric="Fabric Injection"; forge="Forge Injection"; javaSecurity="Security Bypass"; bootClasspath="Classpath Manipulation"; systemClassLoader="Class Loader"; javaClassPath="Class Path"; cp="Classpath (-cp)"; cheatClient="Cheat Client"; javaAgent="JVM Agent"; agentLib="JDWP Debug Agent"; agentPath="Native Agent"; optifine="Optifine/Shaders"; shadersmod="Shader Mod"; shaderPack="Shader Pack"; cheatPattern="Cheat Pattern"; EncodedInjection="Encoded Injection"; other="Other" }
                 foreach ($t in $grouped.Keys | Sort-Object) {
                     Write-Host "  │    └─ $($typeMap[$t])" -ForegroundColor White
                     $grouped[$t] | ForEach-Object { Write-Host "  │        • $($_ -replace 'CheatClient-','')" -ForegroundColor Red }
@@ -170,7 +183,7 @@ function Get-Minecraft-Version-From-Mods($modsFolder) {
     }
     Write-Host "Could not auto-detect Minecraft version from mods." -ForegroundColor Yellow
     $v = Read-Host "Enter your Minecraft version (e.g., 1.21, 1.20.1) or press Enter to skip"
-    return if ($v -eq '') { $null } else { $v }
+    if ($v -eq '') { return $null } else { return $v }
 }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -183,7 +196,7 @@ function Get-ZoneIdentifier($p) {
         $raw = Get-Content -Raw -Stream Zone.Identifier $p -ErrorAction SilentlyContinue
         if ($raw -match "HostUrl=(.+)") {
             $url = $matches[1]
-            $src = switch -regex ($url) { "modrinth\.com"{"Modrinth"} "curseforge\.com"{"CurseForge"} "github\.com"{"GitHub"} "discord"{"Discord"} default{"Other"} }
+            $src = switch -regex ($url) { "modrinth\.com"{"Modrinth"} "curseforge\.com"{"CurseForge"} "github\.com"{"GitHub"} "discord"{"Discord"} "mediafire\.com"{"MediaFire"} "dropbox\.com"{"Dropbox"} "drive\.google\.com"{"Google Drive"} "mega\.nz|mega\.co\.nz"{"MEGA"} "anydesk\.com"{"AnyDesk"} "doomsdayclient\.com"{"DoomsdayClient"} "prestigeclient\.vip"{"PrestigeClient"} "198macros\.com"{"198Macros"} "dqrkis\.xyz"{"Dqrkis"} default{"Other"} }
             return @{ Source=$src; URL=$url; IsModrinth=$url -match "modrinth\.com" }
         }
     } catch {}
@@ -271,9 +284,18 @@ function Build-ModrinthResult($proj, $ver, $versions, $byHash=$false, $matchType
 }
 
 function Get-ModrinthVersions($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id/version" -UseBasicParsing }
-function Get-ModrinthProject($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing }
+function Get-ModrinthProject($id) {
+    $key = [string]$id
+    if ($projectCache.ContainsKey($key)) { return $projectCache[$key] }
+    $p = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing
+    if ($p.id) { $projectCache[[string]$p.id] = $p }
+    if ($p.slug) { $projectCache[[string]$p.slug] = $p }
+    $projectCache[$key] = $p
+    return $p
+}
 
 $modrinthCache = @{}
+$projectCache = @{}
 
 function Fetch-Modrinth-By-Hash($hash) {
     if ($modrinthCache.ContainsKey("hash:$hash")) { return $modrinthCache["hash:$hash"] }
@@ -285,7 +307,7 @@ function Fetch-Modrinth-By-Hash($hash) {
             $result = @{ Name=$proj.title; Slug=$proj.slug; ExpectedSize=$resp.files[0].size; VersionNumber=$resp.version_number
                          FileName=$resp.files[0].filename; ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($resp.id)"
                          FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
-                         LoaderType=if ($resp.loaders -contains "fabric"){"Fabric"} elseif ($resp.loaders -contains "forge"){"Forge"} else{"Unknown"} }
+                         LoaderType=$(if ($resp.loaders -contains "fabric"){"Fabric"} elseif ($resp.loaders -contains "forge"){"Forge"} else{"Unknown"}) }
         }
     } catch {}
     $modrinthCache["hash:$hash"] = $result
@@ -296,7 +318,7 @@ function Fetch-By-ProjectId($id, $version, $preferredLoader) {
     try {
         $proj = Get-ModrinthProject $id; $versions = Get-ModrinthVersions $id
         $matched = Find-Closest-Version $version $versions $preferredLoader $minecraftVersion
-        if ($matched) { return Build-ModrinthResult $proj $matched $versions -matchType (if ($matched.version_number -eq $version){"Exact Version"} else {"Closest Version"}) }
+        if ($matched) { return Build-ModrinthResult $proj $matched $versions -matchType $(if ($matched.version_number -eq $version){"Exact Version"} else {"Closest Version"}) }
         $fallback = $versions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) } | Select-Object -First 1
         if (-not $fallback) { $fallback = $versions[0] }
         if ($fallback) { return Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version" }
@@ -337,7 +359,7 @@ function Fetch-Modrinth-By-Filename($filename, $preferredLoader="Fabric") {
             $exactFile = $versions | ForEach-Object { $v=$_; $_.files | Where-Object { $_.filename -eq $clean -or $_.filename -eq $filename } | ForEach-Object { @{ver=$v;file=$_} } } | Select-Object -First 1
             if ($exactFile) { $r = Build-ModrinthResult $proj $exactFile.ver $versions -matchType "Exact Filename"; $modrinthCache[$cacheKey] = $r; return $r }
             $matched = Find-Closest-Version $localVer $versions $preferredLoader $minecraftVersion
-            if ($matched) { $r = Build-ModrinthResult $proj $matched $versions -matchType (if ($matched.version_number -eq $localVer){"Exact Version"} else{"Closest Version"}); $modrinthCache[$cacheKey] = $r; return $r }
+            if ($matched) { $r = Build-ModrinthResult $proj $matched $versions -matchType $(if ($matched.version_number -eq $localVer){"Exact Version"} else{"Closest Version"}); $modrinthCache[$cacheKey] = $r; return $r }
             $fallback = $versions | Where-Object { ($_.loaders -contains $preferredLoader.ToLower()) -and ((-not $minecraftVersion) -or ($_.game_versions -contains $minecraftVersion)) } | Select-Object -First 1
             if (-not $fallback) { $fallback = $versions[0] }
             if ($fallback) { $r = Build-ModrinthResult $proj $fallback $versions -matchType "Latest Version"; $modrinthCache[$cacheKey] = $r; return $r }
@@ -369,14 +391,30 @@ function Invoke-BulkHashLookup($jarFiles) {
         $hashMap[$hash] = $file
     }
 
-    $bulkResults = @{}
     try {
         $body = @{ hashes = @($hashMap.Keys); algorithm = "sha1" } | ConvertTo-Json
         $raw = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_files" -Method POST -ContentType "application/json" -Body $body -UseBasicParsing
+
+        $versionsByHash = @{}
+        $projectIds = [System.Collections.Generic.HashSet[string]]::new()
         foreach ($prop in $raw.PSObject.Properties) {
-            $hash = $prop.Name
-            $ver  = $prop.Value
-            $bulkResults[$hash] = $ver
+            $versionsByHash[$prop.Name] = $prop.Value
+            if ($prop.Value.project_id) { [void]$projectIds.Add([string]$prop.Value.project_id) }
+        }
+
+        if ($projectIds.Count -gt 0) {
+            try {
+                $idsJson = '[' + ((@($projectIds) | ForEach-Object { '"' + $_ + '"' }) -join ',') + ']'
+                $projects = Invoke-RestMethod -Uri ("https://api.modrinth.com/v2/projects?ids=" + [uri]::EscapeDataString($idsJson)) -UseBasicParsing
+                foreach ($p in $projects) {
+                    if ($p.id) { $projectCache[[string]$p.id] = $p }
+                    if ($p.slug) { $projectCache[[string]$p.slug] = $p }
+                }
+            } catch {}
+        }
+
+        foreach ($hash in $versionsByHash.Keys) {
+            $ver = $versionsByHash[$hash]
             try {
                 $proj = Get-ModrinthProject $ver.project_id
                 $modrinthCache["hash:$hash"] = @{
@@ -384,11 +422,10 @@ function Invoke-BulkHashLookup($jarFiles) {
                     VersionNumber=$ver.version_number; FileName=$ver.files[0].filename
                     ModrinthUrl="https://modrinth.com/mod/$($proj.slug)/version/$($ver.id)"
                     FoundByHash=$true; ExactMatch=$true; IsLatestVersion=$false; MatchType="Exact Hash"
-                    LoaderType=if ($ver.loaders -contains "fabric"){"Fabric"} elseif ($ver.loaders -contains "forge"){"Forge"} else{"Unknown"}
+                    LoaderType=$(if ($ver.loaders -contains "fabric"){"Fabric"} elseif ($ver.loaders -contains "forge"){"Forge"} else{"Unknown"})
                 }
             } catch {}
         }
-
     } catch {
         Write-Host "Bulk lookup failed, falling back to individual lookups: $($_.Exception.Message)`n" -ForegroundColor DarkYellow
     }
@@ -396,73 +433,228 @@ function Invoke-BulkHashLookup($jarFiles) {
 }
 
 $cheatStrings = @(
-    "clickSimulation","switchDelay","switchChance","placeChance","glowstoneDelay","glowstoneChance","explodeDelay","explodeChance","explodeSlot","antiWeakness","damageTick","breakChance","breakDelay",
-    "stopOnCrystal","processCrystal","swapToWeapon","isObsidianOrBedrock","isValidCrystalPosition","processAnchorPvP","isValidAnchorPosition",
-    "AutoCrystal","autocrystal","auto crystal","AutoHitCrystal","autohitcrystal","dontPlaceCrystal","dontBreakCrystal","canPlaceCrystalServer","autoCrystalPlaceClock",
-    "AutoAnchor","autoanchor","auto anchor","DoubleAnchor","safe anchor","safeanchor","anchortweaks","anchor macro",
-    "AutoTotem","autototem","auto totem","InventoryTotem","inventorytotem","HoverTotem","hover totem","legittotem",
-    "AutoPot","autopot","auto pot","speedPotSlot","strengthPotSlot",
-    "AutoArmor","autoarmor","auto armor","preventSwordBlockBreaking","preventSwordBlockAttack",
-    "AutoDoubleHand","autodoublehand","auto double hand","AutoClicker",
-    "AimAssist","aimassist","aim assist","triggerbot","trigger bot","Sw1tch","D3l4y","M1n","Pl4ce","D3l4y","M1n",
-    "T0t3m","Sl0t","Expl0de","Sl0t","Aut0","Cry5t4l","C11ckGu1","obsPos","crystalslot",
-    "shieldbreaker","shield breaker","axespam","axe spam",
-    "findKnockbackSword","attackRegisteredThisClick",
-    "FakeLag","pingspoof","ping spoof","freecam","Freecam","FakeInv",
-    "pushOutOfBlocks","onPushOutOfBlocks","MAX_ESPERA_TICKS","esperandoCristal","posCristal","buscarCristal","kanPlaceKrystalServer",
-    "modifyDecrementAmount","preventSwordFromBlockAttack","preventSwordFromBlockBreaking","shouldBlockBlockHit","lwfh",
-    "webmacro","web macro","JumpReset","Donut",
-    "setBlockBreakingCooldown","getBlockBreakingCooldown","setItemUseCooldown",
-    "onBlockBreaking","invokeDoAttack","invokeDoItemUse",
-    "setSelectedSlot","getSelectedSlot","swapBackToOriginalSlot",
-    "blockBreakingCooldown","invokeOnMouseButton",
-    "onSwapLastAttackedTicksReset","getVisualAttackCooldownProgressPerTick",
-    "getHandSwingDuration","onBeginRenderTick",
-    "PlayerMoveC2SPacketAccessor","redirectSelectedSlot","hookCancelBlockBreaking",
-    "EndCrystalItemMixin","endcrystalitemmixin","WalksyCrystalOptimizerMod",
-    "arrayOfString","lvstrng","dqrkis","StringObfuscator","POT_CHEATS",
-    "onShouldRenderBlockOutline","predictCrystals","noOffhandTotem","getNearByCrystals",
-    "slotExplode","needToPlaceRails","findTotemSlot","activateOnRightClick",
-    "crystalPlaceClock","isDeadBodyNearby","CrystalTwiceClock",
-    "mainHandStack","attackInAir","attackOnJump","onDestruct",
-    "getGlowstoneChance","isAutoCharge","getPlaceChance","getSwitchDelay",
-    "getGlowstoneDelay","getExplodeDelay","getExplodeSlotIndex",
-    "getPlaceDelayTicks","getBreakDelayTicks","getBreakChance",
-    "isSpawnersEnabled","isShulkersEnabled","onModuleDisabled",
-    "switchToBestTool","switchToBestWeapon",
-    "isLootProtect","getMinHunger","isTracersEnabled",
-    "getSelectedBlocks","isChestsEnabled","4ctivat K3y","D4m4ge T1ck","Sw1tch D3lay","Ch4rg3 D3l4y",
-    "inventoryToMenuSlot","throwPearl","isLeftHoldOnly",
-    "Automatically switches to sword when hitting with totem",
-    "Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions",
-    "selfdestruct","self destruct","CwskKkUfHQYB","HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk",
-    "KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a","Oh0yWR0MCA",
-    "ＡｕｔｏＣｒｙｓｔａｌ","Ａｕｔｏ Ｃｒｙｓｔａｌ","ＡｕｔｏＨｉｔＣｒｙｓｔａｌ","Ａ．ｕｔｏ Ｃｒｙｓｔａｌ","Ａ．ｕｔｏＣｒｙｓｔａｌＬＶ２","Ａ．ｕｔｏ Ｈｉｔ Ｃｒｙｓｔａｌ",
-    "ＡｕｔｏＡｎｃｈｏｒ","Ａｕｔｏ Ａｎｃｈｏｒ","ＤｏｕｂｌｅＡｎｃｈｏｒ","Ｄｏｕｂｌｅ Ａｎｃｈｏｒ","ＳａｆｅＡｎｃｈｏｒ","Ｓａｆｅ Ａｎｃｈｏｒ",
-    "Ａｎｃｈｏｒ Ｍａｃｒｏ","Ａ．ｎｃｈｏｒ Ｍａｃｒｏ","Ａ．ｎｃｈｏｒ Ｍａｃｒｏ Ｖ２","Ｄ．ｏｕｂｌｅ Ａｎｃｈｏｒ","Ｓ．ａｆｅＡｎｃｈｏｒ",
-    "ＡｕｔｏＴｏｔｅｍ","Ａｕｔｏ Ｔｏｔｅｍ","Ａｕｔｏ Ｔｏｔｅｍ Ｈｉｔ","Ａ．ｕｔｏ Ｔｏｔｅｍ Ｈｉｔ","ＨｏｖｅｒＴｏｔｅｍ","Ｈｏｖｅｒ Ｔｏｔｅｍ",
-    "ＩｎｖｅｎｔｏｒｙＴｏｔｅｍ","Ｈ．ｏｖｅｒ Ｔｏｔｅｍ","Ａ．ｕｔｏ Ｉｎｖｅｎｔｏｒｙ Ｔｏｔｅｍ","Ｆ．ｏｒｃｅ Ｔｏｔｅｍ","Ｔ．ｏｔｅｍ Ｆｉｒｓｔ",
-    "Ｔ．ｏｔｅｍ Ｏｆｆｈａｎｄ","Ｔ．ｏｔｅｍ Ｓｌｏｔ","Ｈ．ｏｖｅｒ","Ｗ．ｏｒｋ Ｗｉｔｈ Ｔｏｔｅｍ","ＡｕｔｏＤｏｕｂｌｅＨａｎｄ","Ａｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ","Ａ．ｕｔｏ Ｄｏｕｂｌｅ Ｈａｎｄ",
-    "Ａ．ｃｔｉｖａｔｅ Ｋｅｙ","Ｗ．ｈｉｌｅ Ｕｓｅ","Ｓ．ｔｏｐ ｏｎ Ｋｉｌｌ","Ｃ．ｌｉｃｋ Ｓｉｍｕｌａｔｉｏｎ","Ｓ．ｗｉｔｃｈ Ｄｅｌａｙ",
-    "Ｓ．ｗｔｃｈ Ｃｈａｎｃｅ","Ｐ．ｌａｃｅ Ｃｈａｎｃｅ","Ｇ．ｌｏｗｓｔｏｎｅ Ｄｅｌａｙ","Ｇ．ｌｏｗｓｔｏｎｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｄｅｌａｙ",
-    "Ｅ．ｘｐｌｏｄｅ Ｃｈａｎｃｅ","Ｅ．ｘｐｌｏｄｅ Ｓｌｏｔ","Ｏ．ｎｌｙ Ｏｗｎ","Ｏ．ｎｌｙ Ｃｈａｒｇｅ","Ｒ．ａｎｄｏｍ Ｇｌｏｗｓｔｏｎｅ",
-    "pedroisgay","krloader",
-    "Aut0Cryst3l","Aut0 Cryst3l","Aut0H1tCryst3l","Aut0 H1t Cryst3l","K3yAHC",
-    "Aut0 H1t Cryst4l M4cr0","Anch0r Macr0","Anch0r M4cr0","D0uble4nch0r","D0ubl3 4nch0r",
-    "S4fe4nch0r","S4fe Anch0r","4nch0r M4cr0",
-    "Aut0 T0t3m","L3g1t R3t0t3m","Aut0 D0ubl3 H4nd","Aut0H1tCyst4l","Aut0 Stun","Pr3Ch3ck",
-    "Expl0d3 D3l4y","T0t3m Sl0t","Ch4rge D3l4y","M1ss Ch4nce","Expl0de Sl0t","Expl0d3 Sl0t",
-    "N0 Dglwst0ne","Clk Sim","P34rl C4tch3r",
-    "4ctiv4tK3y","d4m4geT1ck","sw1tchD3lay","ch4rg3D3l4y","expl0d3D3l4y","t0t3mSl0t",
-    "simulateClicks","Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y",
-    "A.n.c.h.o.r. .M.a.c.r.o","A.u.t.o. .C.r.y.s.t.a.l","A.u.t.o. .M.a.c.e","H.o.v.e.r. .T.o.t.e.m"
+    "isObsidianOrBedrock","isValidCrystalPosition","processAnchorPvP","isValidAnchorPosition","speedPotSlot","strengthPotSlot","preventSwordBlockBreaking","preventSwordBlockAttack",
+    "Sw1tch","D3l4y","M1n","Pl4ce","T0t3m","Sl0t","Expl0de","Aut0",
+    "Cry5t4l","C11ckGu1","obsPos","crystalslot","findKnockbackSword","attackRegisteredThisClick","freecam","pushOutOfBlocks",
+    "onPushOutOfBlocks","MAX_ESPERA_TICKS","posCristal","modifyDecrementAmount","preventSwordFromBlockAttack","preventSwordFromBlockBreaking","shouldBlockBlockHit","lwfh",
+    "Donut","setBlockBreakingCooldown","getBlockBreakingCooldown","setItemUseCooldown","onBlockBreaking","invokeDoAttack","invokeDoItemUse","setSelectedSlot",
+    "getSelectedSlot","swapBackToOriginalSlot","blockBreakingCooldown","invokeOnMouseButton","onSwapLastAttackedTicksReset","getVisualAttackCooldownProgressPerTick","getHandSwingDuration","onBeginRenderTick",
+    "PlayerMoveC2SPacketAccessor","redirectSelectedSlot","hookCancelBlockBreaking","EndCrystalItemMixin","arrayOfString","lvstrng","dqrkis","StringObfuscator",
+    "POT_CHEATS","onShouldRenderBlockOutline","predictCrystals","noOffhandTotem","getNearByCrystals","slotExplode","needToPlaceRails","findTotemSlot",
+    "activateOnRightClick","crystalPlaceClock","isDeadBodyNearby","CrystalTwiceClock","mainHandStack","attackInAir","attackOnJump","onDestruct",
+    "getGlowstoneChance","isAutoCharge","getPlaceChance","getSwitchDelay","getGlowstoneDelay","getExplodeDelay","getExplodeSlotIndex","getPlaceDelayTicks",
+    "getBreakDelayTicks","getBreakChance","isSpawnersEnabled","isShulkersEnabled","onModuleDisabled","switchToBestTool","switchToBestWeapon","isLootProtect",
+    "getMinHunger","isTracersEnabled","getSelectedBlocks","isChestsEnabled","4ctivat K3y","D4m4ge T1ck","Sw1tch D3lay","Ch4rg3 D3l4y",
+    "inventoryToMenuSlot","throwPearl","isLeftHoldOnly","Automatically switches to sword when hitting with totem","Failed to switch to mace after axe!","Breaking shield with axe...","TrilliumSolutions","CwskKkUfHQYB",
+    "HgsCDQ49KkUfHQYB","DhsnbQ0LDg0MDA","OhYHBQcOHw","EgQKDiUqRR8WChk","KjoFWRcEAx0M","Hx0GAVkcChwdDA","HSw7RQQIAQQ","BR0sFBcOGg4a",
+    "Oh0yWR0MCA","pedroisgay","krloader","K3yAHC","Aut0 H1t Cryst4l M4cr0","D0ubl3 4nch0r","Aut0H1tCyst4l","Pr3Ch3ck",
+    "Expl0d3 D3l4y","T0t3m Sl0t","Ch4rge D3l4y","M1ss Ch4nce","Expl0de Sl0t","Expl0d3 Sl0t","N0 Dglwst0ne","Clk Sim",
+    "P34rl C4tch3r","4ctiv4tK3y","d4m4geT1ck","sw1tchD3lay","ch4rg3D3l4y","expl0d3D3l4y","t0t3mSl0t","simulateClicks",
+    "Aut0 XP","Thr0w3 XP f4st","W1nd Ch4rg3","P34rl","4c7 K3y"
 )
 
 $cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
 
+$strongNames = @(
+    "AutoCrystal","AutoHitCrystal","CrystalAura","CrystalMacro","AutoCrystalPlaceClock",
+    "DontPlaceCrystal","DontBreakCrystal","CanPlaceCrystalServer","KanPlaceKrystalServer",
+    "EsperandoCristal","BuscarCristal",
+    "clickSimulation","switchDelay","switchChance","placeChance","glowstoneDelay","glowstoneChance","explodeDelay","explodeChance",
+    "explodeSlot","antiWeakness","damageTick","breakChance","breakDelay","stopOnCrystal","processCrystal","swapToWeapon",
+    "AutoAnchor","DoubleAnchor","SafeAnchor","AirAnchor","AnchorMacro","AnchorAura",
+    "AnchorTweaks","AnchorAction",
+    "AutoTotem","HoverTotem","InventoryTotem","LegitTotem","LegitReTotem","ForceTotem",
+    "OffhandTotem","TotemSwitch","ReOffhandTotem",
+    "AutoPot","AutoPotRefill","AutoNethPot","AutoArmor","AutoDoubleHand","AutoClicker",
+    "AutoFirework","AutoEat","AutoMine","AutoWeb","AntiWeb","WebMacro",
+    "AutoMace","MaceSwap","SpearSwap","StunSlam","Macro198","AutoDtap",
+    "AimAssist","TriggerBot","SilentAim","AimLock","KillAura","ClickAura","MultiAura",
+    "LegitAura","BowAimbot","ShieldDisabler","ShieldBreaker","AxeSpam",
+    "FakeLag","PingSpoof","FakeInv","FakePunch","PackSpoof","AntiKnockback","NoKnockback",
+    "ElytraSwap","KeyPearl","LootYeeter","AutoBreach","FastPlace","JumpReset","PopSwitch",
+    "SprintReset","ChestSteal","BaseFinder","StashFinder","SelfDestruct",
+    "WalksyOptimizer","WalskyOptimizer","WalksyCrystalOptimizerMod",
+    "AuthBypass","LicenseCheckMixin","ObfuscatedAuth","GrimBypass","GrimDisabler",
+    "GrimVelocity","VulcanBypass","MatrixBypass","WatchdogBypass","IntaveBypass",
+    "VerusDisabler","AACBypass",
+    "DqrkisClient","NovaClient","DoomsdayClient","PrestigeClient","VapeClient","VapeLite",
+    "LiquidBounce","MeteorClient","RusherHack","ImpactClient","FutureClient",
+    "CatleanClient","AsteriaClient","XenonClient","GypsyClient",
+    "Aut0Cryst3l","Aut0Cryst4l","Aut0H1tCryst3l","Aut0H1tCryst4l","Anch0rMacr0",
+    "Anch0rM4cr0","4nch0rM4cr0","D0uble4nch0r","D0ubl3Anch0r","S4feAnch0r","S4fe4nch0r",
+    "Aut0T0t3m","H0verT0t3m","L3g1tR3t0t3m","Aut0D0ubl3H4nd","Aut0Stun"
+)
+
+$strongNeedleMap = @{}
+foreach ($name in $strongNames) {
+    $k = ($name -replace '[^a-zA-Z0-9]','').ToLowerInvariant()
+    if ($k.Length -ge 5 -and -not $strongNeedleMap.ContainsKey($k)) { $strongNeedleMap[$k] = $name }
+}
+$strongKeysByLen = @($strongNeedleMap.Keys | Sort-Object -Property Length -Descending)
+
+$fwLabelMap = @{}
+foreach ($s in $cheatStrings) {
+    if ($s -notmatch '[a-zA-Z]') { continue }
+    $k = ($s -replace '[^a-zA-Z0-9]','').ToLowerInvariant()
+    if ($k.Length -ge 5 -and -not $fwLabelMap.ContainsKey($k) -and -not $strongNeedleMap.ContainsKey($k)) { $fwLabelMap[$k] = $s }
+}
+$fwLabelKeysByLen = @($fwLabelMap.Keys | Sort-Object -Property Length -Descending)
+
+$scanSource = @'
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+public static class YarpScan
+{
+    public static string[] ExactNeedles = new string[0];
+    public static string[] StrongKeys = new string[0];
+    public static string[] StrongNames = new string[0];
+    public static string[] ObfNeedles = new string[0];
+    public static string[] ObfNames = new string[0];
+
+    public static string Normalize(string text)
+    {
+        StringBuilder sb = new StringBuilder(text.Length);
+        bool boundary = true;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            int code = (int)c;
+            if (code >= 0xFF01 && code <= 0xFF5E) { c = (char)(code - 0xFEE0); }
+            else if (code == 0x3000) { c = ' '; }
+            if (c == ' ' || c == '\t' || c == '.' || c == '-' || c == '_') { continue; }
+            if (c >= 'A' && c <= 'Z') { sb.Append((char)(c + 32)); boundary = false; }
+            else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) { sb.Append(c); boundary = false; }
+            else { if (!boundary) { sb.Append('\n'); boundary = true; } }
+        }
+        return sb.ToString();
+    }
+
+    public static List<string> Scan(string content, List<string> fwRuns, List<string> obfHits)
+    {
+        List<string> found = new List<string>();
+        for (int i = 0; i < ExactNeedles.Length; i++)
+        {
+            if (content.IndexOf(ExactNeedles[i], StringComparison.OrdinalIgnoreCase) >= 0) { found.Add(ExactNeedles[i]); }
+        }
+        for (int i = 0; i < ObfNeedles.Length; i++)
+        {
+            if (!obfHits.Contains(ObfNames[i]) && content.IndexOf(ObfNeedles[i], StringComparison.Ordinal) >= 0) { obfHits.Add(ObfNames[i]); }
+        }
+        string norm = Normalize(content);
+        for (int i = 0; i < StrongKeys.Length; i++)
+        {
+            if (norm.IndexOf(StrongKeys[i], StringComparison.Ordinal) >= 0) { found.Add(StrongNames[i]); }
+        }
+        int runStart = -1; int runEndFw = -1; int fwCount = 0;
+        for (int i = 0; i < content.Length; i++)
+        {
+            char c = content[i];
+            int code = (int)c;
+            bool isFw = (code >= 0xFF01 && code <= 0xFF5E) || code == 0x3000;
+            if (isFw)
+            {
+                if (runStart < 0) { runStart = i; fwCount = 0; }
+                runEndFw = i; fwCount++;
+            }
+            else if (runStart >= 0 && i == runEndFw + 1 && (c == ' ' || c == '.' || c == '-' || c == '_'))
+            {
+            }
+            else
+            {
+                if (runStart >= 0 && fwCount >= 2) { fwRuns.Add(content.Substring(runStart, runEndFw - runStart + 1)); }
+                runStart = -1; runEndFw = -1; fwCount = 0;
+            }
+        }
+        if (runStart >= 0 && fwCount >= 2) { fwRuns.Add(content.Substring(runStart, runEndFw - runStart + 1)); }
+        return found;
+    }
+}
+'@
+if (-not ("YarpScan" -as [type])) { Add-Type -TypeDefinition $scanSource }
+
+$obfSignatures = @(
+    @{Sig="dev/skidfuscator";       Name="Skidfuscator"},
+    @{Sig="skidfuscator.dev";       Name="Skidfuscator"},
+    @{Sig="Skidfuscator";           Name="Skidfuscator"},
+    @{Sig="dev/paramorphism";       Name="Paramorphism"},
+    @{Sig="paramorphism-";          Name="Paramorphism"},
+    @{Sig="Paramorphism";           Name="Paramorphism"},
+    @{Sig="me/itzsomebody/radon";   Name="Radon"},
+    @{Sig="ItzSomebody/Radon";      Name="Radon"},
+    @{Sig="Radon Obfuscator";       Name="Radon"},
+    @{Sig="dev/sim0n/caesium";      Name="Caesium"},
+    @{Sig="sim0n/Caesium";          Name="Caesium"},
+    @{Sig="Caesium Obfuscator";     Name="Caesium"},
+    @{Sig="vimasig/Bozar";          Name="Bozar"},
+    @{Sig="com/bozar";              Name="Bozar"},
+    @{Sig="Bozar Obfuscator";       Name="Bozar"},
+    @{Sig="branchlock.dev";         Name="Branchlock"},
+    @{Sig="Branchlock";             Name="Branchlock"},
+    @{Sig="com/binscure";           Name="Binscure"},
+    @{Sig="Binscure";               Name="Binscure"},
+    @{Sig="superblaubeere27";       Name="SuperBlaubeere27"},
+    @{Sig="superblaubeere";         Name="SuperBlaubeere27"},
+    @{Sig="Qprotect";               Name="Qprotect"},
+    @{Sig="QProtect";               Name="Qprotect"},
+    @{Sig="ZKMFLOW";                Name="Zelix KlassMaster"},
+    @{Sig="ZelixKlassMaster";       Name="Zelix KlassMaster"},
+    @{Sig="com/zelix";              Name="Zelix KlassMaster"},
+    @{Sig="StringerJavaObfuscator"; Name="Stringer"},
+    @{Sig="com/licel/stringer";     Name="Stringer"},
+    @{Sig="jnic.obf";               Name="JNIC"},
+    @{Sig="jnic-obfuscator";        Name="JNIC"},
+    @{Sig="ScutiObf";               Name="Scuti"},
+    @{Sig="scuti.obf";              Name="Scuti"},
+    @{Sig="SmokeObf";               Name="Smoke"},
+    @{Sig="smoke.obf";              Name="Smoke"}
+)
+
+[YarpScan]::ExactNeedles = [string[]]@($cheatStringSet)
+[YarpScan]::StrongKeys   = [string[]]$strongKeysByLen
+[YarpScan]::StrongNames  = [string[]]@($strongKeysByLen | ForEach-Object { $strongNeedleMap[$_] })
+[YarpScan]::ObfNeedles   = [string[]]@($obfSignatures | ForEach-Object { $_.Sig })
+[YarpScan]::ObfNames     = [string[]]@($obfSignatures | ForEach-Object { $_.Name })
+
+function Resolve-FullwidthRuns {
+    param($Runs)
+    $resolved = [System.Collections.Generic.HashSet[string]]::new()
+    $unknown  = @{}
+
+    foreach ($run in $Runs) {
+        $norm = ([YarpScan]::Normalize($run)) -replace "`n",''
+        if ($norm.Length -lt 3) { continue }
+
+        $hit = $null
+        foreach ($k in $strongKeysByLen) { if ($norm.Contains($k)) { $hit = $strongNeedleMap[$k]; break } }
+        if (-not $hit) {
+            foreach ($k in $fwLabelKeysByLen) { if ($norm.Contains($k)) { $hit = $fwLabelMap[$k]; break } }
+        }
+        if ($hit) { [void]$resolved.Add($hit); continue }
+        if ($norm.Length -ge 6 -and -not $unknown.ContainsKey($norm)) { $unknown[$norm] = $run }
+    }
+
+    $final = [System.Collections.Generic.HashSet[string]]::new()
+    $keys  = @($unknown.Keys)
+    foreach ($k in $keys) {
+        $redundant = $false
+        foreach ($other in $keys) {
+            if ($k.Length -lt $other.Length -and $other.Contains($k)) { $redundant = $true; break }
+        }
+        if (-not $redundant) { [void]$final.Add($unknown[$k]) }
+    }
+
+    return @{ Resolved = $resolved; Unknown = $final }
+}
+
+
 function Check-Strings($filePath) {
-    $found = [System.Collections.Generic.HashSet[string]]::new()
+    $found   = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $fwRuns  = [System.Collections.Generic.List[string]]::new()
+    $obfHits = [System.Collections.Generic.List[string]]::new()
+
     try {
         $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
         foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
@@ -471,27 +663,31 @@ function Check-Strings($filePath) {
                     $ms = New-Object System.IO.MemoryStream; $entry.Open().CopyTo($ms); $ms.Position=0
                     $nz = New-Object System.IO.Compression.ZipArchive($ms, [System.IO.Compression.ZipArchiveMode]::Read)
                     foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
-                        $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8)
-                        $nc = $r.ReadToEnd(); $r.Close()
-                        foreach ($s in $cheatStringSet) {
-                            if ($nc.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
-                        }
+                        try {
+                            $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8)
+                            foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns, $obfHits)) { [void]$found.Add($h) }
+                            $r.Close()
+                        } catch {}
                     }
+                    $nz.Dispose()
                 } catch {}
                 continue
             }
             try {
                 $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-                $ec = $r.ReadToEnd(); $r.Close()
-                foreach ($s in $cheatStringSet) {
-                    if ($ec.IndexOf($s, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { [void]$found.Add($s) }
-                }
+                foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns, $obfHits)) { [void]$found.Add($h) }
+                $r.Close()
             } catch {}
         }
         $zip.Dispose()
     } catch {}
-    return $found
+
+    $fw = Resolve-FullwidthRuns $fwRuns
+    foreach ($r in $fw.Resolved) { [void]$found.Add($r) }
+
+    return @{ Strings = $found; Fullwidth = $fw.Unknown; Obfuscators = $obfHits }
 }
+
 
 $verifiedMods = [System.Collections.Generic.List[object]]::new()
 $unknownMods  = [System.Collections.Generic.List[object]]::new()
@@ -519,7 +715,7 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
 
     $entry = [PSCustomObject]@{
         ModName=$md.Name; FileName=$file.Name; Version=$md.VersionNumber; ExpectedSize=$md.ExpectedSize
-        ExpectedSizeKB=if($md.ExpectedSize -gt 0){[math]::Round($md.ExpectedSize/1KB,2)} else {0}
+        ExpectedSizeKB=$(if($md.ExpectedSize -gt 0){[math]::Round($md.ExpectedSize/1KB,2)} else {0})
         ActualSize=$actualSize; ActualSizeKB=$actualSizeKB; SizeDiff=($actualSize - $md.ExpectedSize)
         SizeDiffKB=[math]::Round(($actualSize - $md.ExpectedSize)/1KB,2); DownloadSource=$zone.Source; SourceURL=$zone.URL
         IsModrinthDownload=$zone.IsModrinth; ModrinthUrl=$md.ModrinthUrl; IsVerified=($md.Name -ne "")
@@ -532,6 +728,7 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     if ($md.Name) {
         $verifiedMods.Add($entry); $allModsInfo.Add($entry)
         if ($md.ExpectedSize -gt 0 -and $actualSize -ne $md.ExpectedSize -and [math]::Abs($actualSize - $md.ExpectedSize) -gt 1024) {
+            $entry | Add-Member -NotePropertyName TamperReasons -NotePropertyValue @("File size does not match the Modrinth release ($($md.MatchType))") -Force
             $tamperedMods.Add($entry)
             $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $file.Name })
         }
@@ -569,7 +766,7 @@ try {
         $counter++
         Write-Host "`r[$($spinner[$counter % 4])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
 
-        $s1=0; $s2=0; $tc=0; $obf=0; $num=0; $uni=0; $nov=0; $gib=0; $spkg=0
+        $s1=0; $s2=0; $tc=0; $obf=0; $num=0; $uni=0; $nov=0; $gib=0; $spkg=0; $conf=0
         try {
             $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
             foreach ($entry in ($zip.Entries | Where-Object { $_.FullName -match '\.class$' })) {
@@ -580,6 +777,7 @@ try {
                 if ($cn -match '^[a-zA-Z]{2}$') { $s2++ }
                 if ($cn -match '^\d+$')          { $num++ }
                 if ($cn -match '[^\x00-\x7F]')   { $uni++ }
+                if ($cn -match '^[Il1O0]+$' -or $cn -match '^_+$') { $conf++ }
                 if ($cn.Length -ge 3 -and $cn -match '^[a-zA-Z]+$') {
                     $v = ($cn.ToCharArray() | Where-Object { $_ -match '[aeiouAEIOU]' }).Count
                     if ($v -eq 0) { $nov++ }
@@ -600,17 +798,31 @@ try {
         $nvp=[math]::Round($(if($tc -ge 5){$nov/$tc*100} else {0}))
         $gp=[math]::Round($(if($tc -ge 5){$gib/$tc*100} else {0}))
         $op=[math]::Round($(if($tc -ge 10){$obf/$tc*100} else {0}))
+        $cfp=[math]::Round($(if($tc -ge 5){$conf/$tc*100} else {0}))
 
-        if (($s1p -ge 15 -and $tc -ge 5) -or ($s2p -ge 20 -and $tc -ge 5) -or ($np -ge 20 -and $tc -ge 5) -or
-            ($up -ge 10 -and $tc -ge 5) -or ($nvp -ge 8 -and $tc -ge 5) -or ($gp -ge 15 -and $tc -ge 100) -or
-            ($spkg -ge 50 -and $tc -ge 10) -or ($op -ge 25 -and $tc -ge 10)) {
-            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReason="Obfuscation patterns detected" })
+        $scan = Check-Strings $mod.FilePath
+
+        $obfReasons = @()
+        if ($s1p -ge 15 -and $tc -ge 5)   { $obfReasons += "Single-letter class names ($s1p%)" }
+        if ($s2p -ge 20 -and $tc -ge 5)   { $obfReasons += "Two-letter class names ($s2p%)" }
+        if ($np -ge 20 -and $tc -ge 5)    { $obfReasons += "Numeric class names ($np%)" }
+        if ($up -ge 10 -and $tc -ge 5)    { $obfReasons += "Unicode class names ($up%)" }
+        if ($nvp -ge 8 -and $tc -ge 5)    { $obfReasons += "No-vowel class names ($nvp%)" }
+        if ($gp -ge 15 -and $tc -ge 100)  { $obfReasons += "Gibberish class names ($gp%)" }
+        if ($spkg -ge 50 -and $tc -ge 10) { $obfReasons += "Single-char package paths ($spkg segments)" }
+        if ($op -ge 25 -and $tc -ge 10)   { $obfReasons += "Obfuscated package structure ($op%)" }
+        if ($cfp -ge 3 -and $tc -ge 5)    { $obfReasons += "Confusion-char class names Il1O0 ($cfp%)" }
+        if ($scan.Obfuscators.Count -gt 0 -and $mod.MatchType -ne "Exact Hash") {
+            $obfReasons = @("Known cheat obfuscator: $($scan.Obfuscators -join ', ')") + $obfReasons
+        }
+
+        if ($obfReasons.Count -gt 0) {
+            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReasons=$obfReasons })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
 
-        $strings = Check-Strings $mod.FilePath
-        if ($strings.Count -gt 0) {
-            $cheatMods.Add([PSCustomObject]@{ FileName=$mod.FileName; StringsFound=$strings; FileSizeKB=$mod.ActualSizeKB; DownloadSource=$mod.DownloadSource; SourceURL=$mod.ZoneId; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; IsVerifiedMod=$mod.IsVerified; ModName=$mod.ModName; ModrinthUrl=$mod.ModrinthUrl; FilePath=$mod.FilePath; HasSizeMismatch=($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1); JarModId=$mod.JarModId; JarName=$mod.JarName; JarVersion=$mod.JarVersion; MatchType=$mod.MatchType; ExactMatch=$mod.ExactMatch; IsLatestVersion=$mod.IsLatestVersion; LoaderType=$mod.LoaderType })
+        if ($scan.Strings.Count -gt 0 -or $scan.Fullwidth.Count -gt 0) {
+            $cheatMods.Add([PSCustomObject]@{ FileName=$mod.FileName; StringsFound=$scan.Strings; FullwidthFound=$scan.Fullwidth; FileSizeKB=$mod.ActualSizeKB; DownloadSource=$mod.DownloadSource; SourceURL=$mod.ZoneId; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; IsVerifiedMod=$mod.IsVerified; ModName=$mod.ModName; ModrinthUrl=$mod.ModrinthUrl; FilePath=$mod.FilePath; HasSizeMismatch=($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1); JarModId=$mod.JarModId; JarName=$mod.JarName; JarVersion=$mod.JarVersion; MatchType=$mod.MatchType; ExactMatch=$mod.ExactMatch; IsLatestVersion=$mod.IsLatestVersion; LoaderType=$mod.LoaderType })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
     }
@@ -700,7 +912,11 @@ foreach ($proc in (Get-Process -Name javaw -ErrorAction SilentlyContinue)) {
 }
 
 $allCheatStrings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-foreach ($mod in $cheatMods) { foreach ($s in $mod.StringsFound) { [void]$allCheatStrings.Add($s) } }
+$allFullwidth = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($mod in $cheatMods) {
+    foreach ($s in $mod.StringsFound) { [void]$allCheatStrings.Add($s) }
+    if ($mod.FullwidthFound) { foreach ($f in $mod.FullwidthFound) { [void]$allFullwidth.Add($f) } }
+}
 
 Write-Sep Green; Write-Host "VERIFIED MODS: $($verifiedMods.Count) ✓" -ForegroundColor Green; Write-Sep Green
 if ($verifiedMods.Count -gt 0) {
@@ -716,7 +932,7 @@ Write-Host ""
 Write-Sep Yellow; Write-Host "UNKNOWN MODS: $($unknownMods.Count) ?" -ForegroundColor Yellow; Write-Sep Yellow
 if ($unknownMods.Count -gt 0) {
     foreach ($mod in $unknownMods) {
-        Write-Card @(@{text="UNKNOWN MOD";color="Yellow"}, "File: $($mod.FileName)", "Size: $($mod.FileSizeKB) KB") Yellow
+        Write-Card @(@{text="UNKNOWN MOD";color="Yellow"}, "File: $($mod.FileName)", "Size: $($mod.FileSizeKB) KB", "Source: $($mod.DownloadSource)") Yellow
         if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor Yellow; Write-Host "Identified as: $($mod.ModName)" -ForegroundColor Cyan }
     }
 } else { Write-Host "  No unknown mods found" -ForegroundColor Gray }
@@ -731,14 +947,24 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "File: $($mod.FileName)" -ForegroundColor White
         if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Mod: $($mod.ModName)" -ForegroundColor Magenta }
-        if ($mod.TamperReason) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Reason: $($mod.TamperReason)" -ForegroundColor Red }
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        if ($mod.TamperReasons -and @($mod.TamperReasons).Count -gt 0) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Detected Issues:" -ForegroundColor Yellow
+            foreach ($reason in @($mod.TamperReasons)) {
+                Write-Host "  ║   " -NoNewline -ForegroundColor DarkYellow; Write-Host "• $reason" -ForegroundColor Red
+            }
+        }
+        if ($mod.ExpectedSizeKB -gt 0) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        } else {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (no Modrinth match to compare)" -ForegroundColor Magenta
+        }
         Write-Host "  ╚══════════════════════════════════════════`n" -ForegroundColor DarkYellow
     }
 } else { Write-Host "  No tampered mods found" -ForegroundColor Gray }
 Write-Host ""
 
+$possibleFalseFlags = @("ViaFabricPlus","Simple Voice Chat")
 Write-Sep Red; Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red; Write-Sep Red
 if ($cheatMods.Count -gt 0) {
     foreach ($mod in $cheatMods) {
@@ -748,9 +974,18 @@ if ($cheatMods.Count -gt 0) {
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
         Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "File: $($mod.FileName)" -ForegroundColor White
         if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Mod: $($mod.ModName)" -ForegroundColor White }
+        if ($possibleFalseFlags -contains $mod.ModName) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "⚠ May be a false flag - $($mod.ModName) is a known legit mod that contains these strings" -ForegroundColor DarkYellow
+        }
         if (($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red }
-        Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
-        @($mod.StringsFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Magenta }
+        if ($mod.StringsFound.Count -gt 0) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
+            @($mod.StringsFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Magenta }
+        }
+        if ($mod.FullwidthFound -and $mod.FullwidthFound.Count -gt 0) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Unknown Fullwidth Strings:" -ForegroundColor Yellow
+            @($mod.FullwidthFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Magenta }
+        }
         if ($mod.ExpectedSizeKB -gt 0) {
             $sign = if ($mod.SizeDiffKB -gt 0){"+"} else {""}
             Write-Host "  ║ " -NoNewline -ForegroundColor Red
@@ -817,6 +1052,16 @@ if ($allCheatStrings.Count -gt 0) {
     Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
     Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Cheat Strings Detected In Instance:" -ForegroundColor Red
     $allCheatStrings | Sort-Object | ForEach-Object {
+        Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $_ -ForegroundColor Magenta
+    }
+    Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
+    Write-Host ""
+}
+
+if ($allFullwidth.Count -gt 0) {
+    Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
+    Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Unknown Fullwidth Strings In Instance:" -ForegroundColor Red
+    $allFullwidth | Sort-Object | ForEach-Object {
         Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $_ -ForegroundColor Magenta
     }
     Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
