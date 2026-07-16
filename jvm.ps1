@@ -728,6 +728,7 @@ for ($i = 0; $i -lt $jarFiles.Count; $i++) {
     if ($md.Name) {
         $verifiedMods.Add($entry); $allModsInfo.Add($entry)
         if ($md.ExpectedSize -gt 0 -and $actualSize -ne $md.ExpectedSize -and [math]::Abs($actualSize - $md.ExpectedSize) -gt 1024) {
+            $entry | Add-Member -NotePropertyName TamperReasons -NotePropertyValue @("File size does not match the Modrinth release ($($md.MatchType))") -Force
             $tamperedMods.Add($entry)
             $null = $verifiedMods.RemoveAll([Predicate[object]]{ param($x) $x.FileName -eq $file.Name })
         }
@@ -816,7 +817,7 @@ try {
         }
 
         if ($obfReasons.Count -gt 0) {
-            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReason=($obfReasons -join '; ') })
+            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReasons=$obfReasons })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
 
@@ -946,9 +947,18 @@ if ($tamperedMods.Count -gt 0) {
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkYellow
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "File: $($mod.FileName)" -ForegroundColor White
         if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Mod: $($mod.ModName)" -ForegroundColor Magenta }
-        if ($mod.TamperReason) { Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Reason: $($mod.TamperReason)" -ForegroundColor Red }
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        if ($mod.TamperReasons -and @($mod.TamperReasons).Count -gt 0) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Detected Issues:" -ForegroundColor Yellow
+            foreach ($reason in @($mod.TamperReasons)) {
+                Write-Host "  ║   " -NoNewline -ForegroundColor DarkYellow; Write-Host "• $reason" -ForegroundColor Red
+            }
+        }
+        if ($mod.ExpectedSizeKB -gt 0) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB)" -ForegroundColor Magenta
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
+        } else {
+            Write-Host "  ║ " -NoNewline -ForegroundColor DarkYellow; Write-Host "Size: $($mod.ActualSizeKB) KB (no Modrinth match to compare)" -ForegroundColor Magenta
+        }
         Write-Host "  ╚══════════════════════════════════════════`n" -ForegroundColor DarkYellow
     }
 } else { Write-Host "  No tampered mods found" -ForegroundColor Gray }
@@ -974,7 +984,7 @@ if ($cheatMods.Count -gt 0) {
         }
         if ($mod.FullwidthFound -and $mod.FullwidthFound.Count -gt 0) {
             Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Unknown Fullwidth Strings:" -ForegroundColor Yellow
-            @($mod.FullwidthFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Cyan }
+            @($mod.FullwidthFound) | Sort-Object | ForEach-Object { Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• $_" -ForegroundColor Magenta }
         }
         if ($mod.ExpectedSizeKB -gt 0) {
             $sign = if ($mod.SizeDiffKB -gt 0){"+"} else {""}
@@ -1052,7 +1062,7 @@ if ($allFullwidth.Count -gt 0) {
     Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor Red
     Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Unknown Fullwidth Strings In Instance:" -ForegroundColor Red
     $allFullwidth | Sort-Object | ForEach-Object {
-        Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Cyan; Write-Host $_ -ForegroundColor Cyan
+        Write-Host "  ║   " -NoNewline -ForegroundColor Red; Write-Host "• " -NoNewline -ForegroundColor Magenta; Write-Host $_ -ForegroundColor Magenta
     }
     Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
     Write-Host ""
