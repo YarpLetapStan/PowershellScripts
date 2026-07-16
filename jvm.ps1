@@ -284,9 +284,18 @@ function Build-ModrinthResult($proj, $ver, $versions, $byHash=$false, $matchType
 }
 
 function Get-ModrinthVersions($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id/version" -UseBasicParsing }
-function Get-ModrinthProject($id) { return Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing }
+function Get-ModrinthProject($id) {
+    $key = [string]$id
+    if ($projectCache.ContainsKey($key)) { return $projectCache[$key] }
+    $p = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$id" -UseBasicParsing
+    if ($p.id) { $projectCache[[string]$p.id] = $p }
+    if ($p.slug) { $projectCache[[string]$p.slug] = $p }
+    $projectCache[$key] = $p
+    return $p
+}
 
 $modrinthCache = @{}
+$projectCache = @{}
 
 function Fetch-Modrinth-By-Hash($hash) {
     if ($modrinthCache.ContainsKey("hash:$hash")) { return $modrinthCache["hash:$hash"] }
@@ -382,14 +391,30 @@ function Invoke-BulkHashLookup($jarFiles) {
         $hashMap[$hash] = $file
     }
 
-    $bulkResults = @{}
     try {
         $body = @{ hashes = @($hashMap.Keys); algorithm = "sha1" } | ConvertTo-Json
         $raw = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_files" -Method POST -ContentType "application/json" -Body $body -UseBasicParsing
+
+        $versionsByHash = @{}
+        $projectIds = [System.Collections.Generic.HashSet[string]]::new()
         foreach ($prop in $raw.PSObject.Properties) {
-            $hash = $prop.Name
-            $ver  = $prop.Value
-            $bulkResults[$hash] = $ver
+            $versionsByHash[$prop.Name] = $prop.Value
+            if ($prop.Value.project_id) { [void]$projectIds.Add([string]$prop.Value.project_id) }
+        }
+
+        if ($projectIds.Count -gt 0) {
+            try {
+                $idsJson = '[' + ((@($projectIds) | ForEach-Object { '"' + $_ + '"' }) -join ',') + ']'
+                $projects = Invoke-RestMethod -Uri ("https://api.modrinth.com/v2/projects?ids=" + [uri]::EscapeDataString($idsJson)) -UseBasicParsing
+                foreach ($p in $projects) {
+                    if ($p.id) { $projectCache[[string]$p.id] = $p }
+                    if ($p.slug) { $projectCache[[string]$p.slug] = $p }
+                }
+            } catch {}
+        }
+
+        foreach ($hash in $versionsByHash.Keys) {
+            $ver = $versionsByHash[$hash]
             try {
                 $proj = Get-ModrinthProject $ver.project_id
                 $modrinthCache["hash:$hash"] = @{
@@ -401,7 +426,6 @@ function Invoke-BulkHashLookup($jarFiles) {
                 }
             } catch {}
         }
-
     } catch {
         Write-Host "Bulk lookup failed, falling back to individual lookups: $($_.Exception.Message)`n" -ForegroundColor DarkYellow
     }
@@ -409,8 +433,6 @@ function Invoke-BulkHashLookup($jarFiles) {
 }
 
 $cheatStrings = @(
-    "clickSimulation","switchDelay","switchChance","placeChance","glowstoneDelay","glowstoneChance","explodeDelay","explodeChance",
-    "explodeSlot","antiWeakness","damageTick","breakChance","breakDelay","stopOnCrystal","processCrystal","swapToWeapon",
     "isObsidianOrBedrock","isValidCrystalPosition","processAnchorPvP","isValidAnchorPosition","speedPotSlot","strengthPotSlot","preventSwordBlockBreaking","preventSwordBlockAttack",
     "Sw1tch","D3l4y","M1n","Pl4ce","T0t3m","Sl0t","Expl0de","Aut0",
     "Cry5t4l","C11ckGu1","obsPos","crystalslot","findKnockbackSword","attackRegisteredThisClick","freecam","pushOutOfBlocks",
@@ -438,6 +460,8 @@ $strongNames = @(
     "AutoCrystal","AutoHitCrystal","CrystalAura","CrystalMacro","AutoCrystalPlaceClock",
     "DontPlaceCrystal","DontBreakCrystal","CanPlaceCrystalServer","KanPlaceKrystalServer",
     "EsperandoCristal","BuscarCristal",
+    "clickSimulation","switchDelay","switchChance","placeChance","glowstoneDelay","glowstoneChance","explodeDelay","explodeChance",
+    "explodeSlot","antiWeakness","damageTick","breakChance","breakDelay","stopOnCrystal","processCrystal","swapToWeapon",
     "AutoAnchor","DoubleAnchor","SafeAnchor","AirAnchor","AnchorMacro","AnchorAura",
     "AnchorTweaks","AnchorAction",
     "AutoTotem","HoverTotem","InventoryTotem","LegitTotem","LegitReTotem","ForceTotem",
