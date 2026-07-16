@@ -954,6 +954,7 @@ if ($tamperedMods.Count -gt 0) {
 } else { Write-Host "  No tampered mods found" -ForegroundColor Gray }
 Write-Host ""
 
+$possibleFalseFlags = @("ViaFabricPlus","Simple Voice Chat")
 Write-Sep Red; Write-Host "CHEAT MODS: $($cheatMods.Count) ⚠" -ForegroundColor Red; Write-Sep Red
 if ($cheatMods.Count -gt 0) {
     foreach ($mod in $cheatMods) {
@@ -963,6 +964,9 @@ if ($cheatMods.Count -gt 0) {
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
         Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "File: $($mod.FileName)" -ForegroundColor White
         if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Mod: $($mod.ModName)" -ForegroundColor White }
+        if ($possibleFalseFlags -contains $mod.ModName) {
+            Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "⚠ May be a false flag - $($mod.ModName) is a known legit mod that contains these strings" -ForegroundColor DarkYellow
+        }
         if (($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red }
         if ($mod.StringsFound.Count -gt 0) {
             Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
