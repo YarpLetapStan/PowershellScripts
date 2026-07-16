@@ -471,7 +471,7 @@ $strongNames = @(
     "AutoMace","MaceSwap","SpearSwap","StunSlam","Macro198","AutoDtap",
     "AimAssist","TriggerBot","SilentAim","AimLock","KillAura","ClickAura","MultiAura",
     "LegitAura","BowAimbot","ShieldDisabler","ShieldBreaker","AxeSpam",
-    "FakeLag","PingSpoof","FakeInv","FakePunch","PackSpoof","AntiKnockback","NoKnockback",
+    "FakeLag","PingSpoof","FakeInv","FakePunch","PackSpoof","AntiKnockback",
     "ElytraSwap","KeyPearl","LootYeeter","AutoBreach","FastPlace","JumpReset","PopSwitch",
     "SprintReset","ChestSteal","BaseFinder","StashFinder","SelfDestruct",
     "WalksyOptimizer","WalskyOptimizer","WalksyCrystalOptimizerMod",
