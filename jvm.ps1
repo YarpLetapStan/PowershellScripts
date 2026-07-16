@@ -20,7 +20,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Mod Analyzer V6.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Mod Analyzer V7.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
@@ -434,16 +434,6 @@ $cheatStrings = @(
 $cheatStringSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($s in $cheatStrings) { [void]$cheatStringSet.Add($s) }
 
-$exactNeedleMap = @{}
-foreach ($s in $cheatStringSet) {
-    $k = $s.ToLowerInvariant()
-    if (-not $exactNeedleMap.ContainsKey($k)) { $exactNeedleMap[$k] = $s }
-}
-$exactRegex = [regex]::new(
-    '(' + (($exactNeedleMap.Keys | Sort-Object -Property Length -Descending | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')',
-    [System.Text.RegularExpressions.RegexOptions]::Compiled -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
-)
-
 $strongNames = @(
     "AutoCrystal","AutoHitCrystal","CrystalAura","CrystalMacro","AutoCrystalPlaceClock",
     "DontPlaceCrystal","DontBreakCrystal","CanPlaceCrystalServer","KanPlaceKrystalServer",
@@ -477,10 +467,7 @@ foreach ($name in $strongNames) {
     $k = ($name -replace '[^a-zA-Z0-9]','').ToLowerInvariant()
     if ($k.Length -ge 5 -and -not $strongNeedleMap.ContainsKey($k)) { $strongNeedleMap[$k] = $name }
 }
-$strongRegex = [regex]::new(
-    '(' + (($strongNeedleMap.Keys | Sort-Object -Property Length -Descending) -join '|') + ')',
-    [System.Text.RegularExpressions.RegexOptions]::Compiled
-)
+$strongKeysByLen = @($strongNeedleMap.Keys | Sort-Object -Property Length -Descending)
 
 $fwLabelMap = @{}
 foreach ($s in $cheatStrings) {
@@ -488,30 +475,79 @@ foreach ($s in $cheatStrings) {
     $k = ($s -replace '[^a-zA-Z0-9]','').ToLowerInvariant()
     if ($k.Length -ge 5 -and -not $fwLabelMap.ContainsKey($k) -and -not $strongNeedleMap.ContainsKey($k)) { $fwLabelMap[$k] = $s }
 }
-$fwLabelRegex = [regex]::new(
-    '(' + (($fwLabelMap.Keys | Sort-Object -Property Length -Descending) -join '|') + ')',
-    [System.Text.RegularExpressions.RegexOptions]::Compiled
-)
+$fwLabelKeysByLen = @($fwLabelMap.Keys | Sort-Object -Property Length -Descending)
 
-$script:FwProbe   = [regex]::new('[\uFF01-\uFF5E\u3000]', 'Compiled')
-$script:FwFold    = [regex]::new('[\uFF01-\uFF5E]', 'Compiled')
-$script:SepStrip  = [regex]::new('[ \t\.\-_]', 'Compiled')
-$script:JunkBound = [regex]::new('[^a-zA-Z0-9\n]', 'Compiled')
-$script:FwRunRegex = [regex]::new(
-    '[\uFF01-\uFF5E\u3000](?:[ \.\-_]?[\uFF01-\uFF5E\u3000])+',
-    [System.Text.RegularExpressions.RegexOptions]::Compiled
-)
+$scanSource = @'
+using System;
+using System.Collections.Generic;
+using System.Text;
 
-function ConvertTo-NormalizedContent {
-    param([string]$Text)
-    if ($script:FwProbe.IsMatch($Text)) {
-        $Text = $script:FwFold.Replace($Text, { param($m) [string][char]([int][char]($m.Value[0]) - 0xFEE0) })
-        $Text = $Text.Replace([char]0x3000, ' ')
+public static class YarpScan
+{
+    public static string[] ExactNeedles = new string[0];
+    public static string[] StrongKeys = new string[0];
+    public static string[] StrongNames = new string[0];
+
+    public static string Normalize(string text)
+    {
+        StringBuilder sb = new StringBuilder(text.Length);
+        bool boundary = true;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            int code = (int)c;
+            if (code >= 0xFF01 && code <= 0xFF5E) { c = (char)(code - 0xFEE0); }
+            else if (code == 0x3000) { c = ' '; }
+            if (c == ' ' || c == '\t' || c == '.' || c == '-' || c == '_') { continue; }
+            if (c >= 'A' && c <= 'Z') { sb.Append((char)(c + 32)); boundary = false; }
+            else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) { sb.Append(c); boundary = false; }
+            else { if (!boundary) { sb.Append('\n'); boundary = true; } }
+        }
+        return sb.ToString();
     }
-    $Text = $script:SepStrip.Replace($Text, '')
-    $Text = $script:JunkBound.Replace($Text, "`n")
-    return $Text.ToLowerInvariant()
+
+    public static List<string> Scan(string content, List<string> fwRuns)
+    {
+        List<string> found = new List<string>();
+        for (int i = 0; i < ExactNeedles.Length; i++)
+        {
+            if (content.IndexOf(ExactNeedles[i], StringComparison.OrdinalIgnoreCase) >= 0) { found.Add(ExactNeedles[i]); }
+        }
+        string norm = Normalize(content);
+        for (int i = 0; i < StrongKeys.Length; i++)
+        {
+            if (norm.IndexOf(StrongKeys[i], StringComparison.Ordinal) >= 0) { found.Add(StrongNames[i]); }
+        }
+        int runStart = -1; int runEndFw = -1; int fwCount = 0;
+        for (int i = 0; i < content.Length; i++)
+        {
+            char c = content[i];
+            int code = (int)c;
+            bool isFw = (code >= 0xFF01 && code <= 0xFF5E) || code == 0x3000;
+            if (isFw)
+            {
+                if (runStart < 0) { runStart = i; fwCount = 0; }
+                runEndFw = i; fwCount++;
+            }
+            else if (runStart >= 0 && i == runEndFw + 1 && (c == ' ' || c == '.' || c == '-' || c == '_'))
+            {
+            }
+            else
+            {
+                if (runStart >= 0 && fwCount >= 2) { fwRuns.Add(content.Substring(runStart, runEndFw - runStart + 1)); }
+                runStart = -1; runEndFw = -1; fwCount = 0;
+            }
+        }
+        if (runStart >= 0 && fwCount >= 2) { fwRuns.Add(content.Substring(runStart, runEndFw - runStart + 1)); }
+        return found;
+    }
 }
+'@
+if (-not ("YarpScan" -as [type])) { Add-Type -TypeDefinition $scanSource }
+
+[YarpScan]::ExactNeedles = [string[]]@($cheatStringSet)
+[YarpScan]::StrongKeys   = [string[]]$strongKeysByLen
+[YarpScan]::StrongNames  = [string[]]@($strongKeysByLen | ForEach-Object { $strongNeedleMap[$_] })
 
 function Resolve-FullwidthRuns {
     param($Runs)
@@ -519,22 +555,16 @@ function Resolve-FullwidthRuns {
     $unknown  = @{}
 
     foreach ($run in $Runs) {
-        $norm = (ConvertTo-NormalizedContent $run) -replace "`n",''
+        $norm = ([YarpScan]::Normalize($run)) -replace "`n",''
         if ($norm.Length -lt 3) { continue }
 
-        $m = $strongRegex.Match($norm)
-        if ($m.Success) {
-            [void]$resolved.Add($strongNeedleMap[$m.Value])
-            continue
+        $hit = $null
+        foreach ($k in $strongKeysByLen) { if ($norm.Contains($k)) { $hit = $strongNeedleMap[$k]; break } }
+        if (-not $hit) {
+            foreach ($k in $fwLabelKeysByLen) { if ($norm.Contains($k)) { $hit = $fwLabelMap[$k]; break } }
         }
-        $m = $fwLabelRegex.Match($norm)
-        if ($m.Success) {
-            [void]$resolved.Add($fwLabelMap[$m.Value])
-            continue
-        }
-        if ($norm.Length -ge 6 -and -not $unknown.ContainsKey($norm)) {
-            $unknown[$norm] = $run
-        }
+        if ($hit) { [void]$resolved.Add($hit); continue }
+        if ($norm.Length -ge 6 -and -not $unknown.ContainsKey($norm)) { $unknown[$norm] = $run }
     }
 
     $final = [System.Collections.Generic.HashSet[string]]::new()
@@ -554,20 +584,6 @@ function Check-Strings($filePath) {
     $found  = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $fwRuns = [System.Collections.Generic.List[string]]::new()
 
-    $scanText = {
-        param([string]$content)
-        foreach ($m in $exactRegex.Matches($content)) {
-            $key = $m.Value.ToLowerInvariant()
-            if ($exactNeedleMap.ContainsKey($key)) { [void]$found.Add($exactNeedleMap[$key]) }
-            else { [void]$found.Add($m.Value) }
-        }
-        $norm = ConvertTo-NormalizedContent $content
-        foreach ($m in $strongRegex.Matches($norm)) {
-            [void]$found.Add($strongNeedleMap[$m.Value])
-        }
-        foreach ($m in $script:FwRunRegex.Matches($content)) { $fwRuns.Add($m.Value) }
-    }
-
     try {
         $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
         foreach ($entry in ($zip.Entries | Where-Object { $_.Name -match '\.(class|json|jar)$' })) {
@@ -578,7 +594,8 @@ function Check-Strings($filePath) {
                     foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
                         try {
                             $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8)
-                            & $scanText $r.ReadToEnd(); $r.Close()
+                            foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns)) { [void]$found.Add($h) }
+                            $r.Close()
                         } catch {}
                     }
                     $nz.Dispose()
@@ -587,7 +604,8 @@ function Check-Strings($filePath) {
             }
             try {
                 $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-                & $scanText $r.ReadToEnd(); $r.Close()
+                foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns)) { [void]$found.Add($h) }
+                $r.Close()
             } catch {}
         }
         $zip.Dispose()
