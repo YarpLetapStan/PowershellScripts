@@ -20,7 +20,7 @@ Write-Host @"
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Mod Analyzer V6.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Mod Analyzer V7.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
@@ -511,6 +511,8 @@ public static class YarpScan
     public static string[] ExactNeedles = new string[0];
     public static string[] StrongKeys = new string[0];
     public static string[] StrongNames = new string[0];
+    public static string[] ObfNeedles = new string[0];
+    public static string[] ObfNames = new string[0];
 
     public static string Normalize(string text)
     {
@@ -530,12 +532,16 @@ public static class YarpScan
         return sb.ToString();
     }
 
-    public static List<string> Scan(string content, List<string> fwRuns)
+    public static List<string> Scan(string content, List<string> fwRuns, List<string> obfHits)
     {
         List<string> found = new List<string>();
         for (int i = 0; i < ExactNeedles.Length; i++)
         {
             if (content.IndexOf(ExactNeedles[i], StringComparison.OrdinalIgnoreCase) >= 0) { found.Add(ExactNeedles[i]); }
+        }
+        for (int i = 0; i < ObfNeedles.Length; i++)
+        {
+            if (!obfHits.Contains(ObfNames[i]) && content.IndexOf(ObfNeedles[i], StringComparison.Ordinal) >= 0) { obfHits.Add(ObfNames[i]); }
         }
         string norm = Normalize(content);
         for (int i = 0; i < StrongKeys.Length; i++)
@@ -569,9 +575,48 @@ public static class YarpScan
 '@
 if (-not ("YarpScan" -as [type])) { Add-Type -TypeDefinition $scanSource }
 
+$obfSignatures = @(
+    @{Sig="dev/skidfuscator";       Name="Skidfuscator"},
+    @{Sig="skidfuscator.dev";       Name="Skidfuscator"},
+    @{Sig="Skidfuscator";           Name="Skidfuscator"},
+    @{Sig="dev/paramorphism";       Name="Paramorphism"},
+    @{Sig="paramorphism-";          Name="Paramorphism"},
+    @{Sig="Paramorphism";           Name="Paramorphism"},
+    @{Sig="me/itzsomebody/radon";   Name="Radon"},
+    @{Sig="ItzSomebody/Radon";      Name="Radon"},
+    @{Sig="Radon Obfuscator";       Name="Radon"},
+    @{Sig="dev/sim0n/caesium";      Name="Caesium"},
+    @{Sig="sim0n/Caesium";          Name="Caesium"},
+    @{Sig="Caesium Obfuscator";     Name="Caesium"},
+    @{Sig="vimasig/Bozar";          Name="Bozar"},
+    @{Sig="com/bozar";              Name="Bozar"},
+    @{Sig="Bozar Obfuscator";       Name="Bozar"},
+    @{Sig="branchlock.dev";         Name="Branchlock"},
+    @{Sig="Branchlock";             Name="Branchlock"},
+    @{Sig="com/binscure";           Name="Binscure"},
+    @{Sig="Binscure";               Name="Binscure"},
+    @{Sig="superblaubeere27";       Name="SuperBlaubeere27"},
+    @{Sig="superblaubeere";         Name="SuperBlaubeere27"},
+    @{Sig="Qprotect";               Name="Qprotect"},
+    @{Sig="QProtect";               Name="Qprotect"},
+    @{Sig="ZKMFLOW";                Name="Zelix KlassMaster"},
+    @{Sig="ZelixKlassMaster";       Name="Zelix KlassMaster"},
+    @{Sig="com/zelix";              Name="Zelix KlassMaster"},
+    @{Sig="StringerJavaObfuscator"; Name="Stringer"},
+    @{Sig="com/licel/stringer";     Name="Stringer"},
+    @{Sig="jnic.obf";               Name="JNIC"},
+    @{Sig="jnic-obfuscator";        Name="JNIC"},
+    @{Sig="ScutiObf";               Name="Scuti"},
+    @{Sig="scuti.obf";              Name="Scuti"},
+    @{Sig="SmokeObf";               Name="Smoke"},
+    @{Sig="smoke.obf";              Name="Smoke"}
+)
+
 [YarpScan]::ExactNeedles = [string[]]@($cheatStringSet)
 [YarpScan]::StrongKeys   = [string[]]$strongKeysByLen
 [YarpScan]::StrongNames  = [string[]]@($strongKeysByLen | ForEach-Object { $strongNeedleMap[$_] })
+[YarpScan]::ObfNeedles   = [string[]]@($obfSignatures | ForEach-Object { $_.Sig })
+[YarpScan]::ObfNames     = [string[]]@($obfSignatures | ForEach-Object { $_.Name })
 
 function Resolve-FullwidthRuns {
     param($Runs)
@@ -604,9 +649,11 @@ function Resolve-FullwidthRuns {
     return @{ Resolved = $resolved; Unknown = $final }
 }
 
+
 function Check-Strings($filePath) {
-    $found  = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    $fwRuns = [System.Collections.Generic.List[string]]::new()
+    $found   = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $fwRuns  = [System.Collections.Generic.List[string]]::new()
+    $obfHits = [System.Collections.Generic.List[string]]::new()
 
     try {
         $zip = [System.IO.Compression.ZipFile]::OpenRead($filePath)
@@ -618,7 +665,7 @@ function Check-Strings($filePath) {
                     foreach ($ne in ($nz.Entries | Where-Object { $_.Name -match '\.(class|json)$' })) {
                         try {
                             $r = New-Object System.IO.StreamReader($ne.Open(), [System.Text.Encoding]::UTF8)
-                            foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns)) { [void]$found.Add($h) }
+                            foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns, $obfHits)) { [void]$found.Add($h) }
                             $r.Close()
                         } catch {}
                     }
@@ -628,7 +675,7 @@ function Check-Strings($filePath) {
             }
             try {
                 $r = New-Object System.IO.StreamReader($entry.Open(), [System.Text.Encoding]::UTF8)
-                foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns)) { [void]$found.Add($h) }
+                foreach ($h in [YarpScan]::Scan($r.ReadToEnd(), $fwRuns, $obfHits)) { [void]$found.Add($h) }
                 $r.Close()
             } catch {}
         }
@@ -638,8 +685,9 @@ function Check-Strings($filePath) {
     $fw = Resolve-FullwidthRuns $fwRuns
     foreach ($r in $fw.Resolved) { [void]$found.Add($r) }
 
-    return @{ Strings = $found; Fullwidth = $fw.Unknown }
+    return @{ Strings = $found; Fullwidth = $fw.Unknown; Obfuscators = $obfHits }
 }
+
 
 $verifiedMods = [System.Collections.Generic.List[object]]::new()
 $unknownMods  = [System.Collections.Generic.List[object]]::new()
@@ -717,7 +765,7 @@ try {
         $counter++
         Write-Host "`r[$($spinner[$counter % 4])] Scanning for cheat strings: $counter / $totalMods" -ForegroundColor Magenta -NoNewline
 
-        $s1=0; $s2=0; $tc=0; $obf=0; $num=0; $uni=0; $nov=0; $gib=0; $spkg=0
+        $s1=0; $s2=0; $tc=0; $obf=0; $num=0; $uni=0; $nov=0; $gib=0; $spkg=0; $conf=0
         try {
             $zip = [System.IO.Compression.ZipFile]::OpenRead($mod.FilePath)
             foreach ($entry in ($zip.Entries | Where-Object { $_.FullName -match '\.class$' })) {
@@ -728,6 +776,7 @@ try {
                 if ($cn -match '^[a-zA-Z]{2}$') { $s2++ }
                 if ($cn -match '^\d+$')          { $num++ }
                 if ($cn -match '[^\x00-\x7F]')   { $uni++ }
+                if ($cn -match '^[Il1O0]+$' -or $cn -match '^_+$') { $conf++ }
                 if ($cn.Length -ge 3 -and $cn -match '^[a-zA-Z]+$') {
                     $v = ($cn.ToCharArray() | Where-Object { $_ -match '[aeiouAEIOU]' }).Count
                     if ($v -eq 0) { $nov++ }
@@ -748,15 +797,29 @@ try {
         $nvp=[math]::Round($(if($tc -ge 5){$nov/$tc*100} else {0}))
         $gp=[math]::Round($(if($tc -ge 5){$gib/$tc*100} else {0}))
         $op=[math]::Round($(if($tc -ge 10){$obf/$tc*100} else {0}))
+        $cfp=[math]::Round($(if($tc -ge 5){$conf/$tc*100} else {0}))
 
-        if (($s1p -ge 15 -and $tc -ge 5) -or ($s2p -ge 20 -and $tc -ge 5) -or ($np -ge 20 -and $tc -ge 5) -or
-            ($up -ge 10 -and $tc -ge 5) -or ($nvp -ge 8 -and $tc -ge 5) -or ($gp -ge 15 -and $tc -ge 100) -or
-            ($spkg -ge 50 -and $tc -ge 10) -or ($op -ge 25 -and $tc -ge 10)) {
-            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReason="Obfuscation patterns detected" })
+        $scan = Check-Strings $mod.FilePath
+
+        $obfReasons = @()
+        if ($s1p -ge 15 -and $tc -ge 5)   { $obfReasons += "Single-letter class names ($s1p%)" }
+        if ($s2p -ge 20 -and $tc -ge 5)   { $obfReasons += "Two-letter class names ($s2p%)" }
+        if ($np -ge 20 -and $tc -ge 5)    { $obfReasons += "Numeric class names ($np%)" }
+        if ($up -ge 10 -and $tc -ge 5)    { $obfReasons += "Unicode class names ($up%)" }
+        if ($nvp -ge 8 -and $tc -ge 5)    { $obfReasons += "No-vowel class names ($nvp%)" }
+        if ($gp -ge 15 -and $tc -ge 100)  { $obfReasons += "Gibberish class names ($gp%)" }
+        if ($spkg -ge 50 -and $tc -ge 10) { $obfReasons += "Single-char package paths ($spkg segments)" }
+        if ($op -ge 25 -and $tc -ge 10)   { $obfReasons += "Obfuscated package structure ($op%)" }
+        if ($cfp -ge 3 -and $tc -ge 5)    { $obfReasons += "Confusion-char class names Il1O0 ($cfp%)" }
+        if ($scan.Obfuscators.Count -gt 0 -and $mod.MatchType -ne "Exact Hash") {
+            $obfReasons = @("Known cheat obfuscator: $($scan.Obfuscators -join ', ')") + $obfReasons
+        }
+
+        if ($obfReasons.Count -gt 0) {
+            $tamperedMods.Add([PSCustomObject]@{ FileName=$mod.FileName; ModName=$mod.ModName; ActualSizeKB=$mod.ActualSizeKB; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; TamperReason=($obfReasons -join '; ') })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
         }
 
-        $scan = Check-Strings $mod.FilePath
         if ($scan.Strings.Count -gt 0 -or $scan.Fullwidth.Count -gt 0) {
             $cheatMods.Add([PSCustomObject]@{ FileName=$mod.FileName; StringsFound=$scan.Strings; FullwidthFound=$scan.Fullwidth; FileSizeKB=$mod.ActualSizeKB; DownloadSource=$mod.DownloadSource; SourceURL=$mod.ZoneId; ExpectedSizeKB=$mod.ExpectedSizeKB; SizeDiffKB=$mod.SizeDiffKB; IsVerifiedMod=$mod.IsVerified; ModName=$mod.ModName; ModrinthUrl=$mod.ModrinthUrl; FilePath=$mod.FilePath; HasSizeMismatch=($mod.SizeDiffKB -ne 0 -and [math]::Abs($mod.SizeDiffKB) -gt 1); JarModId=$mod.JarModId; JarName=$mod.JarName; JarVersion=$mod.JarVersion; MatchType=$mod.MatchType; ExactMatch=$mod.ExactMatch; IsLatestVersion=$mod.IsLatestVersion; LoaderType=$mod.LoaderType })
             $verifiedMods = $verifiedMods | Where-Object { $_.FileName -ne $mod.FileName }
