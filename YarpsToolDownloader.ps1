@@ -54,9 +54,13 @@ catch {
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Fetch-File {
-    param ([string]$Link, [string]$Name = "")
+    param ([string]$Link, [string]$Name = "", [string]$Dir = "")
     $file = if ($Name) { $Name } else { Split-Path $Link -Leaf }
-    $out  = Join-Path $workDir $file
+    $destDir = if ($Dir) { Join-Path $workDir $Dir } else { $workDir }
+    if (-not (Test-Path $destDir)) {
+        New-Item -Path $destDir -ItemType Directory -Force | Out-Null
+    }
+    $out  = Join-Path $destDir $file
     try {
         Invoke-WebRequest -Uri $Link -OutFile $out -UseBasicParsing `
             -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -68,7 +72,6 @@ function Fetch-File {
 }
 
 $downloadList = @(
-    # Priority tools first
     @{ Link = 'https://github.com/spokwn/BAM-parser/releases/download/v1.2.9/BAMParser.exe' },
     @{ Link = 'https://github.com/Orbdiff/PrefetchView/releases/download/v1.6.3/PrefetchView++.exe' },
     @{ Link = 'https://github.com/gorbgallin/Pj-sCheatScannerLite/releases/download/1.1/PjCheatScannerLite.exe' },
@@ -84,7 +87,16 @@ $downloadList = @(
     @{ Link = 'https://github.com/txvch/Screenshare-Collector/releases/download/tech/Technical.Utilities.exe' },
     @{ Link = 'https://github.com/spokwn/KernelLiveDumpTool/releases/download/v1.1/KernelLiveDumpTool.exe' },
     @{ Link = 'https://www.nirsoft.net/utils/usbdeview-x64.zip' },
-    @{ Link = 'https://adoptium.net/download?link=https%3A%2F%2Fgithub.com%2Fadoptium%2Ftemurin25-binaries%2Freleases%2Fdownload%2Fjdk-25.0.3%252B9%2FOpenJDK25U-jdk_x64_windows_hotspot_25.0.3_9.msi&vendor=Adoptium' }
+    @{ Link = 'https://adoptium.net/download?link=https%3A%2F%2Fgithub.com%2Fadoptium%2Ftemurin25-binaries%2Freleases%2Fdownload%2Fjdk-25.0.3%252B9%2FOpenJDK25U-jdk_x64_windows_hotspot_25.0.3_9.msi&vendor=Adoptium' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/DetectACTools/ToolsDownloader%2B%2B.exe'; Name = 'ToolsDownloader++.exe' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/InjGen/InjGen.exe' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/MacroScanner/MacroScanner.exe' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/MeowClientFucker/MeowClientFucker.exe' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/RedLotusAltChecker/RedLotusAltChecker.exe' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/Strings/LaffersStringsChecker.exe' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/JavaLibraryAnalyzer/JavaLibraryAnalyzer.exe'; Dir = 'JavaLibraryAnalyzer' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/JavaLibraryAnalyzer/library_baseline.bin'; Dir = 'JavaLibraryAnalyzer' },
+    @{ Link = 'https://raw.githubusercontent.com/Lafferrr/SSTools/main/SSTools/JavaLibraryAnalyzer/natives_baseline.bin'; Dir = 'JavaLibraryAnalyzer' }
 )
 
 $n   = 0
@@ -93,7 +105,7 @@ foreach ($item in $downloadList) {
     $n++
     $displayName = if ($item.Name) { $item.Name } else { Split-Path $item.Link -Leaf }
     Write-Host "`n  --> [$n/$tot] $displayName" -ForegroundColor Cyan
-    Fetch-File -Link $item.Link -Name $item.Name
+    Fetch-File -Link $item.Link -Name $item.Name -Dir $item.Dir
 }
 
 Start-Process explorer.exe $workDir
