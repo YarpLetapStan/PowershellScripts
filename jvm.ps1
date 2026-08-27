@@ -321,7 +321,6 @@ foreach ($grp in ($instances | Group-Object -Property ModsFolder)) {
 Write-Host "  [+] Detected $($instances.Count) Minecraft process(es) across $($scanGroups.Count) instance folder(s)`n" -ForegroundColor Green
 foreach ($g in $scanGroups) {
     Write-Host "  ┌─ Mods folder : $($g.ModsFolder)" -ForegroundColor Green
-    Write-Host "  ├─ Found via   : $($g.Source)" -ForegroundColor DarkGreen
     foreach ($i in $g.Instances) {
         $up = if ($i.Uptime) { "$($i.Uptime.Hours)h $($i.Uptime.Minutes)m $($i.Uptime.Seconds)s" } else { "n/a" }
         Write-Host "  ├─ $($i.ProcessName) PID $($i.ProcessId) | Player: $($i.Player) | Uptime: $up" -ForegroundColor DarkGreen
@@ -1227,7 +1226,7 @@ function Write-ScanReport {
     Write-Sep Green; Write-Host "VERIFIED MODS: $($Result.Verified.Count) [OK]" -ForegroundColor Green; Write-Sep Green
     if ($Result.Verified.Count -gt 0) {
         foreach ($mod in $Result.Verified) {
-            Write-Host "  + " -NoNewline -ForegroundColor Green; Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White; Write-Host "($($mod.FileName))" -ForegroundColor Green
+            Write-Host "  ✓ " -NoNewline -ForegroundColor Green; Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White; Write-Host "($($mod.FileName))" -ForegroundColor Green
             Write-Host "    Size: $($mod.ActualSizeKB) KB" -ForegroundColor Green
         }
     } else { Write-Host "  No verified mods found" -ForegroundColor Gray }
