@@ -26,10 +26,6 @@ Write-Host "YarpLetapStan's Mod Analyzer V8.0 - Join discord.gg/napvp".PadLeft((
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  PEB READER - pulls the true working directory out of a running JVM
-# ══════════════════════════════════════════════════════════════════════════════
-
 if (-not ('ProcessHelper' -as [type])) {
     Add-Type -TypeDefinition @"
 using System;
@@ -188,10 +184,6 @@ function Find-LatestInstanceByLog {
     return $bestBase
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  INSTANCE DISCOVERY - one entry per running Minecraft process
-# ══════════════════════════════════════════════════════════════════════════════
-
 function Get-MinecraftInstances {
     $found = New-Object System.Collections.Generic.List[object]
 
@@ -217,15 +209,12 @@ function Get-MinecraftInstances {
 
         $modsFolder = $null; $source = $null
 
-        # 1. PEB read of the live process working directory (works on any launcher,
-        #    any custom install location, as long as the JVM is 64-bit)
         $cwd = Get-ProcessCurrentDirectory $proc.Id
         if ($cwd) {
             $modsFolder = Resolve-ModsFolder $cwd
             if ($modsFolder) { $source = "Process CWD (PEB)" }
         }
 
-        # 2. --gameDir on the command line (covers 32-bit JVMs the PEB read skips)
         if (-not $modsFolder -and $cmdLine) {
             $gameDir = $null
             if     ($cmdLine -match '--gameDir\s+"([^"]+)"') { $gameDir = $matches[1] }
@@ -237,7 +226,6 @@ function Get-MinecraftInstances {
             }
         }
 
-        # 3. Win32_Process CurrentDirectory
         if (-not $modsFolder -and $cimCwd) {
             $modsFolder = Resolve-ModsFolder $cimCwd
             if ($modsFolder) { $source = "Win32_Process CWD" }
@@ -285,7 +273,6 @@ if ($instances.Count -eq 0) {
     }
 }
 
-# Any process we could not resolve a folder for: ask, but only for that one.
 foreach ($inst in $instances) {
     if ($inst.ModsFolder) { continue }
     Write-Host "  [!] Could not auto-detect the mods folder for PID $($inst.ProcessId) (Player: $($inst.Player))" -ForegroundColor Yellow
@@ -307,8 +294,6 @@ if ($instances.Count -eq 0) {
     exit 1
 }
 
-# Two accounts can share one instance folder. Scan each folder once, report every
-# player attached to it.
 $scanGroups = @()
 foreach ($grp in ($instances | Group-Object -Property ModsFolder)) {
     $scanGroups += [PSCustomObject]@{
@@ -325,13 +310,8 @@ foreach ($g in $scanGroups) {
         $up = if ($i.Uptime) { "$($i.Uptime.Hours)h $($i.Uptime.Minutes)m $($i.Uptime.Seconds)s" } else { "n/a" }
         Write-Host "  ├─ $($i.ProcessName) PID $($i.ProcessId) | Player: $($i.Player) | Uptime: $up" -ForegroundColor DarkGreen
     }
-    Write-Host "  └─" -ForegroundColor Green
 }
 Write-Host ""
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  JVM ARGUMENT INJECTION SCANNER
-# ══════════════════════════════════════════════════════════════════════════════
 
 $fabricPatterns = @{
     "fabric.addMods"='-Dfabric\.addMods='; "fabric.loadMods"='-Dfabric\.loadMods='; "fabric.classPathGroups"='-Dfabric\.classPathGroups='; "fabric.gameJarPath"='-Dfabric\.gameJarPath='; "fabric.skipMcProvider"='-Dfabric\.skipMcProvider='; "fabric.development"='-Dfabric\.development='; "fabric.allowUnsupportedVersion"='-Dfabric\.allowUnsupportedVersion='; "fabric.remapClasspathFile"='-Dfabric\.remapClasspathFile='; "fabric.skipIntermediary"='-Dfabric\.skipIntermediary='; "fabric.configDir"='-Dfabric\.configDir='; "fabric.loader.config"='-Dfabric\.loader\.config='; "fabric.log.level"='-Dfabric\.log\.level='; "fabric.debug.dumpClasspath"='-Dfabric\.debug\.dumpClasspath='; "fabric.log.config"='-Dfabric\.log\.config='; "fabric.dli.config"='-Dfabric\.dli\.config='; "fabric.mixin.configs"='-Dfabric\.mixin\.configs='; "fabric.mixin.hotSwap"='-Dfabric\.mixin\.hotSwap='; "fabric.mixin.debug.export"='-Dfabric\.mixin\.debug\.export='; "fabric.mixin.debug.verbose"='-Dfabric\.mixin\.debug\.verbose='; "fabric.gameVersion"='-Dfabric\.gameVersion='; "fabric.forceVersion"='-Dfabric\.forceVersion='; "fabric.autoDetectVersion"='-Dfabric\.autoDetectVersion='; "fabric.launcher.name"='-Dfabric\.launcher\.name='; "fabric.launcher.brand"='-Dfabric\.launcher\.brand='; "fabric.mods.toml.path"='-Dfabric\.mods\.toml\.path='; "fabric.customModList"='-Dfabric\.customModList='; "fabric.resolve.modFiles"='-Dfabric\.resolve\.modFiles='; "fabric.skipDependencyResolution"='-Dfabric\.skipDependencyResolution='; "fabric.loader.entrypoints"='-Dfabric\.loader\.entrypoints='; "fabric.language.providers"='-Dfabric\.language\.providers=';
@@ -406,10 +386,6 @@ function Invoke-JvmArgScan {
     Write-Host "  └─ [+] No JVM injection patterns detected`n" -ForegroundColor Green
     return $false
 }
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  MOD METADATA + MODRINTH LOOKUP
-# ══════════════════════════════════════════════════════════════════════════════
 
 $modrinthCache = @{}
 $projectCache  = @{}
@@ -707,10 +683,6 @@ function Invoke-BulkHashLookup($jarFiles) {
     return $hashMap
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  CHEAT STRING ENGINE
-# ══════════════════════════════════════════════════════════════════════════════
-
 $cheatStrings = @(
     "isObsidianOrBedrock","isValidCrystalPosition","processAnchorPvP","isValidAnchorPosition","speedPotSlot","strengthPotSlot","preventSwordBlockBreaking","preventSwordBlockAttack",
     "Sw1tch","D3l4y","M1n","Pl4ce","T0t3m","Sl0t","Expl0de","Aut0",
@@ -966,10 +938,6 @@ function Check-Strings($filePath) {
     return @{ Strings = $found; Fullwidth = $fw.Unknown; Obfuscators = $obfHits }
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  DISALLOWED MOD LIST
-# ══════════════════════════════════════════════════════════════════════════════
-
 $disallowedMods = @{
     "xeros-minimap"=@{Names=@("Xero's Minimap","Xeros Minimap","xeros-minimap","XerosMinimap","Xero's Minimap Mod")}
     "freecam"=@{Names=@("Freecam","freecam","FreeCam","Free Cam")}
@@ -1008,10 +976,6 @@ $disallowedMods = @{
     "autototem-catchall"=@{Names=@("AutoTotem","Auto Totem","autototem","auto-totem")}
     "d-hand"=@{Names=@("D-hand mod","D-hand","DHand","Double Hand Mod")}
 }
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  MAIN SCAN - runs once per instance folder
-# ══════════════════════════════════════════════════════════════════════════════
 
 function Invoke-ModScan {
     param([string]$ModsFolder, $Instance)
@@ -1169,7 +1133,6 @@ function Invoke-ModScan {
     }
     Write-Host ""
 
-    # Disallowed check reuses metadata already parsed above - no second pass over the jars
     $disallowedFound = @()
     foreach ($mod in $allModsInfo) {
         $fnL = $mod.FileName.ToLower()
@@ -1201,10 +1164,6 @@ function Invoke-ModScan {
         ModsFolder=$ModsFolder; Total=$totalMods; MinecraftVersion=$script:minecraftVersion
     }
 }
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  REPORTING
-# ══════════════════════════════════════════════════════════════════════════════
 
 function Write-Sep($color="Cyan") { Write-Host ("━"*111) -ForegroundColor $color }
 function Write-Card($lines, $color) {
@@ -1352,10 +1311,6 @@ function Write-ScanReport {
     }
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  RUN - one full pass per detected instance folder
-# ══════════════════════════════════════════════════════════════════════════════
-
 $allResults = @()
 $idx = 0
 
@@ -1389,10 +1344,6 @@ foreach ($group in $scanGroups) {
     Write-ScanReport -Result $result -Group $group
     $allResults += [PSCustomObject]@{ Group=$group; Result=$result }
 }
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  GRAND TOTAL (only when more than one instance was scanned)
-# ══════════════════════════════════════════════════════════════════════════════
 
 if ($allResults.Count -gt 1) {
     Write-Host ("═" * 111) -ForegroundColor Cyan
