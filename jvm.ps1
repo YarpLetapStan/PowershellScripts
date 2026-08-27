@@ -1182,7 +1182,7 @@ function Write-ScanReport {
 
     $possibleFalseFlags = @("ViaFabricPlus","Simple Voice Chat")
 
-    Write-Sep Green; Write-Host "VERIFIED MODS: $($Result.Verified.Count) [OK]" -ForegroundColor Green; Write-Sep Green
+    Write-Sep Green; Write-Host "VERIFIED MODS: $($Result.Verified.Count)" -ForegroundColor Green; Write-Sep Green
     if ($Result.Verified.Count -gt 0) {
         foreach ($mod in $Result.Verified) {
             Write-Host "  ✓ " -NoNewline -ForegroundColor Green; Write-Host "$($mod.ModName) " -NoNewline -ForegroundColor White; Write-Host "($($mod.FileName))" -ForegroundColor Green
@@ -1249,7 +1249,7 @@ function Write-ScanReport {
             if ($mod.ExpectedSizeKB -gt 0) {
                 $sign = if ($mod.SizeDiffKB -gt 0){"+"} else {""}
                 Write-Host "  ║ " -NoNewline -ForegroundColor Red
-                if ($mod.SizeDiffKB -eq 0) { Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB [OK]" -ForegroundColor White }
+                if ($mod.SizeDiffKB -eq 0) { Write-Host "Size matches Modrinth: $($mod.ExpectedSizeKB) KB" -ForegroundColor White }
                 else {
                     Write-Host "Size: $($mod.FileSizeKB) KB (Expected: $($mod.ExpectedSizeKB) KB) | " -NoNewline -ForegroundColor White
                     Write-Host "Difference: $sign$($mod.SizeDiffKB) KB" -ForegroundColor Red
@@ -1258,13 +1258,13 @@ function Write-ScanReport {
             Write-Host "  ╚══════════════════════════════════════════" -ForegroundColor Red
             Write-Host ""
         }
-    } else { Write-Host "  No cheat mods detected [OK]" -ForegroundColor Green }
+    } else { Write-Host "  No cheat mods detected" -ForegroundColor Green }
     Write-Host ""
 
     Write-Sep Red; Write-Host "DISALLOWED MODS: $(@($Result.Disallowed).Count) !" -ForegroundColor Red; Write-Sep Red
     if (@($Result.Disallowed).Count -gt 0) {
         foreach ($mod in $Result.Disallowed) { Write-Card @(@{text="DISALLOWED MOD DETECTED";color="Red"}, "File: $($mod.FileName)", "Mod: $($mod.ModName)") Red }
-    } else { Write-Host "  No disallowed mods detected [OK]" -ForegroundColor Green }
+    } else { Write-Host "  No disallowed mods detected" -ForegroundColor Green }
     Write-Host ""
 
     $verColor   = if ($Result.Verified.Count -gt 0)         { "Green" }  else { "DarkGray" }
