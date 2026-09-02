@@ -124,6 +124,35 @@ function Resolve-ModsFolder([string]$cwd) {
     return $null
 }
 
+function Resolve-ManualModsPath([string]$raw) {
+    if (-not $raw) { return $null }
+    $p = $raw.Trim().Trim('"').Trim("'").Trim()
+    if (-not $p) { return $null }
+    try { $p = [System.Environment]::ExpandEnvironmentVariables($p) } catch {}
+    if (Test-Path -LiteralPath $p -PathType Leaf -ErrorAction SilentlyContinue) { $p = Split-Path -LiteralPath $p -Parent }
+    if (-not (Test-Path -LiteralPath $p -PathType Container -ErrorAction SilentlyContinue)) { return $null }
+    if ((Split-Path -LiteralPath $p -Leaf) -eq "mods") { return (Get-Item -LiteralPath $p).FullName }
+    return Resolve-ModsFolder $p
+}
+
+function Request-ModsFolder([string]$reason, [string]$giveUpText = "Press Enter on an empty line to give up.") {
+    if ($reason) { Write-Host "  [!] $reason" -ForegroundColor Yellow }
+    Write-Host "  [i] Enter the mods folder, the instance folder, or the .minecraft folder." -ForegroundColor DarkGray
+    Write-Host "  [i] $giveUpText`n" -ForegroundColor DarkGray
+    for ($try = 0; $try -lt 5; $try++) {
+        Write-Host "      Path: " -NoNewline -ForegroundColor Cyan
+        $raw = Read-Host
+        if (-not $raw -or -not $raw.Trim()) { return $null }
+        $resolved = Resolve-ManualModsPath $raw
+        if ($resolved) {
+            Write-Host "  [+] Using mods folder: $resolved`n" -ForegroundColor Green
+            return $resolved
+        }
+        Write-Host "  [!] No mods folder there. Point at the instance folder or the mods folder itself.`n" -ForegroundColor Red
+    }
+    return $null
+}
+
 function Get-KnownLauncherRoots {
     $appData = $env:APPDATA
     $localAppData = $env:LOCALAPPDATA
@@ -260,15 +289,19 @@ Write-Host ""
 $instances = @(Get-MinecraftInstances)
 
 if ($instances.Count -eq 0) {
-    Write-Host "  [!] No running Minecraft process found." -ForegroundColor Yellow
-    Write-Host "  [i] Falling back to a scan of every known launcher's instance logs...`n" -ForegroundColor DarkGray
-    $latestBase = Find-LatestInstanceByLog
-    $fallbackMods = if ($latestBase) { Resolve-ModsFolder $latestBase } else { $null }
+    $fallbackMods = Request-ModsFolder "No running Minecraft process found." "Press Enter on an empty line to search every known launcher's logs instead."
+    $fallbackSource = "Manual entry"
+    if (-not $fallbackMods) {
+        Write-Host "  [i] Falling back to a scan of every known launcher's instance logs...`n" -ForegroundColor DarkGray
+        $latestBase = Find-LatestInstanceByLog
+        $fallbackMods = if ($latestBase) { Resolve-ModsFolder $latestBase } else { $null }
+        $fallbackSource = "Newest latest.log"
+        if ($fallbackMods) { Write-Host "  [+] Using most recently played instance: $fallbackMods`n" -ForegroundColor Green }
+    }
     if ($fallbackMods) {
-        Write-Host "  [+] Using most recently played instance: $fallbackMods`n" -ForegroundColor Green
         $instances = @([PSCustomObject]@{
             ProcessId=$null; ProcessName="(not running)"; Player="Unknown"; UUID="N/A"; LaunchVer=$null
-            ModsFolder=$fallbackMods; Source="Newest latest.log"; CommandLine=$null; Uptime=$null
+            ModsFolder=$fallbackMods; Source=$fallbackSource; CommandLine=$null; Uptime=$null
         })
     }
 }
@@ -278,20 +311,27 @@ foreach ($inst in $instances) {
     Write-Host "  [!] Could not auto-detect the mods folder for PID $($inst.ProcessId) (Player: $($inst.Player))" -ForegroundColor Yellow
     Write-Host "      Enter the path manually, or press Enter to skip this instance: " -NoNewline -ForegroundColor DarkGray
     $manual = Read-Host
-    if ($manual -and (Test-Path $manual -PathType Container)) {
-        $resolved = if ((Split-Path $manual -Leaf) -eq "mods") { (Get-Item -LiteralPath $manual).FullName } else { Resolve-ModsFolder $manual }
-        if ($resolved) { $inst.ModsFolder = $resolved; $inst.Source = "Manual entry" }
-    }
+    $resolved = Resolve-ManualModsPath $manual
+    if ($resolved) { $inst.ModsFolder = $resolved; $inst.Source = "Manual entry" }
 }
 
 $instances = @($instances | Where-Object { $_.ModsFolder })
 
 if ($instances.Count -eq 0) {
-    Write-Host "`n  [!] No mods folder could be resolved. Nothing to scan." -ForegroundColor Red
-    Write-Host "  [i] Make sure Minecraft is running, and re-run this as Administrator.`n" -ForegroundColor Yellow
-    Write-Host "Press any key to exit..." -ForegroundColor DarkGray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    exit 1
+    Write-Host ""
+    $lastChance = Request-ModsFolder "No mods folder could be resolved."
+    if ($lastChance) {
+        $instances = @([PSCustomObject]@{
+            ProcessId=$null; ProcessName="(not running)"; Player="Unknown"; UUID="N/A"; LaunchVer=$null
+            ModsFolder=$lastChance; Source="Manual entry"; CommandLine=$null; Uptime=$null
+        })
+    } else {
+        Write-Host "  [!] Nothing to scan." -ForegroundColor Red
+        Write-Host "  [i] Make sure Minecraft is running, and re-run this as Administrator.`n" -ForegroundColor Yellow
+        Write-Host "Press any key to exit..." -ForegroundColor DarkGray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit 1
+    }
 }
 
 $scanGroups = @()
@@ -1277,7 +1317,7 @@ function Write-ScanReport {
         Write-Host "  ╔══════════════════════════════════════════" -ForegroundColor DarkGray
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Player     " -NoNewline -ForegroundColor White; Write-Host $inst.Player -ForegroundColor White
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "UUID       " -NoNewline -ForegroundColor White; Write-Host $inst.UUID -ForegroundColor White
-        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "PID        " -NoNewline -ForegroundColor White; Write-Host $inst.ProcessId -ForegroundColor White
+        Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "PID        " -NoNewline -ForegroundColor White; Write-Host $(if ($inst.ProcessId) { $inst.ProcessId } else { "n/a (offline scan)" }) -ForegroundColor White
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Mods       " -NoNewline -ForegroundColor White; Write-Host $Result.ModsFolder -ForegroundColor DarkGray
         Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor DarkGray
         Write-Host "  ║ " -NoNewline -ForegroundColor DarkGray; Write-Host "Verified   " -NoNewline -ForegroundColor White; Write-Host $Result.Verified.Count        -ForegroundColor $verColor
@@ -1328,10 +1368,16 @@ foreach ($group in $scanGroups) {
     Write-Sep Yellow; Write-Host "JVM ARGUMENTS INJECTION SCANNER" -ForegroundColor Yellow; Write-Sep Yellow
     Write-Host ""
     $anyInjection = $false
+    $anyProcess = $false
     foreach ($inst in $group.Instances) {
-        if ($inst.ProcessId) { if (Invoke-JvmArgScan $inst) { $anyInjection = $true } }
+        if ($inst.ProcessId) { $anyProcess = $true; if (Invoke-JvmArgScan $inst) { $anyInjection = $true } }
     }
-    if (-not $anyInjection) { Write-Host "  [+] CLEAN: No JVM argument injections detected for this instance`n" -ForegroundColor Green }
+    if (-not $anyProcess) {
+        Write-Host "  [i] SKIPPED: no running process for this instance, JVM arguments could not be checked" -ForegroundColor DarkYellow
+        Write-Host "      Have them relaunch the game and re-run if you need this covered.`n" -ForegroundColor DarkYellow
+    } elseif (-not $anyInjection) {
+        Write-Host "  [+] CLEAN: No JVM argument injections detected for this instance`n" -ForegroundColor Green
+    }
 
     $result = Invoke-ModScan -ModsFolder $group.ModsFolder -Instance $group.Instances[0]
 
