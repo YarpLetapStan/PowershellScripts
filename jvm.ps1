@@ -124,14 +124,22 @@ function Resolve-ModsFolder([string]$cwd) {
     return $null
 }
 
-function Resolve-ManualModsPath([string]$raw) {
+function Get-CleanDirectory([string]$raw) {
     if (-not $raw) { return $null }
     $p = $raw.Trim().Trim('"').Trim("'").Trim()
     if (-not $p) { return $null }
     try { $p = [System.Environment]::ExpandEnvironmentVariables($p) } catch {}
-    if (Test-Path -LiteralPath $p -PathType Leaf -ErrorAction SilentlyContinue) { $p = Split-Path -LiteralPath $p -Parent }
-    if (-not (Test-Path -LiteralPath $p -PathType Container -ErrorAction SilentlyContinue)) { return $null }
-    if ((Split-Path -LiteralPath $p -Leaf) -eq "mods") { return (Get-Item -LiteralPath $p).FullName }
+    try {
+        if (Test-Path -LiteralPath $p -PathType Leaf -ErrorAction SilentlyContinue) { $p = [System.IO.Path]::GetDirectoryName($p) }
+        if (-not $p -or -not (Test-Path -LiteralPath $p -PathType Container -ErrorAction SilentlyContinue)) { return $null }
+        return (Get-Item -LiteralPath $p -ErrorAction Stop).FullName
+    } catch { return $null }
+}
+
+function Resolve-ManualModsPath([string]$raw) {
+    $p = Get-CleanDirectory $raw
+    if (-not $p) { return $null }
+    if ([System.IO.Path]::GetFileName($p.TrimEnd('\','/')) -eq "mods") { return $p }
     return Resolve-ModsFolder $p
 }
 
@@ -148,7 +156,25 @@ function Request-ModsFolder([string]$reason, [string]$giveUpText = "Press Enter 
             Write-Host "  [+] Using mods folder: $resolved`n" -ForegroundColor Green
             return $resolved
         }
-        Write-Host "  [!] No mods folder there. Point at the instance folder or the mods folder itself.`n" -ForegroundColor Red
+        $dir = Get-CleanDirectory $raw
+        if (-not $dir) {
+            Write-Host "  [!] That path does not exist on this machine.`n" -ForegroundColor Red
+            continue
+        }
+        $jars = @(Get-ChildItem -LiteralPath $dir -Filter *.jar -ErrorAction SilentlyContinue)
+        Write-Host "  [!] No mods folder under that path." -ForegroundColor Yellow
+        if ($jars.Count -gt 0) {
+            Write-Host "      That folder does hold $($jars.Count) .jar file(s) directly." -ForegroundColor DarkGray
+        } else {
+            Write-Host "      That folder holds no .jar files either." -ForegroundColor DarkGray
+        }
+        Write-Host "      Scan it anyway? [y/N]: " -NoNewline -ForegroundColor Cyan
+        $confirm = Read-Host
+        if ($confirm -and $confirm.Trim() -match '^(y|yes)$') {
+            Write-Host "  [+] Using folder: $dir`n" -ForegroundColor Green
+            return $dir
+        }
+        Write-Host ""
     }
     return $null
 }
@@ -308,10 +334,7 @@ if ($instances.Count -eq 0) {
 
 foreach ($inst in $instances) {
     if ($inst.ModsFolder) { continue }
-    Write-Host "  [!] Could not auto-detect the mods folder for PID $($inst.ProcessId) (Player: $($inst.Player))" -ForegroundColor Yellow
-    Write-Host "      Enter the path manually, or press Enter to skip this instance: " -NoNewline -ForegroundColor DarkGray
-    $manual = Read-Host
-    $resolved = Resolve-ManualModsPath $manual
+    $resolved = Request-ModsFolder "Could not auto-detect the mods folder for PID $($inst.ProcessId) (Player: $($inst.Player))." "Press Enter on an empty line to skip this instance."
     if ($resolved) { $inst.ModsFolder = $resolved; $inst.Source = "Manual entry" }
 }
 
