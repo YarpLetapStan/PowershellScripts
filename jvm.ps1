@@ -18,11 +18,11 @@ Write-Host @"
 ██╔████╔██║██║   ██║██║  ██║    ███████║██╔██╗ ██║███████║██║     ╚████╔╝   ███╔╝ █████╗  ██████╔╝
 ██║╚██╔╝██║██║   ██║██║  ██║    ██╔══██║██║╚██╗██║██╔══██║██║      ╚██╔╝   ███╔╝  ██╔══╝  ██╔══██╗
 ██║ ╚═╝ ██║╚██████╔╝██████╔╝    ██║  ██║██║ ╚████║██║  ██║███████╗  ██║   ███████╗███████╗██║  ██║
-╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝ gg
+╚═╝     ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝  ╚═╝   ╚══════╝╚══════╝╚═╝  ╚═╝ 
 "@ -ForegroundColor Blue
 
 $lineWidth = 100
-Write-Host "YarpLetapStan's Mod Analyzer V8.0 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
+Write-Host "YarpLetapStan's Mod Analyzer V6.7 - Join discord.gg/napvp".PadLeft(($lineWidth + 34) / 2) -ForegroundColor Cyan
 Write-Host ("━" * $lineWidth) -ForegroundColor Cyan
 Write-Host ""
 
