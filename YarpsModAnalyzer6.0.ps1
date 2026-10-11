@@ -1297,8 +1297,16 @@ function Write-ScanReport {
             Write-Host "  ╠══════════════════════════════════════════" -ForegroundColor Red
             Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "File: $($mod.FileName)" -ForegroundColor White
             if ($mod.ModName) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Mod: $($mod.ModName)" -ForegroundColor White }
-            if ($possibleFalseFlags -contains $mod.ModName) {
-                Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "! May be a false flag - $($mod.ModName) is a known legit mod that contains these strings" -ForegroundColor DarkYellow
+            $falseFlagLines = $null
+            if ($mod.ModName -eq "Simple Voice Chat") {
+                $falseFlagLines = @("! May be a false flag", "  Simple Voice Chat is a known legit mod that", "  contains the strings freecam and switchDelay")
+            } elseif ($possibleFalseFlags -contains $mod.ModName) {
+                $falseFlagLines = @("! May be a false flag", "  $($mod.ModName) is a known legit mod that", "  contains these strings")
+            } elseif (($mod.ModName -like "Marlow*Crystal Optimizer*" -or $mod.JarModId -eq "marlowcrystal") -and (@($mod.StringsFound) -contains "EndCrystalItemMixin")) {
+                $falseFlagLines = @("! May be a false flag", "  Marlow's Crystal Optimizer v2.0.0 is a known", "  legit mod with its own EndCrystalItemMixin", "  string. May need to decompile")
+            }
+            foreach ($line in @($falseFlagLines)) {
+                if ($line) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host $line -ForegroundColor DarkYellow }
             }
             if (($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red }
             if ($mod.StringsFound.Count -gt 0) {
