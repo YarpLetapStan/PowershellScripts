@@ -1300,6 +1300,9 @@ function Write-ScanReport {
             if ($possibleFalseFlags -contains $mod.ModName) {
                 Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "! May be a false flag - $($mod.ModName) is a known legit mod that contains these strings" -ForegroundColor DarkYellow
             }
+            if (($mod.ModName -like "Marlow*Crystal Optimizer*" -or $mod.JarModId -eq "marlowcrystal") -and (@($mod.StringsFound) -contains "EndCrystalItemMixin")) {
+                Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "! May be a false flag - Marlow's Crystal Optimizer v2.0.0 is a known legit mod with its own EndCrystalItemMixin string. May need to decompile" -ForegroundColor DarkYellow
+            }
             if (($mod.StringsFound | Where-Object { $dqrkisStrings -contains $_ }).Count -gt 0) { Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Reason: Dqrkis Client Strings" -ForegroundColor Red }
             if ($mod.StringsFound.Count -gt 0) {
                 Write-Host "  ║ " -NoNewline -ForegroundColor Red; Write-Host "Detected Cheat Strings:" -ForegroundColor Yellow
